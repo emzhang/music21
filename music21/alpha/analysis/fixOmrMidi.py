@@ -9,11 +9,15 @@
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
 
+from music21 import exceptions21
 from music21 import note
 from music21 import interval
+
 from music21.alpha.analysis import hasher
 from music21.common import numberTools
 
+
+from collections import Counter
 import copy
 import numpy as np
 import unittest
@@ -27,15 +31,30 @@ K525xmlShortPath = pathName + os.sep + 'k525short3.xml'
 K525midiShortPath = pathName + os.sep + 'k525short.mid'
 K525omrShortPath = pathName + os.sep + 'k525omrshort.xml'
 
+class OmrMidiException(exceptions21.Music21Exception):
+    pass
+
+class AlignmentTracebackException(OmrMidiException):
+    pass
+
 class StreamAligner(object):
     
-    def __init__(self, stream1, stream2):
-        self.stream1 = stream1
-        self.stream2 = stream2
-        
+    def __init__(self, targetStream, sourceStream):
+        self.targetStream = targetStream
+        self.sourceStream = sourceStream
+             
         h = hasher.Hasher()
-        self.hashedStream1 = h.hashStream(self.stream1)
-        self.hashedStream2 = h.hashStream(self.stream2)
+        self.hashedTargetStream = h.hashStream(self.targetStream)
+        self.hashedSourceStream = h.hashStream(self.sourceStream)
+        
+        self.n = len(self.hashedTargetStream)
+        self.m = len(self.hashedSourceStream)
+        
+        self.distMatrix = np.zeros((self.n+1, self.m+1), dtype=int)
+        
+        self.changes = []
+        self.percentageSimilar = 0
+        
         
     def insertCost(self, tup):
         '''
@@ -80,55 +99,67 @@ class StreamAligner(object):
                 total -= 1
         return total
     
-    def align(self):
-        target = self.hashedStream1
-        source = self.hashedStream2
-        
-        n = len(target)
-        m = len(source)
-        
-        dist_matrix = np.zeros((n+1, m+1), dtype=int)
-    
-        print dist_matrix
-        
+    def calculateDistMatrix(self):
+        '''
+        setup and calculations of all the entries
+        '''
         # setup all the entries in the first column
-        for i in range(1, n+1):
-            dist_matrix[i][0] = dist_matrix[i-1][0] + self.insertCost(target[i-1])
-            print dist_matrix
+        for i in range(1, self.n+1):
+            self.distMatrix[i][0] = self.distMatrix[i-1][0] + self.insertCost(self.hashedTargetStream[i-1])
+            
         
         # setup all the entries in the first row
-        for j in range(1, m+1):
-            dist_matrix[0][j] = dist_matrix[0][j-1] + self.deleteCost(source[j-1])
-            print dist_matrix
+        for j in range(1, self.m+1):
+            self.distMatrix[0][j] = self.distMatrix[0][j-1] + self.deleteCost(self.hashedSourceStream[j-1])
             
-        changes = []
-        for i in range(1, n+1):
-            for j in range(1, m+1):
-                insertCost = self.insertCost(target[i-1])
-                deleteCost = self.deleteCost(source[j-1])
-                substCost = self.substCost(target[i-1], source[j-1])
-                previous_values = [dist_matrix[i-1][j] + insertCost, 
-                                   dist_matrix[i][j-1] + deleteCost, 
-                                   dist_matrix[i-1][j-1] + substCost]  
-                
-                min_index, min_value = min(enumerate(previous_values), key=operator.itemgetter(1))
-                dist_matrix[i][j] = min_value
-                
-                # 0: insertion, 1: deletion, 2: substitution/nothing
-                if min_index == 0:
-                    changes.append((i, j, 'insertion'))
-                elif min_index == 1:
-                    changes.append((i, j, 'deletion'))
-                elif min_index == 2 and substCost == 0:
-                    changes.append((i, j, 'no change'))
-                else:
-                    changes.append((i, j, 'substitution'))
-               
-        print dist_matrix
-        print dist_matrix[n][m]
         
-    def index_min(self, values):
-        return min(xrange(len(values)),key=values.__getitem__)
+        # fill in rest of matrix   
+        for i in range(1, self.n+1):
+            for j in range(1, self.m+1):
+                insertCost = self.insertCost(self.hashedTargetStream[i-1])
+                deleteCost = self.deleteCost(self.hashedSourceStream[j-1])
+                substCost = self.substCost(self.hashedTargetStream[i-1], self.hashedSourceStream[j-1])
+                previousValues = [self.distMatrix[i-1][j] + insertCost, 
+                                   self.distMatrix[i][j-1] + deleteCost, 
+                                   self.distMatrix[i-1][j-1] + substCost]  
+
+                self.distMatrix[i][j] = min(previousValues)
+        print self.distMatrix    
+           
+    def calculateChanges(self):
+        n = self.n
+        m = self.m
+        
+        while (n != 0 and m != 0):
+            currentCost = self.distMatrix[n][m]
+            possibleMoves = [self.distMatrix[n-1][m], self.distMatrix[n][m-1], self.distMatrix[n-1][m-1]]
+            minIndex, minNewCost = min(enumerate(possibleMoves), key=operator.itemgetter(1))
+        
+            # 0: insertion, 1: deletion, 2: substitution/nothing
+            if minIndex == 0:
+                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'insertion'))
+                n -= 1
+                
+            elif minIndex == 1:
+                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'deletion'))
+                m -= 1
+            elif minIndex == 2 and currentCost == minNewCost:
+                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'no change'))
+                n -= 1
+                m -= 1
+            else:
+                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'substitution'))
+                n -= 1
+                m -= 1
+        
+        if n != 0 or m != 0:
+            raise AlignmentTracebackException('Traceback of best alignment did not end properly')
+        
+        changesCount = Counter(elem[2] for elem in self.changes)
+        self.percentageSimilar = float(changesCount['no change'])/len(self.changes)
+        print self.changes
+        print self.percentageSimilar
+        
     
 class OMRmidiNoteFixer(object):
     '''
@@ -283,57 +314,60 @@ class AlignTest(unittest.TestCase):
     def testSameSimpleStream(self):
         from music21 import stream
         from music21 import note
-        
+          
         target = stream.Stream()
         source = stream.Stream()
-        
+          
         note1 = note.Note("C4")
         note2 = note.Note("D4")
         note3 = note.Note("E4")
         note4 = note.Note("F4")
-        
+          
         target.append([note1, note2, note3, note4])
         source.append([note1, note2, note3, note4])
-        
+          
         sa = StreamAligner(target, source)
-        sa.align()
-        
+        sa.calculateDistMatrix()
+        sa.calculateChanges()
+#         
     def testSameOneOffStream(self):
         from music21 import stream
         from music21 import note
-        
+         
         target = stream.Stream()
         source = stream.Stream()
-        
+         
         note1 = note.Note("C4")
         note2 = note.Note("D4")
         note3 = note.Note("E4")
         note4 = note.Note("F4")
         note5 = note.Note("G4")
-        
+         
         target.append([note1, note2, note3, note4])
         source.append([note1, note2, note3, note5])
-        
+         
         sa = StreamAligner(target, source)
-        sa.align()
+        sa.calculateDistMatrix()
+        sa.calculateChanges()
         
     def testOneOffDeletionStream(self):
         from music21 import stream
         from music21 import note
-        
+         
         target = stream.Stream()
         source = stream.Stream()
-        
+         
         note1 = note.Note("C4")
         note2 = note.Note("D4")
         note3 = note.Note("E4")
         note4 = note.Note("F4")
-        
+         
         target.append([note1, note2, note3, note4])
         source.append([note1, note2, note3])
-        
+         
         sa = StreamAligner(target, source)
-        sa.align()
+        sa.calculateDistMatrix()
+        sa.calculateChanges()
         
 class Test(unittest.TestCase):
     def testEnharmonic(self):
