@@ -8,23 +8,23 @@
 # Copyright:    Copyright © 2013-16 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
-
+'''
+requires numpy
+'''
+from music21 import base as base
 from music21 import exceptions21
-from music21 import note
 from music21 import interval
+from music21 import note
 
 from music21.alpha.analysis import hasher
 from music21.common import numberTools
 
-
 from collections import Counter
 import copy
-import numpy as np
-import unittest
+import inspect
 import os
 import operator
-import inspect
-from __builtin__ import True
+import unittest
 
 pathName = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
@@ -41,6 +41,7 @@ class AlignmentTracebackException(OmrMidiException):
 class StreamAligner(object):
     
     def __init__(self, targetStream, sourceStream):
+        
         self.targetStream = targetStream
         self.sourceStream = sourceStream
              
@@ -67,6 +68,10 @@ class StreamAligner(object):
         populates the hasher object
         creates the matrix of the right size after hashing
         '''
+        if ('numpy' in base._missingImport):
+            raise OmrMidiException("Cannot run OmrMidiFix without numpy ")
+        import numpy as np
+        
         self.hashedTargetStream = self.h.hashStream(self.targetStream)
         self.hashedSourceStream = self.h.hashStream(self.sourceStream)
         
