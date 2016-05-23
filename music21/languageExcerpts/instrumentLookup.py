@@ -358,12 +358,15 @@ allToBestName = {
  u'cl.': u'clarinet',
  u'claquebois': u'xylophone',
  u'clarinet': u'clarinet',
+ u'clarinets': u'clarinet',
  u'clarinete': u'clarinet',
  u'clarinete bajo': u'bass clarinet',
  u'clarinette': u'clarinet',
  u'clarinette basse': u'bass clarinet',
  u'clarinetto': u'clarinet',
+ u'clarinetti': u'clarinet',
  u'clarinetto basso': u'bass clarinet',
+ u'clarinetti bassi': u'clarinet',
  u'clarino': u'trumpet',
  u'clave': u'harpsichord',
  u'clavecembalo': u'harpsichord',
@@ -623,6 +626,7 @@ allToBestName = {
  u'kielfl\xfcgel': u'harpsichord',
  u'kl.': u'clarinet',
  u'klarinette': u'clarinet',
+ u'klarinetten': u'clarinet',
  u'klarnet': u'clarinet',
  u'klavesin': u'harpsichord',
  u'klavichord': u'clavichord',
@@ -680,6 +684,8 @@ allToBestName = {
  u'ob': u'oboe',
  u'ob.': u'oboe',
  u'oboe': u'oboe',
+ u'oboen': u'oboe',
+ u'oboes': u'oboe',
  u'oc': u'ocarina',
  u'ocarina': u'ocarina',
  u'octave flute': u'piccolo',
@@ -688,6 +694,8 @@ allToBestName = {
  u'octavillo': u'piccolo',
  u'okarina': u'ocarina',
  u'orchestra bells': u'glockenspiel',
+ u'organi': u'organ',
+ u'organo': u'organ',
  u'organo a canne': u'pipe organ',
  u'organo de': u'glockenspiel',
  u'organo de campanas': u'glockenspiel',
@@ -1070,8 +1078,8 @@ allToBestName = {
  u'\xf3rgano de tubos': u'pipe organ',
  u'\xf3rgano el\xe9ctrico': u'electric organ'}
 
-bestNameToInstrumentClass = \
-{'accordion': 'Accordion',
+bestNameToInstrumentClass = {
+ 'accordion': 'Accordion',
  'acoustic bass': 'AcousticBass',
  'acoustic guitar': 'AcousticGuitar',
  'agogo': 'Agogo',
@@ -1118,6 +1126,7 @@ bestNameToInstrumentClass = \
  'mezzo-soprano': 'MezzoSoprano',
  'oboe': 'Oboe',
  'ocarina': 'Ocarina',
+ 'organ': 'Organ',
  'pan flute': 'PanFlute',
  'piano': 'Piano',
  'piccolo': 'Piccolo',
@@ -1166,11 +1175,10 @@ bestNameToInstrumentClass = \
  'woodblock': 'Woodblock',
  'xylophone': 'Xylophone'}
 
-bestNameToLanguage = \
-{}
+bestNameToLanguage = {}
 
-englishToBestName = \
-{u'accordion': u'accordion',
+englishToBestName = {
+ u'accordion': u'accordion',
  u'acoustic bass': u'acoustic bass',
  u'acoustic guitar': u'acoustic guitar',
  u'agogo': u'agogo',
@@ -1206,8 +1214,10 @@ englishToBestName = \
  u'electric guitar': u'electric guitar',
  u'electric organ': u'electric organ',
  u'english horn': u'english horn',
+ u'english horns': u'english horn',
  u'finger cymbals': u'finger cymbals',
  u'flute': u'flute',
+ u'flutes': u'flute',
  u'fretless bass': u'fretless bass',
  u'glockenspiel': u'glockenspiel',
  u'gong': u'gong',
@@ -1293,8 +1303,8 @@ englishToBestName = \
  u'zills': u'finger cymbals',
  u'zils': u'finger cymbals'}
 
-frenchToBestName = \
-{u'accord\xe9on': u'accordion',
+frenchToBestName = {
+ u'accord\xe9on': u'accordion',
  u'alto': u'viola',
  u'bariton': u'baritone',
  u'baryton': u'baritone',
@@ -1412,8 +1422,8 @@ frenchToBestName = \
  u'\xc8chelettes': u'xylophone',
  u'\xe9oliphone': u'wind machine'}
 
-germanToBestName = \
-{u'aeolophon': u'wind machine',
+germanToBestName = {
+ u'aeolophon': u'wind machine',
  u'akkordeon': u'accordion',
  u'akustik-bass': u'acoustic bass',
  u'akustikgitarre': u'acoustic guitar',
@@ -1452,6 +1462,7 @@ germanToBestName = \
  u'englisch-horn': u'english horn',
  u'englischhorn': u'english horn',
  u'fagott': u'bassoon',
+ u'fagotten': u'bassoon',
  u'fingerzimbeln': u'finger cymbals',
  u'fl\xf6te': u'flute',
  u'geige': u'violin',
@@ -1555,8 +1566,8 @@ germanToBestName = \
  u'xylophon': u'xylophone',
  u'ziehharmonika': u'accordion'}
 
-italianToBestName = \
-{u'a becco': u'recorder',
+italianToBestName = {
+ u'a becco': u'recorder',
  u'armonica': u'harmonica',
  u'armonica a bocca': u'harmonica',
  u'arpa': u'harp',
@@ -1688,8 +1699,8 @@ italianToBestName = \
  u'xilofono': u'xylophone',
  u'xilografia': u'woodblock'}
 
-pitchFullNameToName = \
-{u'a': u'a',
+pitchFullNameToName = {
+ u'a': u'a',
  u'a-double-flat': u'a--',
  u'a-double-sharp': u'a##',
  u'a-flat': u'a-',
@@ -1739,8 +1750,9 @@ pitchFullNameToName = \
  u'gb': u'g-',
  u'gbb': u'g--'}
 
-russianToBestName = \
-{u"al't": u'alto',
+# TODO: Russian expert to add Cyrillic names
+russianToBestName = {
+ u"al't": u'alto',
  u'angliiskii rozhok': u'english horn',
  u'arfa': u'harp',
  u'bariton': u'baritone',
@@ -1778,8 +1790,8 @@ russianToBestName = \
  u'tsimbaly': u'dulcimer',
  u"violonchel'": u'violoncello'}
 
-spanishToBestName = \
-{u'acorde\xf3n': u'accordion',
+spanishToBestName = {
+ u'acorde\xf3n': u'accordion',
  u'arm\xf3nica de boca': u'harmonica',
  u'arpa': u'harp',
  u'atabal': u'timpani',
@@ -1924,8 +1936,8 @@ spanishToBestName = \
  u'\xf3rgano de tubos': u'pipe organ',
  u'\xf3rgano el\xe9ctrico': u'electric organ'}
 
-transliteration = \
-{u'accordeon': u'accord\xe9on',
+transliteration = {
+ u'accordeon': u'accord\xe9on',
  u'acordeon': u'acorde\xf3n',
  u'armonica de boca': u'arm\xf3nica de boca',
  u'bajo acustico': u'bajo ac\xfastico',
@@ -2022,9 +2034,10 @@ transliteration = \
  u'xilofono': u'xil\xf3fono',
  u'zamponas': u'zampo\xf1as'}
 
-transposition = \
-{'clarinet': {u'a': u'm-3',
+transposition = {
+ 'clarinet': {u'a': u'm-3',
               u'alto': u'M-6',
+              u'b': u'M-2', # German, much more common than b-natural
               u'b-': u'M-2',
               u'b- bass': u'M-9',
               u'b- contrabass': u'M-16',
@@ -2032,16 +2045,21 @@ transposition = \
               u'd': u'M2',
               u'e-': u'm3',
               u'e- alto': u'M-6',
-              u'e- contrabass': u'M-13'},
+              u'e- contrabass': u'M-13',
+              u'a-': u'm7',
+              u'h': u'm-2',
+              u'b-natural': u'm-2',
+              },
  'horn': {u'a': u'm-3',
           u'c': u'P-8',
           u'd': u'm-7',
           u'e': u'm-6',
           u'e-': u'M-6',
-          u'english': u'P-5',
+          u'english': u'P-5', # this is how it works...
           u'f': u'P-5',
           u'g': u'P-4'},
  'trumpet': {u'a': u'm-3',
+             u'b': u'M-2', # German, much more common than b-natural
              u'b-': u'M-2',
              u'b- bass': u'M-9',
              u'c': u'P1',
@@ -2051,5 +2069,8 @@ transposition = \
              u'd bass': u'm-7',
              u'e-': u'm3',
              u'e- bass': u'M-6',
+             u'h': u'm-2',
+             u'b-natural': u'm-2',
              u'f': u'P4',
-             u'flugelhorn': u'M-2'}}
+             u'flugelhorn': u'M-2'}
+ }
