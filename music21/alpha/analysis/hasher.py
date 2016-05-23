@@ -19,6 +19,16 @@ from music21 import note, chord, key
 from music21 import interval
 from music21 import stream
 
+# class MeasureHasher(object):
+#     def __init__(self):
+#         self.tupleList = []
+#     
+#     def hashStream(self, s):
+#         s.makeMeasures(inPlace = True)
+#         for m in s.recurse(classFilter='Measure'):
+#             
+#         return finalHash
+
 class Hasher(object):
     def __init__(self):
         # --- begin general types of things to hash ---
@@ -251,7 +261,10 @@ class Hasher(object):
         except:
             return s.recurse()
 
-
+    def hashMeasures(self, s):
+        '''
+        lightweight hasher. only hashes number of notes, first and last pitch
+        '''
 
     def hashStream(self, s):
         finalHash = []

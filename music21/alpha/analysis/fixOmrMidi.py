@@ -72,6 +72,11 @@ class StreamAligner(object):
             raise OmrMidiException("Cannot run OmrMidiFix without numpy ")
         import numpy as np
         
+        
+        ## Something is probably wrong here, need to hash the Streams in a strategic way
+        self.targetStream.show('musicxml')
+        self.sourceStream.show('musicxml')
+        
         self.hashedTargetStream = self.h.hashStream(self.targetStream)
         self.hashedSourceStream = self.h.hashStream(self.sourceStream)
         
@@ -487,6 +492,25 @@ class Test(unittest.TestCase):
         sa.align()
         
         self.assertEqual(sa.percentageSimilar, .75)
+        
+class OneTest(unittest.TestCase):     
+    def testK525Streams(self):
+        '''
+        K525's bass part doubles the cello part. don't hash the octave
+        '''
+        from music21 import converter
+        from music21.alpha.analysis import hasher
+        
+        midiFP = K525midiShortPath
+        omrFP = K525omrShortPath
+        midiStream = converter.parse(midiFP)
+        omrStream = converter.parse(omrFP)
+        
+        sa = StreamAligner(omrStream, midiStream)
+        sa.align()
+#         fixer = OMRmidiNoteFixer(omrStream, midiStream)
+#         celloBassAnalysis = fixer.checkBassDoublesCello()
+#         self.assertEqual(celloBassAnalysis, True)
 
 ## this test is included in the quarterLengthDivisor PR in the converter.py tests
 # class ParseTestExternal(unittest.TestCase):
@@ -497,4 +521,4 @@ class Test(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(Test)
+    music21.mainTest(OneTest)
