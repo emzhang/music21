@@ -40,7 +40,8 @@ class AlignmentTracebackException(OmrMidiException):
 
 class StreamAligner(object):
     
-    def __init__(self, targetStream, sourceStream):
+    
+    def __init__(self, targetStream = None, sourceStream = None):
         
         self.targetStream = targetStream
         self.sourceStream = sourceStream
@@ -68,21 +69,23 @@ class StreamAligner(object):
         populates the hasher object
         creates the matrix of the right size after hashing
         '''
-        if ('numpy' in base._missingImport):
-            raise OmrMidiException("Cannot run OmrMidiFix without numpy ")
-        import numpy as np
-        
         
         ## Something is probably wrong here, need to hash the Streams in a strategic way
-        self.targetStream.show('musicxml')
-        self.sourceStream.show('musicxml')
+#         self.targetStream.show('musicxml')
+#         self.sourceStream.show('musicxml')
         
         self.hashedTargetStream = self.h.hashStream(self.targetStream)
         self.hashedSourceStream = self.h.hashStream(self.sourceStream)
         
         self.n = len(self.hashedTargetStream)
         self.m = len(self.hashedSourceStream)
-        
+        self.setupDistMatrix()
+    
+    def setupDistMatrix(self):
+        if ('numpy' in base._missingImport):
+            raise OmrMidiException("Cannot run OmrMidiFix without numpy ")
+        import numpy as np
+                
         self.distMatrix = np.zeros((self.n+1, self.m+1), dtype=int)
         
         
@@ -154,34 +157,141 @@ class StreamAligner(object):
                                    self.distMatrix[i-1][j-1] + substCost]  
 
                 self.distMatrix[i][j] = min(previousValues)
-           
+    
+    def getPossibleMoves(self, i, j):
+        '''
+        i and j are current row and column index in self.distMatrix
+        returns all possible moves (0 up to 3) 
+        vertical, horizontal, diagonal costs of adjacent entries in self.distMatrix
+        
+        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner()
+        >>> sa.n = 4
+        >>> sa.m = 3
+        >>> sa.setupDistMatrix()
+        >>> for i in range(4+1):
+        ...     for j in range(3+1):
+        ...         sa.distMatrix[i][j] = i * j
+        >>> sa.distMatrix
+        array([[ 0,  0,  0,  0],
+               [ 0,  1,  2,  3],
+               [ 0,  2,  4,  6],
+               [ 0,  3,  6,  9],
+               [ 0,  4,  8, 12]])        
+
+        >>> sa.getPossibleMoves(0, 0)
+        [None, None, None]
+        
+        >>> sa.getPossibleMoves(4, 3)
+        [9, 8, 6]
+        
+        >>> sa.getPossibleMoves(2, 2)
+        [2, 2, 1]
+        
+        >>> sa.getPossibleMoves(0, 2)
+        [None, 0, None]
+        
+        >>> sa.getPossibleMoves(3, 0)
+        [0, None, None]
+        
+        '''
+        verticalCost = self.distMatrix[i-1][j] if i > 1 else None
+        horizontalCost = self.distMatrix[i][j-1] if j > 1 else None
+        diagonalCost = self.distMatrix[i-1][j-1] if (i > 1 and j > 1) else None
+        
+        possibleMoves = [verticalCost, horizontalCost, diagonalCost]
+        return possibleMoves
+    
+    def getMovementDirection(self, i, j):
+        '''
+        return the direction that traceback moves
+        0: vertical movement, insertion
+        1: horizontal movement, deletion
+        2: diagonal movement, substitution
+        3: diagonal movement, no change
+        
+        raises a ValueError if i == 0 and j == 0.
+
+        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner()
+        >>> sa.n = 4
+        >>> sa.m = 3
+        >>> sa.setupDistMatrix()
+        >>> for i in range(4+1):
+        ...     for j in range(3+1):
+        ...         sa.distMatrix[i][j] = i * j
+        >>> sa.distMatrix
+        array([[ 0,  0,  0,  0],
+               [ 0,  1,  2,  3],
+               [ 0,  2,  4,  6],
+               [ 0,  3,  6,  9],
+               [ 0,  4,  8, 12]])        
+        
+        
+        >>> sa.getMovementDirection(4, 3)
+        2
+        
+        >>> sa.getMovementDirection(2, 2)
+        2
+        
+        >>> sa.getMovementDirection(0, 2)
+        1
+        
+        >>> sa.getMovementDirection(3, 0)
+        0
+        
+         >>> sa.getMovementDirection(0, 0)
+        Traceback (most recent call last):
+        ValueError: No movement possible from the origin
+        '''
+        possibleMoves = self.getPossibleMoves(i, j)
+        
+        if possibleMoves[0] is None:
+            if possibleMoves[1] is None:
+                raise ValueError('No movement possible from the origin')
+            else:
+                return 1
+        elif possibleMoves[1] is None:
+            return 0
+        
+        currentCost = self.distMatrix[i][j]
+        minIndex, minNewCost = min(enumerate(possibleMoves), key=operator.itemgetter(1))
+        if currentCost == minNewCost:
+            minIndex = 3
+        
+        return minIndex
+    
     def calculateChanges(self):
-        n = self.n
-        m = self.m
+        '''
+        TODO: sanity check of manhattan distance
+        check if possible moves are in index
+        change n to i, m to j
+        '''
+        i = self.n
+        j = self.m
         
-        while (n != 0 and m != 0):
-            currentCost = self.distMatrix[n][m]
-            possibleMoves = [self.distMatrix[n-1][m], self.distMatrix[n][m-1], self.distMatrix[n-1][m-1]]
-            minIndex, minNewCost = min(enumerate(possibleMoves), key=operator.itemgetter(1))
+        while (i != 0 or j != 0):
+            ## check if possible moves are indexable
+            minIndex = self.getMovementDirection(i, j)
         
-            # 0: insertion, 1: deletion, 2: substitution/nothing
+            # minIndex : 0: insertion, 1: deletion, 2: substitution; 3: nothing
             if minIndex == 0:
-                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'insertion'))
-                n -= 1
+                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'insertion'))
+                i -= 1
                 
             elif minIndex == 1:
-                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'deletion'))
-                m -= 1
-            elif minIndex == 2 and currentCost == minNewCost:
-                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'no change'))
-                n -= 1
-                m -= 1
-            else:
-                self.changes.insert(0, (self.hashedTargetStream[n-1], self.hashedSourceStream[m-1], 'substitution'))
-                n -= 1
-                m -= 1
+                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'deletion'))
+                j -= 1
+                
+            elif minIndex == 2:
+                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'substitution'))
+                i -= 1
+                j -= 1
+                
+            else: # 3: nothing
+                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'no change'))
+                i -= 1
+                j -= 1
         
-        if n != 0 or m != 0:
+        if (i != 0 and j != 0):
             raise AlignmentTracebackException('Traceback of best alignment did not end properly')
         
         changesCount = Counter(elem[2] for elem in self.changes)
@@ -496,7 +606,7 @@ class Test(unittest.TestCase):
 class OneTest(unittest.TestCase):     
     def testK525Streams(self):
         '''
-        K525's bass part doubles the cello part. don't hash the octave
+        two mini streams
         '''
         from music21 import converter
         from music21.alpha.analysis import hasher
@@ -508,6 +618,9 @@ class OneTest(unittest.TestCase):
         
         sa = StreamAligner(omrStream, midiStream)
         sa.align()
+        
+    def testPossibleMoves(self):
+        pass
 #         fixer = OMRmidiNoteFixer(omrStream, midiStream)
 #         celloBassAnalysis = fixer.checkBassDoublesCello()
 #         self.assertEqual(celloBassAnalysis, True)
