@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
-# Name:         alpha/analysis/hash.py
+# Name:         alpha/analysis/hasher.py
 # Purpose:      Hash musical notation
 #
 # Authors:      Emily Zhang
@@ -64,8 +64,8 @@ class Hasher(object):
         # -- Begin Individual Hashing Functions ---
     def _hashDuration(self, e, c=None):
         if c:
-            return c.duration.quarterLengthFloat
-        return e.duration.quarterLengthFloat
+            return c.duration.quarterLength
+        return e.duration.quarterLength
 
     def _hashRoundedDuration(self, e, c=None):
         if c:
@@ -146,8 +146,8 @@ class Hasher(object):
         returns unrounded floating point representation of a note's offset
         """
         if c:
-            return c.offsetFloat
-        return e.offsetFloat
+            return c.offset
+        return e.offset
 
     
     def _hashIntervalFromLastNote(self, e, c=None):
@@ -253,7 +253,7 @@ class Hasher(object):
 
 
 
-    def hash(self, s):
+    def hashStream(self, s):
         finalHash = []
         self.setupValidTypesAndStateVars()
         ss = self.preprocessStream(s)
@@ -327,7 +327,7 @@ class Test(unittest.TestCase):
         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "Duration", "Offset"])
         hashes_in_format = [NoteHash(Pitch=x, Duration=y, Offset=z) for (x, y, z) in hashes_plain_numbers]
 
-        self.assertEqual(h.hash(s1), hashes_in_format)
+        self.assertEqual(h.hashStream(s1), hashes_in_format)
 
     def testHashChordsAsChordsPrimeFormString(self):
         """
@@ -350,7 +350,7 @@ class Test(unittest.TestCase):
         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "PrimeFormString", "Duration", "Offset"])
         hashes_plain_numbers = [(60, "<>", 2.0, 0.0), (1, '<037>', 2.0, 2.0), (1, '<037>', 4.0, 4.0)]
         hashes_in_format = [NoteHash(Pitch=x, PrimeFormString=y, Duration = z, Offset=a) for (x, y, z, a) in hashes_plain_numbers]
-        self.assertEqual(h.hash(s1), hashes_in_format)
+        self.assertEqual(h.hashStream(s1), hashes_in_format)
 
     def testHashChordsAsChordsNormalForm(self):
         s2 = stream.Stream()
@@ -371,7 +371,7 @@ class Test(unittest.TestCase):
         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "NormalFormString", "Duration", "Offset"])
         hashes_plain_numbers = [(60, "<>", 2.0, 0.0), (1, '<037>', 2.0, 2.0), (1, '<047>', 4.0, 4.0)]
         hashes_in_format = [NoteHash(Pitch=x, NormalFormString=y, Duration = z, Offset=a) for (x, y, z, a) in hashes_plain_numbers]
-        self.assertEqual(h.hash(s2), hashes_in_format)
+        self.assertEqual(h.hashStream(s2), hashes_in_format)
 
     def testHashUnroundedDuration(self):
         from pprint import pprint as pp
@@ -390,7 +390,7 @@ class Test(unittest.TestCase):
         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "Duration", "Offset"])
         hashes_plain_numbers = [(60, 1.783, 0.0), (67, 2.0/3, 1.783), (60, 2., 1.783+2.0/3), (67, 2., 1.783+2.0/3)]
         hashes_in_format = [NoteHash(Pitch=x, Duration = z, Offset=a) for (x, z, a) in hashes_plain_numbers]
-        h3 = h.hash(s3)
+        h3 = h.hashStream(s3)
         h3_floats = [h3[0][2], h3[1][2], h3[2][2], h3[3][2]]
         answers_floats = [hashes_in_format[0][2], hashes_in_format[1][2], hashes_in_format[2][2], hashes_in_format[3][2]]
         assert all(self._approximatelyEqual(*values) for values in zip(h3_floats, answers_floats))
@@ -412,11 +412,11 @@ class Test(unittest.TestCase):
         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "Duration", "Offset"])
         hashes_plain_numbers = [(60, 1.78125, 0.0), (67, .65625, 1.78125), (60, 2., 2.4375), (67, 2., 2.4375)]
         hashes_in_format = [NoteHash(Pitch=x, Duration = z, Offset=a) for (x, z, a) in hashes_plain_numbers]
-        h3 = h.hash(s3)
+        h3 = h.hashStream(s3)
         self.assertEqual(h3, hashes_in_format)
         h.granularity = 8 # smallest length note is now 8th note
         new_hashes_in_format = [(60, 1.75, 0.0), (67, .625, 1.75), (60, 2., 2.5), (67, 2., 2.5)]
-        h4 = h.hash(s3)
+        h4 = h.hashStream(s3)
         self.assertEqual(h4, new_hashes_in_format)
 
     def testHashRoundedOffset(self):
@@ -430,11 +430,11 @@ class Test(unittest.TestCase):
         h = Hasher()
         h.roundDurationAndOffset = True
         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "Duration", "Offset"])
-        h3 = h.hash(s3)
+        h3 = h.hashStream(s3)
         final_offset = 6*1.5 + 6*2. + 6*1.4 + 5*.7
         assert self._approximatelyEqual(h3[-1][2], final_offset)
         h.granularity = 4 # smallest length note is now 16th note
-        h4 = h.hash(s3)
+        h4 = h.hashStream(s3)
         new_final_offset = 6*1.5 + 6*2. + 6*1.5 + 5 *.75
         # assert self._approximatelyEqual(h4[-1][2], new_final_offset)
 
@@ -466,19 +466,19 @@ class TestExternal(unittest.TestCase):
     #     # h.hashOctave = True
     #     # h.hashPrimeiFormString = True
     #     h.hashIntervalFromLastNote = True
-    #     # pp(h.hash(s1.recurse()))
-    #     # hashes1 = h.hash(s1.recurse())
+    #     # pp(h.hashStream(s1.recurse()))
+    #     # hashes1 = h.hashStream(s1.recurse())
     #     s2 = corpus.parse('schoenberg', 2).parts[0]
-    #     # hashes2 = h.hash(s2.recurse())
+    #     # hashes2 = h.hashStream(s2.recurse())
     #     s3 = corpus.parse('bwv66.6').parts[0]
     #     # print type(s3.recurse())
-    #     hashes3 = h.hash(s3)
+    #     hashes3 = h.hashStream(s3)
     #     # s4 = corpus.parse('bwv66.6').parts[0].transpose('M2')
     #     # s4 = s5.parts[0].transpose('M2')
     #     s4.show()
     #     # pp(s4.recurse())
 
-    #     hashes4 = h.hash(s4)
+    #     hashes4 = h.hashStream(s4)
     #     print hashes3
     #     print "    "
     #     print hashes4
@@ -496,15 +496,15 @@ class TestExternal(unittest.TestCase):
 
     #     s2.show()
 
-    #     hashes1 = h.hash(s1)
-    #     hashes2 = h.hash(s2)
+    #     hashes1 = h.hashStream(s1)
+    #     hashes2 = h.hashStream(s2)
 
     #     print difflib.SequenceMatcher(a=hashes1, b=hashes2).ratio()
 
     #     h.hashPitch = False
 
-    #     hashes1 = h.hash(s1)
-    #     hashes2 = h.hash(s2)
+    #     hashes1 = h.hashStream(s1)
+    #     hashes2 = h.hashStream(s2)
 
     #     print difflib.SequenceMatcher(a=hashes1, b=hashes2).ratio()
 
@@ -517,9 +517,9 @@ class TestExternal(unittest.TestCase):
         s1 = corpus.parse('schoenberg', 6).parts[0]
         s2 = corpus.parse('schoenberg', 2).parts[0]
         s3 = corpus.parse('bwv66.6').parts[0]
-        hashes1 = h.hash(s1)
-        hashes2 = h.hash(s2)
-        hashes3 = h.hash(s3)
+        hashes1 = h.hashStream(s1)
+        hashes2 = h.hashStream(s2)
+        hashes3 = h.hashStream(s3)
 
         print difflib.SequenceMatcher(a=hashes1, b=hashes2).ratio()
         print difflib.SequenceMatcher(a=hashes1, b=hashes3).ratio()
@@ -530,9 +530,9 @@ class TestExternal(unittest.TestCase):
         h.hashDuration = True
         h.hashOffset = True
 
-        hashes1 = h.hash(s1)
-        hashes2 = h.hash(s2)
-        hashes3 = h.hash(s3)
+        hashes1 = h.hashStream(s1)
+        hashes2 = h.hashStream(s2)
+        hashes3 = h.hashStream(s3)
 
         print difflib.SequenceMatcher(a=hashes1, b=hashes2).ratio()
         print difflib.SequenceMatcher(a=hashes1, b=hashes3).ratio()
@@ -544,18 +544,18 @@ class TestExternal(unittest.TestCase):
         s3 = corpus.parse('bwv66.6').parts[0]
         s4 = corpus.parse('bwv66.6').parts[0].transpose('M2')
 
-        hashes3 = h.hash(s3)
-        hashes4 = h.hash(s4)
+        hashes3 = h.hashStream(s3)
+        hashes4 = h.hashStream(s4)
 
         print difflib.SequenceMatcher(a=hashes3, b=hashes4).ratio()
 
         h.hashIntervalFromLastNote = True
         h.hashPitch = False
 
-        hashes3 = h.hash(s3)
-        hashes4 = h.hash(s4)
+        hashes3 = h.hashStream(s3)
+        hashes4 = h.hashStream(s4)
 
         print difflib.SequenceMatcher(a=hashes3, b=hashes4).ratio()
 if __name__ == "__main__":
     import music21
-    music21.mainTest(TestExternal) 
+    music21.mainTest(Test) 

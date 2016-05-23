@@ -11,13 +11,14 @@
 
 from music21 import note
 from music21 import interval
-from music21.alpha.analysis import hash
+from music21.alpha.analysis import hasher
 from music21.common import numberTools
 
 import copy
 import numpy as np
 import unittest
 import os
+import operator
 import inspect
 
 pathName = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -32,42 +33,103 @@ class StreamAligner(object):
         self.stream1 = stream1
         self.stream2 = stream2
         
-        h = hash.Hasher()
-        self.hashedStream1 = h.hash(self.stream1)
-        self.hashedStream2 = h.hash(self.stream2)
-    
-    
-    def align(self):
-        len1 = len(self.hashedStream1)-1
-        len2 = len(self.hashedStream2)-1
+        h = hasher.Hasher()
+        self.hashedStream1 = h.hashStream(self.stream1)
+        self.hashedStream2 = h.hashStream(self.stream2)
         
-        # create edit distance matrix
-        dist_table = np.zeros(len1, len2)
-        dist_table[0][0] = 0
-        for i in range(len1+1):
-            dist_table[0][i] = -1 * i
-        for j in range(len2+1):
-            dist_table[0][j] = -1 * j
-            
-        for idx1, tup1 in enumerate(self.hashedStream1, start=1):
-            for idx2, tup2 in enumerate(self.hashedStream2, start=1):
-                dist_table[idx1][idx2] = max([dist_table[idx1-1][idx2]-1, 
-                                              dist_table[idx1][idx2-1]-1, 
-                                              dist_table[idx1-1][idx2-2]+self.costFunction(tup1, tup2)])
-                
-               
+    def insertCost(self, tup):
+        '''
+        cost of inserting an extra hashed item.
+        
+        for now, it's just the size of the tuple
+        '''
+        return len(tup)
     
-    def costFunction(self, hashedItem1, hashedItem2):
-        total = 0.
+    def deleteCost(self, tup):
+        '''
+        cost of deleting an extra hashed item.
+        
+        for now, it's just the size of the tuple
+        '''
+        return len(tup)
+        
+    def substCost(self, hashedItem1, hashedItem2):
+        # don't make this a float yet maybe make the quantization of costs bigger?
+        # i.e. 
+        if hashedItem1 == hashedItem2:
+            return 0 
+        
+        total = len(hashedItem1)
+        for (item1, item2) in zip(hashedItem1, hashedItem2):
+            if item1 == item2:
+                total -= 1
+            elif type(item1) == type(item2) and type(item1) is float:
+                if numberTools.almostEquals(item1, item2, grain=.01):
+                    total -=1
+            else:
+                # cost increases 
+                total +=1
         for idx, item in enumerate(hashedItem1):
             if hashedItem2[idx] == hashedItem1:
                 total += 2
             elif type(item) is float or type(item) is int:
+                # check if this is necessary 
                 if numberTools.almostEquals(item, hashedItem2[idx], grain=.01):
                     total +=1
             else:
                 total -= 1
-
+        return total
+    
+    def align(self):
+        target = self.hashedStream1
+        source = self.hashedStream2
+        
+        n = len(target)
+        m = len(source)
+        
+        dist_matrix = np.zeros((n+1, m+1), dtype=int)
+    
+        print dist_matrix
+        
+        # setup all the entries in the first column
+        for i in range(1, n+1):
+            dist_matrix[i][0] = dist_matrix[i-1][0] + self.insertCost(target[i-1])
+            print dist_matrix
+        
+        # setup all the entries in the first row
+        for j in range(1, m+1):
+            dist_matrix[0][j] = dist_matrix[0][j-1] + self.deleteCost(source[j-1])
+            print dist_matrix
+            
+        changes = []
+        for i in range(1, n+1):
+            for j in range(1, m+1):
+                insertCost = self.insertCost(target[i-1])
+                deleteCost = self.deleteCost(source[j-1])
+                substCost = self.substCost(target[i-1], source[j-1])
+                previous_values = [dist_matrix[i-1][j] + insertCost, 
+                                   dist_matrix[i][j-1] + deleteCost, 
+                                   dist_matrix[i-1][j-1] + substCost]  
+                
+                min_index, min_value = min(enumerate(previous_values), key=operator.itemgetter(1))
+                dist_matrix[i][j] = min_value
+                
+                # 0: insertion, 1: deletion, 2: substitution/nothing
+                if min_index == 0:
+                    changes.append((i, j, 'insertion'))
+                elif min_index == 1:
+                    changes.append((i, j, 'deletion'))
+                elif min_index == 2 and substCost == 0:
+                    changes.append((i, j, 'no change'))
+                else:
+                    changes.append((i, j, 'substitution'))
+               
+        print dist_matrix
+        print dist_matrix[n][m]
+        
+    def index_min(self, values):
+        return min(xrange(len(values)),key=values.__getitem__)
+    
 class OMRmidiNoteFixer(object):
     '''
     Fixes OMR stream according to MIDI information
@@ -78,7 +140,7 @@ class OMRmidiNoteFixer(object):
         self.correctedStream = copy.deepcopy(self.omrStream)
         
         self.bassDoublesCello = False
-    
+        
     def fixStreams(self):
         if self.check_parts():
             pass
@@ -111,14 +173,14 @@ class OMRmidiNoteFixer(object):
         # assume cello part is penultimate part
         celloPart = self.midiStream[-2]
         
-        h = hash.Hasher()
+        h = hasher.Hasher()
         h.validTypes = [note.Note, note.Rest]
         h.validTypes = [note.Note, note.Rest]
-        h.hashMIDI = False
-        h.hashNoteName = True
-        hashBass = h.hash(bassPart)
-        hashCello = h.hash(celloPart)
-        self.bassDoublesCello = hashBass == hashCello
+        h.hasherMIDI = False
+        h.hasherNoteName = True
+        hasherBass = h.hasher(bassPart)
+        hasherCello = h.hasher(celloPart)
+        self.bassDoublesCello = hasherBass == hasherCello
         return self.bassDoublesCello
         
     
@@ -216,7 +278,63 @@ class OMRmidiNotePitchFixer(object):
         if interval.notesToChromatic(aNote, bNote).intervalClass > setint:
             return True
         return False
-
+    
+class AlignTest(unittest.TestCase):
+    def testSameSimpleStream(self):
+        from music21 import stream
+        from music21 import note
+        
+        target = stream.Stream()
+        source = stream.Stream()
+        
+        note1 = note.Note("C4")
+        note2 = note.Note("D4")
+        note3 = note.Note("E4")
+        note4 = note.Note("F4")
+        
+        target.append([note1, note2, note3, note4])
+        source.append([note1, note2, note3, note4])
+        
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+    def testSameOneOffStream(self):
+        from music21 import stream
+        from music21 import note
+        
+        target = stream.Stream()
+        source = stream.Stream()
+        
+        note1 = note.Note("C4")
+        note2 = note.Note("D4")
+        note3 = note.Note("E4")
+        note4 = note.Note("F4")
+        note5 = note.Note("G4")
+        
+        target.append([note1, note2, note3, note4])
+        source.append([note1, note2, note3, note5])
+        
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+    def testOneOffDeletionStream(self):
+        from music21 import stream
+        from music21 import note
+        
+        target = stream.Stream()
+        source = stream.Stream()
+        
+        note1 = note.Note("C4")
+        note2 = note.Note("D4")
+        note3 = note.Note("E4")
+        note4 = note.Note("F4")
+        
+        target.append([note1, note2, note3, note4])
+        source.append([note1, note2, note3])
+        
+        sa = StreamAligner(target, source)
+        sa.align()
+        
 class Test(unittest.TestCase):
     def testEnharmonic(self):
         from music21 import note
@@ -275,7 +393,7 @@ class Test(unittest.TestCase):
         
     def testK525BassCelloDouble(self):
         from music21 import converter
-        from music21.alpha.analysis import hash
+        from music21.alpha.analysis import hasher
         
         midiFP = K525midiShortPath
         omrFP = K525omrShortPath
@@ -285,13 +403,13 @@ class Test(unittest.TestCase):
         fixer = OMRmidiNoteFixer(omrStream, midiStream)
         celloBassAnalysis = fixer.checkBassDoublesCello()
         self.assertEqual(celloBassAnalysis, True)
-#         h = hash.Hasher()
+#         h = hasher.Hasher()
 #         h.validTypes = [note.Note, note.Rest]
-#         h.hashMIDI = False
-#         h.hashNoteName = True
-#         hashBass = h.hash(bassPart)
-#         hashCello = h.hash(celloPart)
-#         self.assertEqual(hashBass, hashCello)
+#         h.hasherMIDI = False
+#         h.hasherNoteName = True
+#         hasherBass = h.hasher(bassPart)
+#         hasherCello = h.hasher(celloPart)
+#         self.assertEqual(hasherBass, hasherCello)
 
 
 ## this test is included in the quarterLengthDivisor PR in the converter.py tests
@@ -303,4 +421,4 @@ class Test(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(Test)
+    music21.mainTest(AlignTest)
