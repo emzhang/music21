@@ -24,6 +24,7 @@ import unittest
 import os
 import operator
 import inspect
+from __builtin__ import True
 
 pathName = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
@@ -43,17 +44,36 @@ class StreamAligner(object):
         self.targetStream = targetStream
         self.sourceStream = sourceStream
              
-        h = hasher.Hasher()
-        self.hashedTargetStream = h.hashStream(self.targetStream)
-        self.hashedSourceStream = h.hashStream(self.sourceStream)
+        self.h = hasher.Hasher()
+        
+        self.n = 0
+        self.m = 0
+        
+        self.distMatrix = None
+        
+        self.changes = []
+        self.percentageSimilar = 0
+        
+    def align(self):
+        '''
+        main function
+        '''
+        self.setup()
+        self.calculateDistMatrix()
+        self.calculateChanges()
+        
+    def setup(self):
+        '''
+        populates the hasher object
+        creates the matrix of the right size after hashing
+        '''
+        self.hashedTargetStream = self.h.hashStream(self.targetStream)
+        self.hashedSourceStream = self.h.hashStream(self.sourceStream)
         
         self.n = len(self.hashedTargetStream)
         self.m = len(self.hashedSourceStream)
         
         self.distMatrix = np.zeros((self.n+1, self.m+1), dtype=int)
-        
-        self.changes = []
-        self.percentageSimilar = 0
         
         
     def insertCost(self, tup):
@@ -124,7 +144,6 @@ class StreamAligner(object):
                                    self.distMatrix[i-1][j-1] + substCost]  
 
                 self.distMatrix[i][j] = min(previousValues)
-        print self.distMatrix    
            
     def calculateChanges(self):
         n = self.n
@@ -204,6 +223,17 @@ class OMRmidiNoteFixer(object):
         # assume cello part is penultimate part
         celloPart = self.midiStream[-2]
         
+        sa = StreamAligner(bassPart, celloPart)
+        sa.h.hashMIDI = False
+        sa.h.hashNoteNameOctave = True
+        sa.align()
+        
+        print sa.percentageSimilar
+        if sa.percentageSimilar >= .8:
+            self.bassDoublesCello = True
+        
+        return self.bassDoublesCello
+        '''
         h = hasher.Hasher()
         h.validTypes = [note.Note, note.Rest]
         h.validTypes = [note.Note, note.Rest]
@@ -213,7 +243,7 @@ class OMRmidiNoteFixer(object):
         hasherCello = h.hasher(celloPart)
         self.bassDoublesCello = hasherBass == hasherCello
         return self.bassDoublesCello
-        
+        '''
     
     def alignStreams(self):
 
@@ -309,65 +339,7 @@ class OMRmidiNotePitchFixer(object):
         if interval.notesToChromatic(aNote, bNote).intervalClass > setint:
             return True
         return False
-    
-class AlignTest(unittest.TestCase):
-    def testSameSimpleStream(self):
-        from music21 import stream
-        from music21 import note
-          
-        target = stream.Stream()
-        source = stream.Stream()
-          
-        note1 = note.Note("C4")
-        note2 = note.Note("D4")
-        note3 = note.Note("E4")
-        note4 = note.Note("F4")
-          
-        target.append([note1, note2, note3, note4])
-        source.append([note1, note2, note3, note4])
-          
-        sa = StreamAligner(target, source)
-        sa.calculateDistMatrix()
-        sa.calculateChanges()
-#         
-    def testSameOneOffStream(self):
-        from music21 import stream
-        from music21 import note
-         
-        target = stream.Stream()
-        source = stream.Stream()
-         
-        note1 = note.Note("C4")
-        note2 = note.Note("D4")
-        note3 = note.Note("E4")
-        note4 = note.Note("F4")
-        note5 = note.Note("G4")
-         
-        target.append([note1, note2, note3, note4])
-        source.append([note1, note2, note3, note5])
-         
-        sa = StreamAligner(target, source)
-        sa.calculateDistMatrix()
-        sa.calculateChanges()
-        
-    def testOneOffDeletionStream(self):
-        from music21 import stream
-        from music21 import note
-         
-        target = stream.Stream()
-        source = stream.Stream()
-         
-        note1 = note.Note("C4")
-        note2 = note.Note("D4")
-        note3 = note.Note("E4")
-        note4 = note.Note("F4")
-         
-        target.append([note1, note2, note3, note4])
-        source.append([note1, note2, note3])
-         
-        sa = StreamAligner(target, source)
-        sa.calculateDistMatrix()
-        sa.calculateChanges()
+
         
 class Test(unittest.TestCase):
     def testEnharmonic(self):
@@ -426,6 +398,9 @@ class Test(unittest.TestCase):
         self.assertTrue(fixer.isPossiblyMisaligned)
         
     def testK525BassCelloDouble(self):
+        '''
+        K525's bass part doubles the cello part. don't hash the octave
+        '''
         from music21 import converter
         from music21.alpha.analysis import hasher
         
@@ -437,14 +412,76 @@ class Test(unittest.TestCase):
         fixer = OMRmidiNoteFixer(omrStream, midiStream)
         celloBassAnalysis = fixer.checkBassDoublesCello()
         self.assertEqual(celloBassAnalysis, True)
-#         h = hasher.Hasher()
-#         h.validTypes = [note.Note, note.Rest]
-#         h.hasherMIDI = False
-#         h.hasherNoteName = True
-#         hasherBass = h.hasher(bassPart)
-#         hasherCello = h.hasher(celloPart)
-#         self.assertEqual(hasherBass, hasherCello)
-
+        
+    def testSameSimpleStream(self):
+        '''
+        two streams of the same notes should have 1.0 percentage similarity
+        '''
+        from music21 import stream
+        from music21 import note
+          
+        target = stream.Stream()
+        source = stream.Stream()
+          
+        note1 = note.Note("C4")
+        note2 = note.Note("D4")
+        note3 = note.Note("E4")
+        note4 = note.Note("F4")
+          
+        target.append([note1, note2, note3, note4])
+        source.append([note1, note2, note3, note4])
+          
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+        self.assertEqual(sa.percentageSimilar, 1.0)
+         
+    def testSameOneOffStream(self):
+        '''
+        two streams with just 1 note different should have .75 percentage similarity
+        '''
+        from music21 import stream
+        from music21 import note
+         
+        target = stream.Stream()
+        source = stream.Stream()
+         
+        note1 = note.Note("C4")
+        note2 = note.Note("D4")
+        note3 = note.Note("E4")
+        note4 = note.Note("F4")
+        note5 = note.Note("G4")
+         
+        target.append([note1, note2, note3, note4])
+        source.append([note1, note2, note3, note5])
+         
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+        self.assertEqual(sa.percentageSimilar, .75)
+        
+    def testOneOffDeletionStream(self):
+        '''
+        two streams, both the same, but one has an extra note should have .75 percentage similarity
+        '''
+        from music21 import stream
+        from music21 import note
+         
+        target = stream.Stream()
+        source = stream.Stream()
+         
+        note1 = note.Note("C4")
+        note2 = note.Note("D4")
+        note3 = note.Note("E4")
+        note4 = note.Note("F4")
+         
+        target.append([note1, note2, note3, note4])
+        source.append([note1, note2, note3])
+         
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+        self.assertEqual(sa.percentageSimilar, .75)
 
 ## this test is included in the quarterLengthDivisor PR in the converter.py tests
 # class ParseTestExternal(unittest.TestCase):
@@ -455,4 +492,4 @@ class Test(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(AlignTest)
+    music21.mainTest(Test)

@@ -32,7 +32,7 @@ class Hasher(object):
         # --- begin note properties to hash ---
         self.hashPitch = True
         self.hashMIDI = True # otherwise, hash string "C-- instead of 58"
-        self.hashNoteNameOctave = False # good for catching octaves, only deals octaves in note name
+        self.hashNoteNameOctave = False # if True -> C, if False -> C4
         self.hashOctave = False
         self.hashDuration = True
         self.roundDurationAndOffset = True
@@ -101,7 +101,7 @@ class Hasher(object):
     
     def _hashPitchNameNoOctave(self, e, c=None):
         """
-        returns string representation of a note e.g. "F##4"
+        returns string representation of a note without the octave e.g. "F##"
         returns "r" if rest
         reuturns "z" if not hashing individual notes of a chord
         """
@@ -192,10 +192,10 @@ class Hasher(object):
             tupleList.append("Pitch")
             if self.hashMIDI:
                 self.hashingFunctions["Pitch"] = self._hashMIDIPitchName
-            elif not self.hashMIDI and self.hashNoteNameOctave:
-                self.hashingFuctions["Pitch"] = self._hashPitchName
-#                 self.hashingFunctions["Pitch"] = ''.join([i for i in self._hashPitchName if not i.isdigit()])
             elif not self.hashMIDI and not self.hashNoteNameOctave:
+                self.hashingFunctions["Pitch"] = self._hashPitchName
+#                 self.hashingFunctions["Pitch"] = ''.join([i for i in self._hashPitchName if not i.isdigit()])
+            elif not self.hashMIDI and self.hashNoteNameOctave:
                 self.hashingFunctions["Pitch"] = self._hashPitchNameNoOctave
                 
             if self.hashIsAccidental:
