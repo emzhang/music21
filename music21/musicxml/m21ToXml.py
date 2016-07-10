@@ -387,7 +387,7 @@ class GeneralObjectExporter():
         the best one of all -- a perfectly made Score (or something like that)
         '''
         scOut = sc.makeNotation(inPlace=False)
-        scOut.makeImmutable()
+        # scOut.makeImmutable()
         return scOut
 
     def fromPart(self, p):
@@ -396,7 +396,7 @@ class GeneralObjectExporter():
         '''
         if p.isFlat:
             p = p.makeMeasures()
-        p.makeImmutable()
+        # p.makeImmutable()  # impossible, we haven't made notation yet.
         s = stream.Score()
         s.insert(0, p)
 #         if p.metadata is not None:
@@ -2513,26 +2513,8 @@ class MeasureExporter(XMLExporterBase):
         # end Stem
             
         # notehead
-        foundANotehead = False
-        if (hasattr(n, 'notehead') 
-                # TODO: restore... needed for complete compatibility with toMxObjects...
-            and (n.notehead != 'normal'
-                 or n.noteheadFill is not None
-                 or n.color not in (None, ''))
-            ):
-            foundANotehead = True
-            mxNotehead = self.noteheadToXml(n)
-            mxNote.append(mxNotehead)
-        if foundANotehead is False and chordParent is not None:
-            if (hasattr(chordParent, 'notehead')
-                    # TODO: restore... needed for complete compatibility with toMxObjects...
-                and (chordParent.notehead != 'normal'
-                     or chordParent.noteheadFill is not None
-                     or chordParent.color not in (None, ''))
-                ):
-                mxNotehead = self.noteheadToXml(chordParent)
-                mxNote.append(mxNotehead)
-        
+        self.dealWithNotehead(mxNote, n, chordParent)
+            
         # TODO: notehead-text
     
         # beam
@@ -2561,7 +2543,10 @@ class MeasureExporter(XMLExporterBase):
         # lyric
         if addChordTag is False:
             for lyricObj in chordOrN.lyrics:
-                mxNote.append(self.lyricToXml(lyricObj))
+                if lyricObj.text is None:                    
+                    continue # happens sometimes...
+                mxLyric = self.lyricToXml(lyricObj)
+                mxNote.append(mxLyric)
         # TODO: play
         self.xmlRoot.append(mxNote)
         return mxNote
@@ -2843,6 +2828,40 @@ class MeasureExporter(XMLExporterBase):
                 
         return mxTimeModification
     
+    
+    def dealWithNotehead(self, mxNote, n, chordParent=None):
+        '''
+        Determine if an <notehead> element needs to be added to this <note>
+        element (mxNote) and if it does then get the <notehead> element from
+        noteheadToXml and add it to mxNote.
+        
+        Complicated because the chordParent might have notehead
+        set, which would affect every note along the way.
+
+        Returns nothing.  The mxNote is modified in place.
+        '''
+        foundANotehead = False
+        if (hasattr(n, 'notehead') 
+                # TODO: restore... needed for complete compatibility with toMxObjects...
+            and (n.notehead != 'normal'
+                 or n.noteheadParenthesis
+                 or n.noteheadFill is not None
+                 or n.color not in (None, ''))
+            ):
+            foundANotehead = True
+            mxNotehead = self.noteheadToXml(n)
+            mxNote.append(mxNotehead)
+        if foundANotehead is False and chordParent is not None:
+            if (hasattr(chordParent, 'notehead')
+                    # TODO: restore... needed for complete compatibility with toMxObjects...
+                and (chordParent.notehead != 'normal'
+                     or chordParent.noteheadParenthesis
+                     or chordParent.noteheadFill is not None
+                     or chordParent.color not in (None, ''))
+                ):
+                mxNotehead = self.noteheadToXml(chordParent)
+                mxNote.append(mxNotehead)
+
     def noteheadToXml(self, n):
         '''
         Translate a music21 :class:`~music21.note.Note` object 
@@ -2856,6 +2875,15 @@ class MeasureExporter(XMLExporterBase):
         >>> MEX.dump(mxN)
         <notehead parentheses="no">diamond</notehead>
     
+        >>> n1 = note.Note('c3')
+        >>> n1.color = 'red'
+        >>> n1.notehead = 'diamond'
+        >>> n1.noteheadParenthesis = True
+        >>> n1.noteheadFill = False
+        >>> mxN = MEX.noteheadToXml(n1)
+        >>> MEX.dump(mxN)
+        <notehead color="#FF0000" filled="no" parentheses="yes">diamond</notehead>
+
         >>> n1 = note.Note('c3')
         >>> n1.color = 'red'
         >>> n1.notehead = 'diamond'
