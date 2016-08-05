@@ -1016,8 +1016,8 @@ def _keySigFromAttrs(elem):
                        mode=elem.get('key.mode', ''))
     else:
         # @key.sig, @key.mode
-        return key.KeySignature(sharps=_sharpsFromAttr(elem.get('key.sig')),
-                                mode=elem.get('key.mode'))
+        ks = key.KeySignature(sharps=_sharpsFromAttr(elem.get('key.sig')))
+        return ks.asKey(mode=elem.get('key.mode'))
 
 
 def _transpositionFromAttrs(elem):
@@ -3106,9 +3106,9 @@ def measureFromElement(elem, backupNum, expectedNs, slurBundle=None, activeMeter
     # time-consuming search later.
     if (maxBarDuration == _DUR_ATTR_DICT[None] 
             and activeMeter is not None 
-            and maxBarDuration != activeMeter.totalLength):
+            and maxBarDuration != activeMeter.barDuration.quarterLength):
         # In this case, all the staves have <mRest> elements without a @dur.
-        _correctMRestDurs(staves, activeMeter.totalLength)
+        _correctMRestDurs(staves, activeMeter.barDuration.quarterLength)
     else:
         # In this case, some or none of the staves have an <mRest> element without a @dur.
         _correctMRestDurs(staves, maxBarDuration)

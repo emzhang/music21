@@ -93,6 +93,12 @@ def accidentalToMx(a):
     >>> XB.dump(mxAccidental)
     <accidental>quarter-sharp</accidental>
 
+    >>> a.set('double-flat')
+    >>> mxAccidental = musicxml.m21ToXml.accidentalToMx(a)
+    >>> XB.dump(mxAccidental)
+    <accidental>flat-flat</accidental>
+
+
     >>> a.set('one-and-a-half-sharp')
     >>> mxAccidental = musicxml.m21ToXml.accidentalToMx(a)
     >>> XB.dump(mxAccidental)
@@ -117,6 +123,8 @@ def accidentalToMx(a):
         mxName = "quarter-flat"
     elif a.name == "one-and-a-half-flat": 
         mxName = "three-quarters-flat"
+    elif a.name == "double-flat": 
+        mxName = "flat-flat"
     else: # all others are the same
         mxName = a.name
 
@@ -201,7 +209,7 @@ def _setTagTextFromAttribute(m21El, xmlEl, tag, attributeName=None,
     
     subElement = SubElement(xmlEl, tag)
     
-    if value not in (None, ""):
+    if value is not None:
         subElement.text = str(value)
 
     return subElement
@@ -3252,15 +3260,23 @@ class MeasureExporter(XMLExporterBase):
         Returns a tag that represents the
         MusicXML structure of an articulation mark that is primarily a TechnicalIndication.
         
+        >>> MEX = musicxml.m21ToXml.MeasureExporter()
+        
         >>> a = articulations.UpBow()
         >>> a.placement = 'below'
 
-        >>> MEX = musicxml.m21ToXml.MeasureExporter()
         >>> mxTechnicalMark = MEX.articulationToXmlTechnical(a)
         >>> MEX.dump(mxTechnicalMark)
         <up-bow placement="below" />
+        
+        
+        >>> f = articulations.Fingering(4)
+        >>> f.substitution = True
+        >>> mxFingering = MEX.articulationToXmlTechnical(f)
+        >>> MEX.dump(mxFingering)
+        <fingering alternate="no" placement="above" substitution="yes">4</fingering>
         '''
-        # TODO: OrderedDict to make Technical Indication work...
+        # TODO: OrderedDict to make the generic other-technical TechnicalIndication work...
         # these technical have extra information
         # TODO: handbell
         # TODO: arrow
@@ -3270,7 +3286,6 @@ class MeasureExporter(XMLExporterBase):
         # TODO: pull-off/hammer-on
         # TODO: string
         # TODO: fret
-        # TODO: fingering
         # TODO: harmonic
         
         musicXMLTechnicalName = None
@@ -3283,6 +3298,13 @@ class MeasureExporter(XMLExporterBase):
                 "Cannot translate technical indication %s to musicxml" % articulationMark)
         mxTechnicalMark = Element(musicXMLTechnicalName)
         mxTechnicalMark.set('placement', articulationMark.placement)
+        if musicXMLTechnicalName == 'fingering':
+            mxTechnicalMark.text = str(articulationMark.fingerNumber)
+            mxTechnicalMark.set('alternate', 
+                                xmlObjects.booleanToYesNo(articulationMark.alternate))
+            mxTechnicalMark.set('substitution', 
+                                xmlObjects.booleanToYesNo(articulationMark.substitution))
+        
         #mxArticulations.append(mxArticulationMark)
         return mxTechnicalMark
     
@@ -3849,8 +3871,8 @@ class MeasureExporter(XMLExporterBase):
         to a <lyric> tag.
         '''
         mxLyric = Element('lyric')
-        _setTagTextFromAttribute(l, mxLyric, 'syllabic')
-        _setTagTextFromAttribute(l, mxLyric, 'text')
+        _setTagTextFromAttribute(l, mxLyric, 'syllabic')        
+        _setTagTextFromAttribute(l, mxLyric, 'text', forceEmpty=True)
         # TODO: elision
         # TODO: more syllabic
         # TODO: more text
@@ -4107,24 +4129,31 @@ class MeasureExporter(XMLExporterBase):
         m = self.stream
         self.currentDivisions = defaults.divisionsPerQuarter
         mxAttributes = Element('attributes')
+        # TODO: footnote
+        # TODO: level
         mxDivisions = SubElement(mxAttributes, 'divisions')
         mxDivisions.text = str(self.currentDivisions)
-        if self.transpositionInterval is not None:
-            mxAttributes.append(self.intervalToXmlTranspose(self.transpositionInterval))
         if 'Measure' in m.classes:
             if m.keySignature is not None:
                 mxAttributes.append(self.keySignatureToXml(m.keySignature))
             if m.timeSignature is not None:
                 mxAttributes.append(self.timeSignatureToXml(m.timeSignature))
+            # TODO: staves (piano staff...)
+            # TODO: part-symbol
+            # TODO: instruments
             if m.clef is not None:
                 mxAttributes.append(self.clefToXml(m.clef))
 
-        # todo returnType = 'list'
         found = m.getElementsByClass('StaffLayout')
-        if len(found) > 0:
+        if found:
             sl = found[0] # assume only one per measure
             mxAttributes.append(self.staffLayoutToXmlStaffDetails(sl)) 
 
+        if self.transpositionInterval is not None:
+            mxAttributes.append(self.intervalToXmlTranspose(self.transpositionInterval))
+        
+        # directive is deprecated, do not support
+        # TODO: measure-style
         self.xmlRoot.append(mxAttributes)
         return mxAttributes
     
@@ -4149,8 +4178,8 @@ class MeasureExporter(XMLExporterBase):
         and beat-type elements
     
         
-        >>> a = meter.TimeSignature('3/4')
         >>> MEX = musicxml.m21ToXml.MeasureExporter()
+        >>> a = meter.TimeSignature('3/4')
         >>> b = MEX.timeSignatureToXml(a)
         >>> MEX.dump(b)
         <time>
@@ -4175,6 +4204,27 @@ class MeasureExporter(XMLExporterBase):
           <beats>5</beats>
           <beat-type>4</beat-type>
         </time>
+        
+        
+        >>> a = meter.TimeSignature('4/4')
+        >>> a.symbol = 'common'
+        >>> b = MEX.timeSignatureToXml(a)
+        >>> MEX.dump(b)
+        <time symbol="common">
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        
+
+        >>> a.symbol = ""
+        >>> a.symbolizeDenominator = True
+        >>> b = MEX.timeSignatureToXml(a)
+        >>> MEX.dump(b)
+        <time symbol="note">
+          <beats>4</beats>
+          <beat-type>4</beat-type>
+        </time>
+        
         '''
         #mxTimeList = []
         mxTime = Element('time')
@@ -4195,13 +4245,20 @@ class MeasureExporter(XMLExporterBase):
         # TODO: choice -- senza-misura
     
         # TODO: attr: interchangeable
-        # TODO: attr: symbol
+        
+        # attr: symbol
+        if ts.symbolizeDenominator:
+            mxTime.set('symbol', 'note')
+        elif ts.symbol != "":
+            mxTime.set('symbol', ts.symbol)
+            # symbol: dotted-note not supported
+
         # TODO: attr: separator
         # TODO: attr: print-style-align
         # TODO: attr: print-object
         return mxTime
 
-    def keySignatureToXml(self, keySignature):
+    def keySignatureToXml(self, keyOrKeySignature):
         '''
         returns a key tag from a music21
         key.KeySignature or key.Key object
@@ -4239,16 +4296,15 @@ class MeasureExporter(XMLExporterBase):
         # Choice traditional-key
         
         # TODO: cancel
-        seta(keySignature, mxKey, 'fifths', 'sharps')
-        if keySignature.mode is not None:
+        seta(keyOrKeySignature, mxKey, 'fifths', 'sharps')
+        if hasattr(keyOrKeySignature, 'mode') and keyOrKeySignature.mode is not None:
             if (environLocal.xmlReaderType() == 'Musescore' 
-                    and keySignature.mode not in ('major', 'minor')):
+                    and keyOrKeySignature.mode not in ('major', 'minor')):
                 # Musescore up to v. 2 has major problems with modes other than major or minor
                 # Fixed in latest Nightlys
                 pass            
             else:
-                seta(keySignature, mxKey, 'mode')
-                
+                seta(keyOrKeySignature, mxKey, 'mode')
                 
         # TODO: key-octave
         return mxKey
@@ -4336,7 +4392,7 @@ class MeasureExporter(XMLExporterBase):
         <transpose>
           <diatonic>19</diatonic>
           <chromatic>10</chromatic>
-          <octave-shift>1</octave-shift>
+          <octave-change>1</octave-change>
         </transpose>        
 
         >>> i = interval.Interval('-M6')
@@ -4377,7 +4433,7 @@ class MeasureExporter(XMLExporterBase):
         mxChromatic.text = str(semitones)
     
         if octShift != 0:
-            mxOctaveChange = SubElement(mxTranspose, 'octave-shift')
+            mxOctaveChange = SubElement(mxTranspose, 'octave-change')
             mxOctaveChange.text = str(octShift)
         
         return mxTranspose

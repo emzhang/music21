@@ -50,7 +50,6 @@ def cacheMetadata(corpusNames=('local', 'core', 'virtual'),
     '''
     from music21 import corpus
     from music21.corpus import corpora
-    from music21 import metadata
 
     if not common.isIterable(corpusNames):
         corpusNames = (corpusNames,)
@@ -327,8 +326,7 @@ class JobProcessor(object):
         '''
         Report on the current job status.
         '''
-        message = 'updated {0} of {1} files; ' \
-            'total errors: {2} ... last file: {3}'.format(
+        message = 'updated {0} of {1} files; total errors: {2} ... last file: {3}'.format(
                 totalJobs - remainingJobs,
                 totalJobs,
                 filePathErrorCount,

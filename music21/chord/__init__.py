@@ -13,7 +13,8 @@
 This module defines the Chord object, a sub-class of :class:`~music21.note.GeneralNote`
 as well as other methods, functions, and objects related to chords.
 '''
-__all__ = ['tables']
+from __future__ import division, print_function
+__all__ = ['tables', 'Chord']
 
 import copy
 import unittest
@@ -940,7 +941,7 @@ class Chord(note.NotRest):
             score = 0
             for i, val in enumerate(rootThirdList):
                 if val is True:
-                    score += 1.0/(i+6)
+                    score += 1 / (i + 6)
             return score
 
         stepsFound = []
@@ -3350,14 +3351,14 @@ class Chord(note.NotRest):
         >>> aInterval = interval.Interval(-6)
         >>> b = a.transpose(aInterval)
         >>> b
-        <music21.chord.Chord C#4 D#3 F##5>
+        <music21.chord.Chord C#4 E-3 G5>
 
         If `inPlace` is True then rather than returning a new chord, the
         chord itself is changed.
 
         >>> a.transpose(aInterval, inPlace=True)
         >>> a
-        <music21.chord.Chord C#4 D#3 F##5>
+        <music21.chord.Chord C#4 E-3 G5>
 
         '''
         if hasattr(value, 'diatonic'): # its an Interval class
