@@ -238,7 +238,7 @@ class StreamAligner(object):
         >>> sa.getMovementDirection(3, 0)
         0
         
-         >>> sa.getMovementDirection(0, 0)
+        >>> sa.getMovementDirection(0, 0)
         Traceback (most recent call last):
         ValueError: No movement possible from the origin
         '''
@@ -296,8 +296,8 @@ class StreamAligner(object):
         
         changesCount = Counter(elem[2] for elem in self.changes)
         self.percentageSimilar = float(changesCount['no change'])/len(self.changes)
-        print self.changes
-        print self.percentageSimilar
+        print (self.changes)
+        print (self.percentageSimilar)
         
     
 class OMRmidiNoteFixer(object):
@@ -348,7 +348,7 @@ class OMRmidiNoteFixer(object):
         sa.h.hashNoteNameOctave = True
         sa.align()
         
-        print sa.percentageSimilar
+        print (sa.percentageSimilar)
         if sa.percentageSimilar >= .8:
             self.bassDoublesCello = True
         
