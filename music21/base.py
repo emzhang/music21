@@ -28,7 +28,7 @@ available after importing music21.
 <class 'music21.base.Music21Object'>
 
 >>> music21.VERSION_STR
-'3.0.4'
+'3.1.0'
 
 Alternatively, after doing a complete import, these classes are available
 under the module "base":
@@ -593,6 +593,7 @@ class Music21Object(object):
     def __setstate__(self, state):
         # defining self.__dict__ upon initialization currently breaks everything
         self.__dict__ = state #pylint: disable=attribute-defined-outside-init
+
 
     def isClassOrSubclass(self, classFilterList):
         '''
@@ -1964,7 +1965,7 @@ class Music21Object(object):
         <music21.stream.Measure 1 offset=1.0>
         <music21.note.Note E>
         <music21.meter.TimeSignature 4/4>
-        <music21.key.KeySignature of 3 sharps, mode minor>
+        f# minor
         <music21.clef.TrebleClef>
         <music21.stream.Measure 0 offset=0.0>
         P2: Alto: Instrument 2
@@ -4570,7 +4571,7 @@ class Test(unittest.TestCase):
         self.assertEqual(str(nLast.previous('TimeSignature')), 
                          '<music21.meter.TimeSignature 4/4>')
         self.assertEqual(str(nLast.previous('KeySignature')),
-            '<music21.key.KeySignature of 3 sharps, mode minor>')
+            'f# minor')
 
         # iterating at the Measure level, showing usage of flattenLocalSites
         measures = p1.getElementsByClass('Measure').stream()

@@ -153,17 +153,16 @@ def streamToBraille(music21Stream, **keywords):
     u"""
     Translates a :class:`~music21.stream.Stream` to braille.
     """
-
     if isinstance(music21Stream, stream.Part):
         return partToBraille(music21Stream, **keywords)
-    if isinstance(music21Stream, stream.Measure):
+    elif isinstance(music21Stream, stream.Measure):
         return measureToBraille(music21Stream, **keywords)
     keyboardParts = music21Stream.getElementsByClass(stream.PartStaff)
     if len(keyboardParts) == 2:
         return keyboardPartsToBraille(keyboardParts[0], keyboardParts[1], **keywords)
-    if isinstance(music21Stream, stream.Score):
+    elif isinstance(music21Stream, stream.Score):
         return scoreToBraille(music21Stream, **keywords)
-    if isinstance(music21Stream, stream.Opus):
+    elif isinstance(music21Stream, stream.Opus):
         return opusToBraille(music21Stream, **keywords)
     raise BrailleTranslateException("Stream cannot be translated to Braille.")
 
@@ -227,9 +226,9 @@ def measureToBraille(music21Measure, **keywords):
     
     """
     (inPlace, unused_debug) = _translateArgs(**keywords)
-    if not 'showHeading' in keywords:
+    if 'showHeading' not in keywords:
         keywords['showHeading'] = False
-    if not 'showFirstMeasureNumber' in keywords:
+    if 'showFirstMeasureNumber' not in keywords:
         keywords['showFirstMeasureNumber'] = False
     measureToTranscribe = music21Measure
     if not inPlace:
@@ -242,6 +241,9 @@ def measureToBraille(music21Measure, **keywords):
 def partToBraille(music21Part, **keywords):
     """
     Translates a :class:`~music21.stream.Part` to braille.
+    
+    This is one of two (w/ keyboardPartsToBraille) main routines.  Runs segment.findSegments
+    and then for each segment runs transcribe on it.
     """
     (inPlace, debug) = _translateArgs(**keywords)
     partToTranscribe = music21Part
@@ -267,27 +269,33 @@ def partToBraille(music21Part, **keywords):
     else:
         return u"\n".join([unicode(bt) for bt in allBrailleText])
 
-def keyboardPartsToBraille(music21PartStaffUpper, music21PartStaffLower, **keywords):
+def keyboardPartsToBraille(staffUpper, staffLower, **keywords):
     """
     Translates two :class:`~music21.stream.Part` instances to braille, an upper part and a lower
     part. Assumes that the two parts are aligned and well constructed. Bar over bar format is used.
     """
     (inPlace, debug) = _translateArgs(**keywords)
-    upperPartToTranscribe = music21PartStaffUpper
+    upperPartToTranscribe = staffUpper
     if not inPlace:
-        upperPartToTranscribe = music21PartStaffUpper.makeNotation(
-                                                                cautionaryNotImmediateRepeat=False)
-    lowerPartToTranscribe = music21PartStaffLower
+        upperPartToTranscribe = staffUpper.makeNotation(cautionaryNotImmediateRepeat=False)
+    lowerPartToTranscribe = staffLower
     if not inPlace:
-        lowerPartToTranscribe = music21PartStaffLower.makeNotation(
-                                                                cautionaryNotImmediateRepeat=False)
-    rhSegments = segment.findSegments(upperPartToTranscribe, **keywords)
-    lhSegments = segment.findSegments(lowerPartToTranscribe, **keywords)
+        lowerPartToTranscribe = staffLower.makeNotation(cautionaryNotImmediateRepeat=False)
+    rhSegments = segment.findSegments(upperPartToTranscribe, setHand='right', **keywords)
+    lhSegments = segment.findSegments(lowerPartToTranscribe, setHand='left', **keywords)
+    
     allBrailleText = []
     for (rhSegment, lhSegment) in zip(rhSegments, lhSegments):
-        bg = segment.BrailleGrandSegment(rhSegment, lhSegment)
+        bg = segment.BrailleGrandSegment()
+        for rhGroupingKey in rhSegment:
+            bg[rhGroupingKey] = rhSegment[rhGroupingKey]
+
+        for lhGroupingKey in lhSegment:
+            bg[lhGroupingKey] = lhSegment[lhGroupingKey]
+        
+        bg.transcribe()
         if not debug:
-            allBrailleText.append(bg.transcription)
+            allBrailleText.append(bg.brailleText)
         else:
             if six.PY2:
                 bsStr = str(bg)
@@ -303,12 +311,19 @@ def keyboardPartsToBraille(music21PartStaffUpper, music21PartStaffLower, **keywo
 
 
 def _translateArgs(**keywords):
-#    inPlace = False
-#    debug = False
-#    if 'inPlace' in keywords:
-#        inPlace = keywords['inPlace']
-#    if 'debug' in keywords:
-#        debug = keywords['debug']
+    '''
+    Returns a tuple of inPlace (default False) and debug (default False)
+    from a set of keywords:
+    
+    >>> braille.translate._translateArgs()
+    (False, False)
+    >>> braille.translate._translateArgs(debug=True)
+    (False, True)
+    >>> braille.translate._translateArgs(inPlace=True)
+    (True, False)
+    >>> braille.translate._translateArgs(inPlace=True, debug=True)
+    (True, True)
+    '''
     inPlace = keywords.get('inPlace', False)
     debug = keywords.get('debug', False)
     return (inPlace, debug)
