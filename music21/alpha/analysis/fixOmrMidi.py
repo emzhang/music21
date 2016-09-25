@@ -30,7 +30,7 @@ pathName = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 
 K525xmlShortPath = pathName + os.sep + 'k525short3.xml'
 K525midiShortPath = pathName + os.sep + 'k525short.mid'
-K525omrShortPath = pathName + os.sep + 'k525omrshort.xml'
+K525omrShortPath = pathName + os.sep + 'k525omrshort.xml'   
 
 class OmrMidiException(exceptions21.Music21Exception):
     pass
@@ -634,4 +634,4 @@ class OneTest(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(OneTest)
+    music21.mainTest(Test)
