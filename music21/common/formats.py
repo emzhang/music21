@@ -26,13 +26,13 @@ VALID_SHOW_FORMATS = ['musicxml', 'lilypond', 'text', 'textline', 'midi',
                       'lily.pdf', 'lily.png', 'lily.svg', 'braille', 
                       'vexflow', 'vexflow.html', 'vexflow.js', 
                       'ipython', 'ipython.png', 'ipython.midi',
-                      'musicxml.png']
+                      'musicxml.png', 'musicxml.pdf']
 VALID_WRITE_FORMATS = ['musicxml', 'lilypond', 'text', 'textline', 'midi', 
                        'png', 'pdf', 'svg', 
                        'lily.pdf', 'lily.png', 'lily.svg', 'braille', 
                        'vexflow', 'vexflow.html', 'vexflow.js', 
                        'ipython', 'ipython.png', 'ipython.midi', 
-                       'musicxml.png']
+                       'musicxml.png', 'musicxml.pdf']
 VALID_AUTO_DOWNLOAD = ['ask', 'deny', 'allow']
 
 #-------------------------------------------------------------------------------
@@ -110,17 +110,6 @@ def findFormat(fmt):
     >>> common.findFormat('mx')
     ('musicxml', '.xml')
 
-    
-    #>>> common.findFormat('png')
-    #('musicxml.png', '.png')
-    
-    #>>> common.findFormat('ipython')
-    #('ipython', '.png')
-    #     >>> common.findFormat('ipython.png')
-    #     ('ipython', '.png')
-    #     >>> common.findFormat('musicxml.png')
-    #     ('musicxml.png', '.png')
-
 
     Works the same whether you have a leading dot or not:
 
@@ -136,6 +125,19 @@ def findFormat(fmt):
     >>> common.findFormat('wpd')
     (None, None)
 
+
+    These don't work but should eventually:
+    
+    # >>> common.findFormat('png')
+    # ('musicxml.png', '.png')
+    
+    # >>> common.findFormat('ipython')
+    # ('ipython', '.png')
+    # >>> common.findFormat('ipython.png')
+    # ('ipython', '.png')
+    
+    # >>> common.findFormat('musicxml.png')
+    # ('musicxml.png', '.png')
     '''
     from music21 import converter
     c = converter.Converter()
@@ -275,10 +277,10 @@ def findFormatExtFile(fp):
     ('humdrum', '.krn')
     '''
     fileFormat, unused_extOut = findFormat(fp.split('.')[-1])
-    if fileFormat == None:
-        return None, None
+    if fileFormat is None:
+        return (None, None)
     else:
-        return fileFormat, '.'+fp.split('.')[-1] # may be None if no match
+        return (fileFormat, '.'+fp.split('.')[-1]) # may be None if no match
 
 #@deprecated('May 2014', '[soonest possible]', 'Moved to converter')
 def findFormatExtURL(url):

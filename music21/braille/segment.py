@@ -18,6 +18,11 @@ available from the Library of Congress `here <http://www.loc.gov/nls/music/>`_,
 and will henceforth be referred to as BMTM.
 """
 
+# eventually this needs to be removed but for now, we are monkey patching
+# _brailleEnglish
+
+# pylint: disable=attribute-defined-outside-init
+
 # pylint: disable=redefined-builtin
 try:  # gives Py2 the zip of Py3
     from future_builtins import zip
@@ -131,9 +136,9 @@ def setGroupingGlobals():
     sets defaults for grouping globals.  Called first time anything
     in Braille is run, but saves creating two expensive objects if never run
     '''
-    if GROUPING_GLOBALS['keySignature'] == None:
+    if GROUPING_GLOBALS['keySignature'] is None:
         GROUPING_GLOBALS['keySignature'] = key.KeySignature(0)
-    if GROUPING_GLOBALS['timeSignature'] == None:
+    if GROUPING_GLOBALS['timeSignature'] is None:
         GROUPING_GLOBALS['timeSignature'] = meter.TimeSignature('4/4')
 
 # defaults for BrailleSegments
@@ -916,7 +921,8 @@ class BrailleSegment(collections.defaultdict, text.BrailleText):
             descendingChords = partKeywords['descendingChords']
                 
         allGroupings = sorted(self.items())
-        (previousKey, previousList) = None, None
+        (previousKey, previousList) = (None, None)
+
         for (groupingKey, groupingList) in allGroupings:
             if previousKey is not None:
                 if groupingKey.ordinal >= 1:
@@ -1006,16 +1012,15 @@ class BrailleSegment(collections.defaultdict, text.BrailleText):
                     artcName = artc.name
                     if artcName == 'fingering': # fingerings are not considered articulations...
                         continue
-                    if (isinstance(artc, articulations.Staccato) or 
-                            isinstance(artc, articulations.Tenuto)):
-                        if music21NoteStart.tie is not None:
-                            if music21NoteStart.tie.type == 'stop':
-                                allNotes[noteIndexStart - 1].tie = None
-                                allNotes[noteIndexStart - 1].shortSlur = True
-                            else:
-                                allNotes[noteIndexStart + 1].tie = None
-                                music21NoteStart.shortSlur = True
-                            music21NoteStart.tie = None
+                    if (isinstance(artc, (articulations.Staccato, articulations.Tenuto))
+                            and music21NoteStart.tie is not None):
+                        if music21NoteStart.tie.type == 'stop':
+                            allNotes[noteIndexStart - 1].tie = None
+                            allNotes[noteIndexStart - 1].shortSlur = True
+                        else:
+                            allNotes[noteIndexStart + 1].tie = None
+                            music21NoteStart.shortSlur = True
+                        music21NoteStart.tie = None
                     numSequential = 0
                     for noteIndexContinue in range(noteIndexStart + 1, len(allNotes)):
                         music21NoteContinue = allNotes[noteIndexContinue]
@@ -1023,15 +1028,18 @@ class BrailleSegment(collections.defaultdict, text.BrailleText):
                             numSequential += 1
                             continue
                         break
-                    if numSequential >= 3:
-                        # double the articulation on the first note and remove from the next...
-                        music21NoteStart.articulations.append(artc)
-                        for noteIndexContinue in range(noteIndexStart+1, 
-                                                       noteIndexStart+numSequential):
-                            music21NoteContinue = allNotes[noteIndexContinue]
-                            for artOther in music21NoteContinue.articulations:
-                                if artOther.name == artcName:
-                                    music21NoteContinue.articulations.remove(artOther)
+                    if numSequential < 3:
+                        continue
+                    
+                    # else:
+                    # double the articulation on the first note and remove from the next...
+                    music21NoteStart.articulations.append(artc)
+                    for noteIndexContinue in range(noteIndexStart+1, 
+                                                   noteIndexStart+numSequential):
+                        music21NoteContinue = allNotes[noteIndexContinue]
+                        for artOther in music21NoteContinue.articulations:
+                            if artOther.name == artcName:
+                                music21NoteContinue.articulations.remove(artOther)
            
 
 class BrailleGrandSegment(BrailleSegment, text.BrailleKeyboard):
@@ -1039,6 +1047,9 @@ class BrailleGrandSegment(BrailleSegment, text.BrailleKeyboard):
     A BrailleGrandSegment represents a pair of segments (rightSegment, leftSegment)
     representing the right and left hands of a piano staff (or other two-staff object)
     '''
+    # this is very bad practice and 
+    # TODO: find a way around this.
+    # pylint: disable=non-parent-init-called,super-init-not-called
     def __init__(self):
         collections.defaultdict.__init__(self, BrailleElementGrouping)
         text.BrailleKeyboard.__init__(self, lineLength=SEGMENT_LINELENGTH)
@@ -1190,7 +1201,8 @@ class BrailleGrandSegment(BrailleSegment, text.BrailleKeyboard):
 #                             "Misaligned braille groupings: " + 
 #                             "groupingKeyLeft was %s" % gkLeft + 
 #                             "groupingKeyRight was %s" % gkRight + 
-#                             "rightSegment was %s, leftSegment was %s" % (rightSegment, leftSegment))
+#                             "rightSegment was %s, leftSegment was %s" % 
+#                                        (rightSegment, leftSegment))
 # 
 #                     try:
 #                         combinedGroupingTuple = (gkRight, gkLeft)
@@ -1226,9 +1238,11 @@ class BrailleGrandSegment(BrailleSegment, text.BrailleKeyboard):
             if ((rightKey is not None and rightKey.affinity >= Affinity.INACCORD)
                     or (leftKey is not None and leftKey.affinity >= Affinity.INACCORD)):
                 self.extractNoteGrouping() # Note or Inaccord Grouping
-#             elif rightKey.affinity == Affinity.SIGNATURE or leftKey.affinity == Affinity.SIGNATURE:
+#             elif (rightKey.affinity == Affinity.SIGNATURE 
+#                    or leftKey.affinity == Affinity.SIGNATURE):
 #                 self.extractSignatureGrouping() # Signature Grouping
-#             elif rightKey.affinity == Affinity.LONG_TEXTEXPR or leftKey.affinity == Affinity.LONG_TEXTEXPR:
+#             elif (rightKey.affinity == Affinity.LONG_TEXTEXPR 
+#                    or leftKey.affinity == Affinity.LONG_TEXTEXPR):
 #                 self.extractLongExpressionGrouping() # Long Expression Grouping
 #             elif rightKey.affinity == Affinity.TTEXT or leftKey.affinity == Affinity.TTEXT:
 #                 self.extractTempoTextGrouping() # Tempo Text Grouping
@@ -1611,6 +1625,7 @@ def prepareSlurredNotes(music21Part, **keywords):
     if not music21Part.spannerBundle:
         return 
 
+
     slurLongPhraseWithBrackets = keywords.get('slurLongPhraseWithBrackets', 
                                                   SEGMENT_SLURLONGPHRASEWITHBRACKETS)
     showShortSlursAndTiesTogether = keywords.get('showShortSlursAndTiesTogether',
@@ -1621,6 +1636,9 @@ def prepareSlurredNotes(music21Part, **keywords):
         showLongSlursAndTiesTogether = True
     else:
         showLongSlursAndTiesTogether = SEGMENT_SHOWLONGSLURSANDTIESTOGETHER
+
+    if slurLongPhraseWithBrackets is False:
+        pass
     
     allNotes = music21Part.flat.notes.stream()
     for slur in music21Part.spannerBundle.getByClass(spanner.Slur):
@@ -1960,34 +1978,36 @@ def prepareBeamedNotes(music21Measure):
     allNotesAndRests = music21Measure.notesAndRests.stream()
 
     # TODO: change these into filters on iterators
-    allNotesWithBeams = allNotes.splitByClass(
-        None, lambda sampleNote: (sampleNote.beams is not None) and len(sampleNote.beams) > 0)[0]
-    allStart = allNotesWithBeams.splitByClass(
-        None, lambda sampleNote: sampleNote.beams.getByNumber(1).type == 'start')[0]
-    allStop  = allNotesWithBeams.splitByClass(
-        None, lambda sampleNote: sampleNote.beams.getByNumber(1).type == 'stop')[0]
-    if len(allStart) != len(allStop):
+    withBeamFilter  = lambda el, unused: (el.beams is not None) and len(el.beams) > 0
+    beamStartFilter = lambda el, unused: (el.beams.getByNumber(1).type == 'start')
+    beamStopFilter  = lambda el, unused: (el.beams.getByNumber(1).type == 'stop')
+    
+    allStartIter = allNotes.iter.addFilter(withBeamFilter).addFilter(beamStartFilter)
+    allStopIter  = allNotes.iter.addFilter(withBeamFilter).addFilter(beamStopFilter)
+    
+    if len(allStartIter) != len(allStopIter):
         environRules.warn("Incorrect beaming: number of start notes != to number of stop notes.")
         return
     
-    for beamIndex in range(len(allStart)):
-        startNote = allStart[beamIndex]
-        stopNote = allStop[beamIndex]
-        startIndex = allNotesAndRests.index(startNote)
-        stopIndex = allNotesAndRests.index(stopNote)
-        delta = stopIndex - startIndex + 1
-        if delta < 3: # 2. The group must be composed of at least three notes.
-            continue
+    for beamIndex, startNote in enumerate(allStartIter):
         # Eighth notes cannot be beamed in braille (redundant, because beamed 
         # notes look like eighth notes, but nevertheless useful).
         if startNote.quarterLength == 0.5:
+            continue
+
+        stopNote = allStopIter[beamIndex]
+        startIndex = allNotesAndRests.index(startNote)
+        stopIndex = allNotesAndRests.index(stopNote)
+        
+        delta = stopIndex - startIndex + 1
+        if delta < 3: # 2. The group must be composed of at least three notes.
             continue
         # 1. All notes in the group must have precisely the same value.
         # 3. A rest of the same value may take the place of the first note in a group, 
         # but if the rest is located anywhere else, grouping may not be used.
         allNotesOfSameValue = True
         for noteIndex in range(startIndex + 1, stopIndex + 1):
-            if (allNotesAndRests[noteIndex].duration.type != startNote.duration.type
+            if (allNotesAndRests[noteIndex].quarterLength != startNote.quarterLength
                     or isinstance(allNotesAndRests[noteIndex], note.Rest)):
                 allNotesOfSameValue = False
                 break
@@ -2014,7 +2034,7 @@ def prepareBeamedNotes(music21Measure):
             beforeStartNote = allNotesAndRests[startIndex - 1]
             if (isinstance(beforeStartNote, note.Rest) 
                     and int(beforeStartNote.beat) == int(startNote.beat)
-                    and beforeStartNote.duration.type == startNote.duration.type):
+                    and beforeStartNote.quarterLength == startNote.quarterLength):
                 startNote.beamContinue = True
         except IndexError: # startNote is first note of measure.
             pass

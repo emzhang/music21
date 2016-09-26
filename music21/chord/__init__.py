@@ -150,7 +150,8 @@ class Chord(note.NotRest):
     
     >>> chord.Chord([base])
     Traceback (most recent call last):
-    ChordException: Could not process input argument <module 'music21.base' from '...base...'>
+    music21.chord.ChordException: Could not process input 
+                                    argument <module 'music21.base' from '...base...'>
 
     '''
     ### CLASS VARIABLES ###
@@ -265,8 +266,7 @@ class Chord(note.NotRest):
 
         if "duration" in keywords:
             self.duration = keywords['duration']
-        elif "type" in keywords or \
-            "quarterLength" in keywords: #dots dont cut it
+        elif "type" in keywords or "quarterLength" in keywords: #dots dont cut it
             self.duration = duration.Duration(**keywords)
 
 #        elif len(notes) > 0:
@@ -804,7 +804,7 @@ class Chord(note.NotRest):
         # if not inPlace, creates a second new chord object!
         returnObj.sortAscending(inPlace=True)
 
-        if inPlace == False:
+        if not inPlace:
             return returnObj
 
     def containsSeventh(self):
@@ -921,7 +921,7 @@ class Chord(note.NotRest):
 
         >>> chord.Chord().findRoot()
         Traceback (most recent call last):
-        ChordException: no notes in chord <music21.chord.Chord >
+        music21.chord.ChordException: no notes in chord <music21.chord.Chord >
         '''
         def rootnessFunction(rootThirdList):
             '''
@@ -1278,7 +1278,7 @@ class Chord(note.NotRest):
 
         >>> c.getVolume('G4')
         Traceback (most recent call last):
-        ChordException: the given pitch is not in the Chord: G4
+        music21.chord.ChordException: the given pitch is not in the Chord: G4
         '''
         # NOTE: pitch matching is potentially problematic if we have more than
         # one of the same pitch
@@ -1337,7 +1337,7 @@ class Chord(note.NotRest):
 
         '''
         for i in range(1, 8): ## == 1 - 7 inclusive
-            if self.hasRepeatedChordStep(i, testRoot) == True:
+            if self.hasRepeatedChordStep(i, testRoot):
                 return True
         return False
 
@@ -1508,7 +1508,7 @@ class Chord(note.NotRest):
 
         >>> GMajRepeats.inversion(3)
         Traceback (most recent call last):
-        ChordException: Could not invert chord...inversion may not exist
+        music21.chord.ChordException: Could not invert chord...inversion may not exist
 
 
         If testRoot is True then that temporary root is used instead of self.root(). 
@@ -1522,7 +1522,7 @@ class Chord(note.NotRest):
         6
         >>> dim7.inversion("six-four")
         Traceback (most recent call last):
-        ChordException: Inversion must be an integer      
+        music21.chord.ChordException: Inversion must be an integer      
 
         if you are trying to crash the system...
         
@@ -1574,7 +1574,7 @@ class Chord(note.NotRest):
 
         elif (self._inversion is None and find is True) or testRoot is not None:
             try:
-                if rootPitch == None or self.bass() == None:
+                if rootPitch is None or self.bass() is None:
                     return None
             except ChordException:
                 raise ChordException("Not a normal inversion") # can this be run?
@@ -1825,9 +1825,8 @@ class Chord(note.NotRest):
             i = interval.notesToInterval(c4.pitches[0], c4.pitches[1])
             return i.isConsonant()
         elif len(c2.pitches) == 3:
-            if (self.isMajorTriad() is True
-                or self.isMinorTriad() is True) \
-                and (self.inversion() != 2):
+            if ((self.isMajorTriad() is True or self.isMinorTriad() is True)
+                    and (self.inversion() != 2)):
                 return True
             else:
                 return False
@@ -2901,7 +2900,7 @@ class Chord(note.NotRest):
         'blue'
         >>> c.setColor('red', 'C9')
         Traceback (most recent call last):
-        ChordException: the given pitch is not in the Chord: C9
+        music21.chord.ChordException: the given pitch is not in the Chord: C9
         '''
         # assign to base
         if pitchTarget is None and len(self._notes) > 0:
@@ -3000,7 +2999,7 @@ class Chord(note.NotRest):
 
         >>> c3.setNotehead('so', 'G4')
         Traceback (most recent call last):
-        ChordException: the given pitch is not in the Chord: G4
+        music21.chord.ChordException: the given pitch is not in the Chord: G4
 
         '''
         # assign to first pitch by default
@@ -3066,7 +3065,7 @@ class Chord(note.NotRest):
         Error:
         >>> c3.setNoteheadFill(True, 'G4')
         Traceback (most recent call last):
-        ChordException: the given pitch is not in the Chord: G4
+        music21.chord.ChordException: the given pitch is not in the Chord: G4
 
         '''
         # assign to first pitch by default
@@ -3144,7 +3143,7 @@ class Chord(note.NotRest):
         Error:
         >>> c3.setStemDirection('up', 'G4')
         Traceback (most recent call last):
-        ChordException: the given pitch is not in the Chord: G4
+        music21.chord.ChordException: the given pitch is not in the Chord: G4
 
         '''
         if pitchTarget is None and len(self._notes) > 0:
@@ -3202,7 +3201,7 @@ class Chord(note.NotRest):
         
         >>> c3.setTie('stop', 'G4')
         Traceback (most recent call last):
-        ChordException: the given pitch is not in the Chord: G4
+        music21.chord.ChordException: the given pitch is not in the Chord: G4
 
         '''
         if pitchTarget is None and len(self._notes) > 0: # if no pitch
@@ -4781,19 +4780,19 @@ class Test(unittest.TestCase):
         Cq.duration.type = "quarter"
 
         chord35 = Chord([Cq])
-        self.assertEquals(chord35.duration.type, "quarter")
+        self.assertEqual(chord35.duration.type, "quarter")
 
         Dh = note.Note('D4')
         Dh.duration.type = "half"
 
         chord36 = Chord([Cq, Dh])
-        self.assertEquals(chord36.duration.type, "quarter")
+        self.assertEqual(chord36.duration.type, "quarter")
 
         chord37 = Chord([Dh, Cq])
-        self.assertEquals(chord37.duration.type, "half")
+        self.assertEqual(chord37.duration.type, "half")
 
         chord38 = Chord([Cq, Dh], type="whole")
-        self.assertEquals(chord38.duration.type, "whole")
+        self.assertEqual(chord38.duration.type, "whole")
 
     def testShortCuts(self):
         chord1 = Chord(["C#4", "E4", "G4"])

@@ -9,6 +9,21 @@
 # Copyright:    Copyright © 2011, 2016 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-----------------------------------------------------------------------------------
+'''
+This file contains some basic lookups for symbols (used where there is not much more
+logical code to deduce).
+
+
+Music21 standards generally follow Mary Turner De Garmo, 
+Introduction to Braille Music Transcription (2005) (called "degarmo" or "IMBT2005" below).
+
+Signs from other books will be accepted if
+and only if there is no conflict between them and BRL signs listed in IBMT2005.
+
+A place where other signs are found generally is 
+New International Manual of Braille Music Notation (by Bettye Krolick), which we will cite as
+"Krolick" or "krolick".
+'''
 
 import itertools
 
@@ -51,99 +66,61 @@ def makeBrailleDictionary():
         i += 1
     return braille_dict
 
+
 _B = makeBrailleDictionary()
 
-c = {'128th':   _B[145],
-     '64th':    _B[1456],
-     '32nd':    _B[1345],
-     '16th':    _B[13456],
-     'eighth':  _B[145],
-     'quarter': _B[1456],
-     'half':    _B[1345],
-     'whole':   _B[13456],
-     'breve':   _B[13456] + _B[45] + _B[14] + _B[13456],
-     'longa':   _B[13456] + _B[45] + _B[14] + _B[45] + _B[14] + _B[13456],
-     }
+def dotsAdd(dotIter):
+    u'''
+    takes in an iterable of dots and returns them added together.
+    
+    >>> print(braille.lookup.dotsAdd([12, 3, 4]))
+    ⠏
 
-d = {'128th':   _B[15],
-     '64th':    _B[156],
-     '32nd':    _B[135],
-     '16th':    _B[1356],
-     'eighth':  _B[15],
-     'quarter': _B[156],
-     'half':    _B[135],
-     'whole':   _B[1356],
-     'breve':   _B[1356] + _B[45] + _B[14] + _B[1356],
-     'longa':   _B[1356] + _B[45] + _B[14] + _B[45] + _B[14] + _B[1356],     
-     }
+    Order does not matter:
+    
+    >>> print(braille.lookup.dotsAdd([4, 31, 2]))
+    ⠏    
+    '''
+    dotsOut = []
+    for n in dotIter:
+        nStr = str(n)
+        for nSub in nStr:
+            if nSub == '0':
+                continue # skip zeros
+            dotsOut.append(int(nSub))
+    dotsOut.sort()
+    return _B[int(''.join(str(d) for d in dotsOut))]
 
-e = {'128th':   _B[124],
-     '64th':    _B[1246],
-     '32nd':    _B[1234],
-     '16th':    _B[12346],
-     'eighth':  _B[124],
-     'quarter': _B[1246],
-     'half':    _B[1234],
-     'whole':   _B[12346],
-     'breve':   _B[12346] + _B[45] + _B[14] + _B[12346],
-     'longa':   _B[12346] + _B[45] + _B[14] + _B[45] + _B[14] + _B[12346],     
-     }
-
-f = {'128th':   _B[1245],
-     '64th':    _B[12456],
-     '32nd':    _B[12345],
-     '16th':    _B[123456],
-     'eighth':  _B[1245],
-     'quarter': _B[12456],
-     'half':    _B[12345],
-     'whole':   _B[123456],
-     'breve':   _B[123456] + _B[45] + _B[14] + _B[123456],
-     'longa':   _B[123456] + _B[45] + _B[14] + _B[45] + _B[14] + _B[123456],     
-     }
-
-g = {'128th':   _B[125],
-     '64th':    _B[1256],
-     '32nd':    _B[1235],
-     '16th':    _B[12356],
-     'eighth':  _B[125],
-     'quarter': _B[1256],
-     'half':    _B[1235],
-     'whole':   _B[12356],
-     'breve':   _B[12356] + _B[45] + _B[14] + _B[12356],
-     'longa':   _B[12356] + _B[45] + _B[14] + _B[45] + _B[14] + _B[12356],
-     }
-
-a = {'128th':   _B[24],
-     '64th':    _B[246],
-     '32nd':    _B[234],
-     '16th':    _B[2346],
-     'eighth':  _B[24],
-     'quarter': _B[246],
-     'half':    _B[234],
-     'whole':   _B[2346],
-     'breve':   _B[2346] + _B[45] + _B[14] + _B[2346],
-     'longa':   _B[2346] + _B[45] + _B[14] + _B[45] + _B[14] + _B[2346],     
-     }
-
-b = {'128th':   _B[245],
-     '64th':    _B[2456],
-     '32nd':    _B[2345],
-     '16th':    _B[23456],
-     'eighth':  _B[245],
-     'quarter': _B[2456],
-     'half':    _B[2345],
-     'whole':   _B[23456],
-     'breve':   _B[23456] + _B[45] + _B[14] + _B[23456],
-     'longa':   _B[23456] + _B[45] + _B[14] + _B[45] + _B[14] + _B[23456],
-     }
-
-pitchNameToNotes = {'C': c,
-                    'D': d,
-                    'E': e,
-                    'F': f,
-                    'G': g,
-                    'A': a,
-                    'B': b}
+def makePitchNameToNotes():
+    stepNames = {'C': 145,
+            'D': 15,
+            'E': 124,
+            'F': 1245,
+            'G': 125,
+            'A': 24,
+            'B': 245,
+            }
+    durationTypes = {'128th': 0,
+              '64th': 6,
+              '32nd': 3,
+              '16th': 36,
+              'eighth': 0,
+              'quarter': 6,
+              'half': 3,
+              'whole': 36              
+              }
+    stepDicts = {}
+    for step in stepNames:
+        stepDictSingle = {}
+        for duration in durationTypes:
+            stepDictSingle[duration] = dotsAdd([stepNames[step], durationTypes[duration]])
+        whole = stepDictSingle['whole'] 
+        stepDictSingle['breve'] = whole + _B[45] + _B[14] + whole
+        stepDictSingle['longa'] = whole + _B[45] + _B[14] + _B[45] + _B[14] + whole
+        stepDicts[step] = stepDictSingle
+    return stepDicts
+        
+pitchNameToNotes = makePitchNameToNotes()
 
 _lowOctave = _B[4]
 _highOctave = _B[6]
@@ -213,7 +190,7 @@ naturals = {0: u'',
             6: _B[3456] + _B[124] + _B[16],
             7: _B[3456] + _B[1245] + _B[16]}
 
-numbers = {0: _B[245],
+numbersUpper = {0: _B[245],
            1: _B[1],
            2: _B[12],
            3: _B[14],
@@ -223,17 +200,16 @@ numbers = {0: _B[245],
            7: _B[1245],
            8: _B[125],
            9: _B[24]}
-
-# these are NOT the same as the numbers above. -- digits are dropped one cell:
-beatUnits = {1: _B[2],
-             2: _B[23],
-             4: _B[256],
-             8: _B[236],
-             16: _B[2] + _B[235],
-             32: _B[25] + _B[23],
-             64: _B[235] + _B[256],
-             128: _B[2] + _B[23] + _B[236],  
-             }
+numbersLower = {0: _B[356],
+           1: _B[2],
+           2: _B[23],
+           3: _B[25],
+           4: _B[256],
+           5: _B[26],
+           6: _B[235],
+           7: _B[2356],
+           8: _B[236],
+           9: _B[35]}
 
 rests = {'dummy':   _B[3],
          '128th':   _B[1346],
@@ -247,6 +223,13 @@ rests = {'dummy':   _B[3],
          'breve':   _B[134] + _B[45] + _B[14] + _B[134],
          'longa':   _B[134] + _B[45] + _B[14] + _B[45] + _B[14] + _B[134],         
          }
+
+lengthPrefixes = {
+        'larger': _B[45] + _B[126] + _B[2], # whole to eighth inclusive + longer (degarmo 15)
+        'smaller': _B[6] + _B[126] + _B[2], # 16th to 128th inclusive
+        'xsmall': _B[56] + _B[126] + _B[2], # 256th notes + presumably shorter?
+                  
+        }
 
 barlines = {'final': _B[126] + _B[13],
             'double':_B[126] + _B[13] + _B[3],
@@ -322,33 +305,44 @@ alphabet = {'a': _B[1],
             'x': _B[1346],
             'y': _B[13456],
             'z': _B[1356],
+            ' ': _B[0],
             '!': _B[235],
-            '\'': _B[3],
+            "'": _B[3],
             ',': _B[2],
             '-': _B[356],
             '.': _B[256],
+            '/': _B[34],
+            ':': _B[25],
             '?': _B[236],
             '(': _B[2356],
-            ')': _B[2356]}
+            ')': _B[2356],
+            '[': _B[6] + _B[2356],
+            ']': _B[2356] + _B[3],
+            '*': _B[35] + _B[35],
+            }
+alphabet.update(numbersUpper)
 
 symbols = {'space': _B[0],
            'double_space': _B[0] + _B[0],
            'number': _B[3456],
+           'letter_sign': _B[56],
            'dot': _B[3],
            'tie': _B[4] + _B[14],
            'uppercase': _B[6],
            'metronome': _B[2356],
            'common': _B[46] + _B[14],
            'cut': _B[456] + _B[14],
-           'music_hyphen': _B[5], # or transcriber-added sign
+           'music_hyphen': _B[5], 
+           'transcriber-added_sign': _B[5], # same as music hyphen. degarmo chp 5; GT N. 9, 4.1, 5.2
            'music_asterisk': _B[345] + _B[26] + _B[35],
            'rh_keyboard': _B[46] + _B[345],
            'lh_keyboard': _B[456] + _B[345],
            'word': _B[345],
            'triplet': _B[23],
-           'finger_change': _B[14],
-           'first_set_missing_fingermark': _B[6],
-           'second_set_missing_fingermark': _B[3],
+           'tuplet_prefix': _B[456], # irregular-grouping prefix
+           'finger_change': _B[14], # [14.2; Degarmo Example 9-4]
+           'first_set_missing_fingermark': _B[6], # [Degarmo 9-6]
+           'second_set_missing_fingermark': _B[3], # [Degarmo 9-6]
            'opening_single_slur': _B[14],
            'opening_double_slur': _B[14] + _B[14],
            'closing_double_slur': _B[14],
@@ -358,7 +352,16 @@ symbols = {'space': _B[0],
            'full_inaccord': _B[126] + _B[345],
            'repeat': _B[2356],
            'print-pagination': _B[5] + _B[25], # used to indicate page turnover for sighted
+           'braille-music-parenthesis': _B[6] + _B[3] # [T17, 17.6, degarmo chp. 10]
            }
+
+fermatas = {'shape': {'normal': _B[126] + _B[123],
+                      'angled': _B[45] + _B[126] + _B[123],
+                      'square': _B[56] + _B[126] + _B[123],
+                      },
+            'on barline': _B[456],
+            'between notes': _B[5],
+            }
 
 ascii_chars = {_B[0]: ' ',
                _B[1]: 'A',

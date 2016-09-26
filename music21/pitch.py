@@ -29,6 +29,10 @@ from music21 import interval
 from music21.common import SlottedObjectMixin
 from music21.ext import six
 
+if six.PY2:
+    # pylint: disable=redefined-builtin
+    from music21.common import py3round as round
+
 from music21 import environment
 _MOD = "pitch.py"
 environLocal = environment.Environment(_MOD)
@@ -375,7 +379,7 @@ def _convertHarmonicToCents(value):
     '''
     if value < 0: #subharmonics
         value = 1 / (abs(value))
-    return int(round(1200 * math.log(value, 2), 0))
+    return round(1200 * math.log(value, 2))
 
 #------------------------------------------------------------------------------
 
@@ -397,7 +401,7 @@ def _dissonanceScore(pitches, smallPythagoreanRatio=True, accidentalPenalty=True
     if accidentalPenalty:
         # score_accidentals = accidentals per pitch
         accidentals = [abs(p.alter) for p in pitches]
-        score_accidentals = sum(a if a>1 else 0 for a in accidentals) / len(pitches)
+        score_accidentals = sum(a if a > 1 else 0 for a in accidentals) / len(pitches)
 
     if smallPythagoreanRatio:
         # score_ratio = Pythagorean ratio complexity per pitch
@@ -406,13 +410,13 @@ def _dissonanceScore(pitches, smallPythagoreanRatio=True, accidentalPenalty=True
             try:
                 this_interval = interval.Interval(noteStart=p1,  noteEnd=p2)
                 ratio = interval.intervalToPythagoreanRatio(this_interval)
-                penalty = math.log(ratio.numerator * ratio.denominator /
-                    ratio)  / 26.366694928034633 # d2 is 1.0
+                penalty = (math.log(ratio.numerator * ratio.denominator / ratio)  
+                                        / 26.366694928034633) # d2 is 1.0
                 score_ratio += penalty
             except interval.IntervalException:
                 return float('inf')
 
-        score_ratio /= len(pitches)
+        score_ratio = score_ratio / len(pitches)
 
     if triadAward:
         # score_traid = number of thirds per pitch (avoid double-base-thirds)
@@ -637,9 +641,9 @@ class Microtone(SlottedObjectMixin):
         # cent values may be of any resolution, but round to nearest int
 
         if self._centShift >= 0:
-            sub = '+%sc' % int(round(self._centShift))
+            sub = '+%sc' % round(self._centShift)
         elif self._centShift < 0:
-            sub = '%sc' % int(round(self._centShift))
+            sub = '%sc' % round(self._centShift)
             if sub == '0c':
                 sub = '-0c'
         # only show a harmonic if present
@@ -1857,7 +1861,7 @@ class Pitch(object):
         while midiDistance > 11.0:
             midiDistance -= 12.0
         
-        return int(round(midiDistance * 100))
+        return round(midiDistance * 100)
 
 
     @property
@@ -1983,9 +1987,6 @@ class Pitch(object):
             return None
         else:
             return returnObj
-
-
-
 
     #---------------------------------------------------------------------------
 
@@ -2153,7 +2154,7 @@ class Pitch(object):
         midi values are constrained within the range of 0 to 127
         floating point values,
         '''
-        value = int(round(value))
+        value = round(value)
         if value > 127:
             value = (12 * 9) + (value % 12) # highest oct plus modulus
             if value < (127-12):
@@ -2360,7 +2361,7 @@ class Pitch(object):
         >>> a.nameWithOctave = 'C#9'
         >>> a.nameWithOctave = 'C#'
         Traceback (most recent call last):
-        PitchException: Cannot set a nameWithOctave with 'C#'
+        music21.pitch.PitchException: Cannot set a nameWithOctave with 'C#'
         '''
         try:
             lenVal = len(value)
@@ -2511,7 +2512,7 @@ class Pitch(object):
         >>> b = pitch.Pitch('E4')
         >>> b.step = "B-"
         Traceback (most recent call last):
-        PitchException: Cannot make a step out of 'B-'
+        music21.pitch.PitchException: Cannot make a step out of 'B-'
 
         This is okay though:
 
@@ -2526,7 +2527,7 @@ class Pitch(object):
             return self.step + str(self.octave)
 
     def _getPitchClass(self):
-        pc = int(round(self.ps) % 12)
+        pc = round(self.ps) % 12
         if pc == 12:
             pc = 0
         return pc
@@ -2724,7 +2725,7 @@ class Pitch(object):
     @property
     def german(self):
         u'''
-        Read-only property. Returns the name
+        Read-only property. Returns a unicode string of the name
         of a Pitch in the German system
         (where B-flat = B, B = H, etc.)
         (Microtones and Quartertones raise an error).  Note that
@@ -2745,7 +2746,7 @@ class Pitch(object):
         >>> p1.accidental = pitch.Accidental('half-sharp')
         >>> p1.german
         Traceback (most recent call last):
-        PitchException: Es geht nicht "german" zu benutzen mit Microt...nen.  Schade!
+        music21.pitch.PitchException: Es geht nicht "german" zu benutzen mit Microt...nen.  Schade!
 
         Note these rarely used pitches:
 
@@ -2760,6 +2761,7 @@ class Pitch(object):
             tempAlter = 0
         tempStep = self.step
         if six.PY2:
+            # pylint: disable=undefined-variable
             tempStep = unicode(tempStep) # @UndefinedVariable
 
         if tempAlter != int(tempAlter):
@@ -2808,7 +2810,7 @@ class Pitch(object):
         >>> p1.accidental = pitch.Accidental('half-sharp')
         >>> p1.italian
         Traceback (most recent call last):
-        PitchException: Non si puo usare `italian` con microtoni
+        music21.pitch.PitchException: Non si puo usare `italian` con microtoni
 
         Note these rarely used pitches:
 
@@ -2894,7 +2896,7 @@ class Pitch(object):
         >>> p1.accidental = pitch.Accidental('half-sharp')
         >>> p1.spanish
         Traceback (most recent call last):
-        PitchException: Unsupported accidental type.
+        music21.pitch.PitchException: Unsupported accidental type.
 
         Note these rarely used pitches:
 
@@ -2943,7 +2945,8 @@ class Pitch(object):
         >>> p1.accidental = pitch.Accidental('half-sharp')
         >>> p1.french
         Traceback (most recent call last):
-        PitchException: On ne peut pas utiliser les microtones avec "french." Quelle Dommage!        
+        music21.pitch.PitchException: On ne peut pas utiliser les microtones avec "french." 
+            Quelle Dommage!        
         '''
         if self.accidental is not None:
             tempAlter = self.accidental.alter
@@ -2952,6 +2955,7 @@ class Pitch(object):
         tempStep = self.step
 
         if six.PY2:
+            # pylint: disable=undefined-variable
             tempStep = unicode(tempStep) # @UndefinedVariable
         
         if tempAlter != int(tempAlter):

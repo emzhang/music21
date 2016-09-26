@@ -1845,8 +1845,7 @@ class LyTempoRange(LyObject):
         if self.highestTempoOrNone is None:
             return str(self.lowestOrOnlyTempo) + ' '
         else:
-            return str(self.lowestOrOnlyTempo) + '~' + \
-                str(self.highestTempoOrNone) + ' '
+            return str(self.lowestOrOnlyTempo) + '~' + str(self.highestTempoOrNone) + ' '
 
 class LyNumberExpression(LyObject):
     '''
@@ -2095,6 +2094,7 @@ class Test(unittest.TestCase):
 
 ##-------Main-------------##
 if __name__ == '__main__':
+    # pylint: disable=ungrouped-imports
     import music21
     music21.mainTest(Test)
 

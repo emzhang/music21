@@ -56,9 +56,9 @@ _MOD = "musicxml.m21ToXml"
 environLocal = environment.Environment(_MOD)
 
 #-------------------------------------------------------------------------------
-class ToMxObjectsException(exceptions21.Music21Exception):
+class MusicXMLExportException(exceptions21.Music21Exception):
     pass
-class NoteheadException(ToMxObjectsException):
+class NoteheadException(MusicXMLExportException):
     pass
 
     
@@ -76,7 +76,7 @@ def typeToMusicXMLType(value):
     if value == 'longa': 
         return 'long'
     elif value == '2048th':
-        raise ToMxObjectsException('Cannot convert "2048th" duration to MusicXML (too short).')
+        raise MusicXMLExportException('Cannot convert "2048th" duration to MusicXML (too short).')
     else:
         return value
 
@@ -154,6 +154,36 @@ def normalizeColor(color):
     else:
         return color.upper()
 
+def getMetadataFromContext(s):
+    '''
+    Get metadata from site or context.
+    
+    >>> s = stream.Stream()
+    >>> s2 = s.transpose(4)
+    >>> md = metadata.Metadata()
+    >>> md.title = 'emptiness'
+    >>> s.metadata = md
+    >>> s2.metadata is None
+    True
+    >>> musicxml.m21ToXml.getMetadataFromContext(s2).title
+    'emptiness'
+    >>> musicxml.m21ToXml.getMetadataFromContext(s).title
+    'emptiness'
+    >>> p = stream.Part()
+    >>> s2.insert(0, p)
+    >>> musicxml.m21ToXml.getMetadataFromContext(p).title
+    'emptiness'
+    '''
+    # get metadata from context.
+    md = s.metadata
+    if md is not None:
+        return md
+    
+    for contextSite in s.contextSites():
+        if contextSite.site.metadata is not None:
+            md = contextSite.site.metadata
+            break
+    return md
 
 def _setTagTextFromAttribute(m21El, xmlEl, tag, attributeName=None, 
                              transform=None, forceEmpty=False):
@@ -385,7 +415,7 @@ class GeneralObjectExporter():
                 outObj = meth(obj)
                 break
         if outObj is None:
-            raise ToMxObjectsException("Cannot translate the object " + 
+            raise MusicXMLExportException("Cannot translate the object " + 
                 "%s to a complete musicXML document; put it in a Stream first!" % self.generalObj)
         return outObj
 
@@ -407,6 +437,7 @@ class GeneralObjectExporter():
         # p.makeImmutable()  # impossible, we haven't made notation yet.
         s = stream.Score()
         s.insert(0, p)
+        s.metadata = copy.deepcopy(getMetadataFromContext(p))
 #         if p.metadata is not None:
 #             s.insert(0.0, copy.deepcopy(p.metadata))
         
@@ -425,6 +456,7 @@ class GeneralObjectExporter():
         mCopy.clef = mCopy.bestClef()  
         p = stream.Part()
         p.append(mCopy)
+        p.metadata = copy.deepcopy(getMetadataFromContext(m))
         return self.fromPart(p)
     
     def fromVoice(self, v):
@@ -439,19 +471,25 @@ class GeneralObjectExporter():
             st2.elements = copy.deepcopy(st)
             st2.clef = st2.bestClef()
             st2.makeNotation(inPlace=True)
+            st2.metadata = copy.deepcopy(getMetadataFromContext(st))
             return self.fromPart(st2)
+
         elif st.hasPartLikeStreams():
             st2 = stream.Score()
             st2.mergeAttributes(st)
             st2.elements = copy.deepcopy(st)
             st2.makeNotation(inPlace=True)
+            st2.metadata = copy.deepcopy(getMetadataFromContext(st))
             return self.fromScore(st2)
+
         elif st.getElementsByClass('Stream')[0].isFlat: # like a part w/ measures...
             st2 = stream.Part()
             st2.mergeAttributes(st)
             st2.elements = copy.deepcopy(st)
             st2.makeNotation(inPlace=True, bestClef=True)
+            st2.metadata = copy.deepcopy(getMetadataFromContext(st))
             return self.fromPart(st2)
+
         else:
             # probably a problem? or a voice...
             st2 = st.makeNotation(inPlace=False, bestClef=True)
@@ -1141,7 +1179,7 @@ class ScoreExporter(XMLExporterBase):
         for innerStream in sp:
             count += 1
             if count > len(sp):
-                raise ToMxObjectsException('infinite stream encountered')
+                raise MusicXMLExportException('infinite stream encountered')
 
             pp = PartExporter(innerStream, parent=self)
             pp.parse()
@@ -1197,8 +1235,7 @@ class ScoreExporter(XMLExporterBase):
         s = self.stream
         # create score and part list
         # set some score header information from metadata
-        if s.metadata != None:
-            self.scoreMetadata = s.metadata
+        self.scoreMetadata = getMetadataFromContext(s)
     
         self.setTitles()
         self.setIdentification()
@@ -1574,22 +1611,68 @@ class ScoreExporter(XMLExporterBase):
         # creators
         foundOne = False
         if self.scoreMetadata is not None:
-            for c in self.scoreMetadata._contributors:
+            for c in self.scoreMetadata.contributors:
                 mxCreator = self.contributorToXmlCreator(c)
                 mxId.append(mxCreator)
                 foundOne = True
+                
         if foundOne is False:
             mxCreator = SubElement(mxId, 'creator')
             mxCreator.set('type', 'composer')
             mxCreator.text = defaults.author
         
         # TODO: rights.
+        
+        # Encoding does its own append...
         self.setEncoding()
         # TODO: source
         # TODO: relation
         # TODO: miscellaneous
+        self.metadataToMiscellaneous()
+        
         return mxId
         
+        
+    def metadataToMiscellaneous(self, md=None):
+        '''
+        Returns an mxMiscellaneous of information from metadata object md or
+        from self.scoreMetadata if md is None.  If the mxMiscellaneous object
+        has any miscellaneous-fields, then it is appended to self.mxIdentification
+        if it exists.
+        
+        >>> SX = musicxml.m21ToXml.ScoreExporter()
+        >>> md = metadata.Metadata()
+        >>> md.date = metadata.primitives.DateRelative('1689', 'onOrBefore')
+        >>> md.localeOfComposition = 'Rome'
+        
+        >>> mxMisc = SX.metadataToMiscellaneous(md)
+        >>> SX.dump(mxMisc)
+        <miscellaneous>
+          <miscellaneous-field name="date">1689/--/-- or earlier</miscellaneous-field>
+          <miscellaneous-field name="localeOfComposition">Rome</miscellaneous-field>
+        </miscellaneous>               
+        '''
+        if md is None and self.scoreMetadata is None:
+            return None
+        elif md is None:
+            md = self.scoreMetadata
+                        
+        mxMiscellaneous = Element('miscellaneous')
+
+        foundOne = False                    
+        for name, value in md.all(skipContributors=True):
+            if name in ('movementName', 'movementNumber', 'title'):
+                continue
+            mxMiscField = SubElement(mxMiscellaneous, 'miscellaneous-field')
+            mxMiscField.set('name', name)
+            mxMiscField.text = value
+            foundOne = True
+
+        if self.mxIdentification is not None and foundOne:
+            self.mxIdentification.append(mxMiscellaneous)
+        
+        # for testing:
+        return mxMiscellaneous
         
     def setEncoding(self):
         '''
@@ -1704,15 +1787,15 @@ class ScoreExporter(XMLExporterBase):
         Return a <creator> tag from a :class:`~music21.metadata.Contributor` object.
     
         >>> md = metadata.Metadata()
-        >>> md.composer = 'frank'
-        >>> contrib = md._contributors[0]
+        >>> md.composer = 'Oliveros, Pauline'
+        >>> contrib = md.contributors[0]
         >>> contrib
-        <music21.metadata.primitives.Contributor object at 0x...>
+        <music21.metadata.primitives.Contributor composer:Oliveros, Pauline>
         
         >>> SX = musicxml.m21ToXml.ScoreExporter()
         >>> mxCreator = SX.contributorToXmlCreator(contrib)
         >>> SX.dump(mxCreator) 
-        <creator type="composer">frank</creator>
+        <creator type="composer">Oliveros, Pauline</creator>
         '''
         mxCreator = Element('creator')
         if c.role is not None:
@@ -1797,7 +1880,7 @@ class PartExporter(XMLExporterBase):
         if firstInstId in instIdList or firstInstId is None: # must have unique ids 
             self.firstInstrumentObject.partIdRandomize() # set new random id
 
-        if (self.firstInstrumentObject.midiChannel == None
+        if (self.firstInstrumentObject.midiChannel is None
             or self.firstInstrumentObject.midiChannel in self.midiChannelList):
             try:
                 self.firstInstrumentObject.autoAssignMidiChannel(usedChannels=self.midiChannelList)
@@ -1952,7 +2035,7 @@ class PartExporter(XMLExporterBase):
     def instrumentToXmlMidiInstrument(self, i):
         mxMidiInstrument = Element('midi-instrument')
         mxMidiInstrument.set('id', str(i.instrumentId))
-        if i.midiChannel == None:
+        if i.midiChannel is None:
             i.autoAssignMidiChannel()
             # TODO: allocate channels from a higher level
         mxMidiChannel = SubElement(mxMidiInstrument, 'midi-channel')
@@ -2171,29 +2254,32 @@ class MeasureExporter(XMLExporterBase):
 
         for m21spannerClass, infoTuple in paramsSet.items():
             mxtag, parameterSet = infoTuple
-            for su in spannerBundle.getByClass(m21spannerClass):
-                for posSub in getProc(su, target):
+            for thisSpanner in spannerBundle.getByClass(m21spannerClass):
+                for posSub in getProc(thisSpanner, target):
                     # create new tag
                     mxElement = Element(mxtag)
-                    mxElement.set('number', str(su.idLocal))
+                    mxElement.set('number', str(thisSpanner.idLocal))
                     if m21spannerClass == 'Line':
-                        mxElement.set('line-type', str(su.lineType))
+                        mxElement.set('line-type', str(thisSpanner.lineType))
                     
-                    if posSub == 'first':
-                        pmtrs = su.getStartParameters()
-                    elif posSub == 'last':
-                        pmtrs = su.getEndParameters()
+                    if posSub == 'first': # TODO: getStartParameters and getEndParamters
+                        pmtrs = thisSpanner.getStartParameters()
+                    elif posSub == 'last': # should be defined here, not in spanner.py
+                        pmtrs = thisSpanner.getEndParameters()
                     else:
-                        pmtrs = None
+                        pmtrs = {}
                         
-                    if pmtrs is not None:
+                    if 'type' in pmtrs:
                         mxElement.set('type', str(pmtrs['type']))
-                        for attrName in parameterSet:
-                            if pmtrs[attrName] is not None:
-                                mxElement.set(attrName, str(pmtrs[attrName]))
+                        
+                    for attrName in parameterSet:
+                        if attrName in pmtrs and pmtrs[attrName] is not None:
+                            mxElement.set(attrName, str(pmtrs[attrName]))
+                    
                     mxDirection = Element('direction')
-                    if su.placement is not None:
-                        mxDirection.set('placement', str(su.placement))
+                    # Not all spanners have placements
+                    if hasattr(thisSpanner, 'placement') and thisSpanner.placement is not None:
+                        mxDirection.set('placement', str(thisSpanner.placement))
                     mxDirectionType = SubElement(mxDirection, 'direction-type')
                     mxDirectionType.append(mxElement)
                     
@@ -2648,7 +2734,7 @@ class MeasureExporter(XMLExporterBase):
         mxNote = self.noteToXml(r)
         mxRestTag = mxNote.find('rest')
         if mxRestTag is None:
-            raise ToMxObjectsException("Something went wrong -- converted rest w/o rest tag")
+            raise MusicXMLExportException("Something went wrong -- converted rest w/o rest tag")
 
         isFullMeasure = False
         if r.fullMeasure in (True, "always"):
@@ -2822,17 +2908,29 @@ class MeasureExporter(XMLExporterBase):
         <time-modification>
           <actual-notes>11</actual-notes>
           <normal-notes>8</normal-notes>
-          <normal-type>eighth</normal-type>
         </time-modification>
+
+        >>> t.setDurationType('eighth', dots=2)
+        >>> mxTimeMod = MEX.tupletToTimeModification(t)
+        >>> MEX.dump(mxTimeMod)
+        <time-modification>
+          <actual-notes>11</actual-notes>
+          <normal-notes>8</normal-notes>
+          <normal-type>eighth</normal-type>
+          <normal-dot />
+          <normal-dot />
+        </time-modification>
+        
         '''
         mxTimeModification = Element('time-modification')
         _setTagTextFromAttribute(tup, mxTimeModification, 'actual-notes', 'numberNotesActual')
         _setTagTextFromAttribute(tup, mxTimeModification, 'normal-notes', 'numberNotesNormal')
-        mxNormalType = SubElement(mxTimeModification, 'normal-type')
-        mxNormalType.text = typeToMusicXMLType(tup.durationNormal.type)
-        if tup.durationNormal.dots > 0:
-            for i in range(tup.durationNormal.dots):
-                SubElement(mxTimeModification, 'normal-dot')
+        if tup.durationNormal is not None:
+            mxNormalType = SubElement(mxTimeModification, 'normal-type')
+            mxNormalType.text = typeToMusicXMLType(tup.durationNormal.type)
+            if tup.durationNormal.dots > 0:
+                for i in range(tup.durationNormal.dots):
+                    SubElement(mxTimeModification, 'normal-dot')
                 
         return mxTimeModification
     
@@ -2850,7 +2948,6 @@ class MeasureExporter(XMLExporterBase):
         '''
         foundANotehead = False
         if (hasattr(n, 'notehead') 
-                # TODO: restore... needed for complete compatibility with toMxObjects...
             and (n.notehead != 'normal'
                  or n.noteheadParenthesis
                  or n.noteheadFill is not None
@@ -2861,7 +2958,6 @@ class MeasureExporter(XMLExporterBase):
             mxNote.append(mxNotehead)
         if foundANotehead is False and chordParent is not None:
             if (hasattr(chordParent, 'notehead')
-                    # TODO: restore... needed for complete compatibility with toMxObjects...
                 and (chordParent.notehead != 'normal'
                      or chordParent.noteheadParenthesis
                      or chordParent.noteheadFill is not None
@@ -3109,7 +3205,7 @@ class MeasureExporter(XMLExporterBase):
             return []
         
         if tuplet.type not in ('start', 'stop', 'startStop'):
-            raise ToMxObjectsException(
+            raise MusicXMLExportException(
                 "Cannot create music XML from a tuplet of type " + tuplet.type)
 
         if tuplet.type == 'startStop': # need two musicxml
@@ -3159,6 +3255,10 @@ class MeasureExporter(XMLExporterBase):
         >>> mxExpression = MEX.expressionToXml(f)
         >>> MEX.dump(mxExpression)
         <fermata type="inverted" />
+        >>> f.shape = 'angled'
+        >>> mxExpression = MEX.expressionToXml(f)
+        >>> MEX.dump(mxExpression)
+        <fermata type="inverted">angled</fermata>
         
         >>> t = expressions.Tremolo()
         >>> t.numberOfMarks = 4
@@ -3202,7 +3302,8 @@ class MeasureExporter(XMLExporterBase):
             mx.set('placement', expression.placement)
         if 'Fermata' in classes:
             mx.set('type', str(expression.type))
-        
+            if expression.shape in ('angled', 'square'): # only valid shapes
+                mx.text = expression.shape
         
         if 'Tremolo' in classes:
             mx.set('type', 'single')
@@ -3248,7 +3349,7 @@ class MeasureExporter(XMLExporterBase):
                 break
         if musicXMLArticulationName is None:
             musicXMLArticulationName = 'other-articulation'
-            #raise ToMxObjectsException("Cannot translate %s to musicxml" % articulationMark)
+            #raise MusicXMLExportException("Cannot translate %s to musicxml" % articulationMark)
         mxArticulationMark = Element(musicXMLArticulationName)
         mxArticulationMark.set('placement', articulationMark.placement)
         self.setPosition(articulationMark, mxArticulationMark)
@@ -3294,7 +3395,7 @@ class MeasureExporter(XMLExporterBase):
                 musicXMLTechnicalName = xmlObjects.TECHNICAL_MARKS_REV[c]
                 break
         if musicXMLTechnicalName is None:
-            raise ToMxObjectsException(
+            raise MusicXMLExportException(
                 "Cannot translate technical indication %s to musicxml" % articulationMark)
         mxTechnicalMark = Element(musicXMLTechnicalName)
         mxTechnicalMark.set('placement', articulationMark.placement)
@@ -3330,13 +3431,13 @@ class MeasureExporter(XMLExporterBase):
         <harmony>
           <root>
             <root-step>E</root-step>
-            <root-alter>-1.0</root-alter>
+            <root-alter>-1</root-alter>
           </root>
           <kind text="M">major</kind>
           <inversion>2</inversion>
           <bass>
             <bass-step>B</bass-step>
-            <bass-alter>-1.0</bass-alter>
+            <bass-alter>-1</bass-alter>
           </bass>
         </harmony>        
         
@@ -3352,7 +3453,7 @@ class MeasureExporter(XMLExporterBase):
           <inversion>2</inversion>
           <bass>
             <bass-step>B</bass-step>
-            <bass-alter>-1.0</bass-alter>
+            <bass-alter>-1</bass-alter>
           </bass>
         </harmony>
      
@@ -3370,7 +3471,7 @@ class MeasureExporter(XMLExporterBase):
           <inversion>2</inversion>
           <bass>
             <bass-step>B</bass-step>
-            <bass-alter>-1.0</bass-alter>
+            <bass-alter>-1</bass-alter>
           </bass>
           <degree>
             <degree-value>3</degree-value>
@@ -3461,7 +3562,7 @@ class MeasureExporter(XMLExporterBase):
                     
             if csRoot.accidental is not None:
                 mxAlter = SubElement(mxRoot, 'root-alter')
-                mxAlter.text = str(csRoot.accidental.alter)
+                mxAlter.text = str(common.numToIntOrFloat(csRoot.accidental.alter))
                 # TODO: attrGroup: print-object (why here)??
                 # TODO: attrGroup: print-style
                 # TODO: attr: location (left, right)
@@ -3500,7 +3601,7 @@ class MeasureExporter(XMLExporterBase):
                     
             if csBass.accidental is not None:
                 mxAlter = SubElement(mxBass, 'bass-alter')
-                mxAlter.text = str(csBass.accidental.alter)
+                mxAlter.text = str(common.numToIntOrFloat(csBass.accidental.alter))
                 # TODO: attrGroup: print-object (why here)??
                 # TODO: attrGroup: print-style
                 # TODO: attr: location (left, right)       
@@ -3956,12 +4057,13 @@ class MeasureExporter(XMLExporterBase):
         >>> a.direction = None
         >>> b = MEX.beamToXml(a)
         Traceback (most recent call last):
-        ToMxObjectsException: partial beam defined without a proper direction set (set to None)
+        music21.musicxml.m21ToXml.MusicXMLExportException: partial beam defined 
+            without a proper direction set (set to None)
     
         >>> a.type = 'crazy'
         >>> b = MEX.beamToXml(a)
         Traceback (most recent call last):
-        ToMxObjectsException: unexpected beam type encountered (crazy)
+        music21.musicxml.m21ToXml.MusicXMLExportException: unexpected beam type encountered (crazy)
         '''
         mxBeam = Element('beam')
         if beamObject.type == 'start':
@@ -3976,11 +4078,11 @@ class MeasureExporter(XMLExporterBase):
             elif beamObject.direction == 'right':
                 mxBeam.text = 'forward hook'
             else:
-                raise ToMxObjectsException(
+                raise MusicXMLExportException(
                     'partial beam defined without a proper direction set (set to %s)' % 
                     beamObject.direction)
         else:
-            raise ToMxObjectsException('unexpected beam type encountered (%s)' % beamObject.type)
+            raise MusicXMLExportException('unexpected beam type encountered (%s)' % beamObject.type)
     
         mxBeam.set('number', str(beamObject.number))
         # not todo: repeater (deprecated)
@@ -4138,6 +4240,10 @@ class MeasureExporter(XMLExporterBase):
                 mxAttributes.append(self.keySignatureToXml(m.keySignature))
             if m.timeSignature is not None:
                 mxAttributes.append(self.timeSignatureToXml(m.timeSignature))
+            smts = list(m.getElementsByClass('SenzaMisuraTimeSignature'))
+            if smts:
+                mxAttributes.append(self.timeSignatureToXml(smts[0]))
+                
             # TODO: staves (piano staff...)
             # TODO: part-symbol
             # TODO: instruments
@@ -4152,12 +4258,61 @@ class MeasureExporter(XMLExporterBase):
         if self.transpositionInterval is not None:
             mxAttributes.append(self.intervalToXmlTranspose(self.transpositionInterval))
         
-        # directive is deprecated, do not support
-        # TODO: measure-style
+        # directive goes here, but is deprecated, do not support  
+        # measureStyle
+        mxMeasureStyle = self.measureStyle()
+        if mxMeasureStyle is not None:
+            mxAttributes.append(mxMeasureStyle)
+            
         self.xmlRoot.append(mxAttributes)
         return mxAttributes
-    
+
+    def measureStyle(self):
+        '''
+        return a <measure-style> Element or None according to the contents of the Stream.
+        
+        Currently, only multiple-rest is supported.
+        '''
+        m = self.stream            
+        
+        mxMeasureStyle = None
+        mxMultipleRest = None
+        
+        rests = m.getElementsByClass('Rest')
+        if rests:
+            hasMMR = rests[0].getSpannerSites('MultiMeasureRest')
+            if hasMMR:
+                firstRestMMR = hasMMR[0]
+                if firstRestMMR.isFirst(rests[0]):
+                    mxMultipleRest = Element('multiple-rest')
+                    if firstRestMMR.useSymbols:
+                        mxMultipleRest.set('use-symbols', 'yes')
+                    else:
+                        mxMultipleRest.set('use-symbols', 'no')
+                    mxMultipleRest.text = str(firstRestMMR.numRests)
+        if mxMultipleRest is not None:
+            mxMeasureStyle = Element('measure-style')
+            mxMeasureStyle.append(mxMultipleRest)
+        
+        return mxMeasureStyle
+        
     def staffLayoutToXmlStaffDetails(self, staffLayout):
+        '''
+        Convert a :class:`~music21.layout.StaffLayout` object to a 
+        <staff-details> element.
+        
+        <staff-type> is not yet supported.
+        
+        >>> MEX = musicxml.m21ToXml.MeasureExporter()
+        >>> sl = layout.StaffLayout()
+        >>> sl.staffLines = 3  # tenor drums?
+        >>> sl.hidden = True
+        >>> mxDetails = MEX.staffLayoutToXmlStaffDetails(sl)
+        >>> MEX.dump(mxDetails)
+        <staff-details print-object="no">
+              <staff-lines>3</staff-lines>
+        </staff-details>
+        '''
         mxStaffDetails = Element('staff-details')
         # TODO: staff-type
         if staffLayout.staffLines is not None:
@@ -4225,9 +4380,22 @@ class MeasureExporter(XMLExporterBase):
           <beat-type>4</beat-type>
         </time>
         
+        
+        >>> sm = meter.SenzaMisuraTimeSignature('free')
+        >>> b = MEX.timeSignatureToXml(sm)
+        >>> MEX.dump(b)
+        <time>
+          <senza-misura>free</senza-misura>
+        </time>
         '''
         #mxTimeList = []
         mxTime = Element('time')
+        if 'SenzaMisuraTimeSignature' in ts.classes:
+            mxSenzaMisura = SubElement(mxTime, 'senza-misura')
+            if ts.text is not None:
+                mxSenzaMisura.text = ts.text
+            return mxTime
+        
         # always get a flat version to display any subivisions created
         fList = [(mt.numerator, mt.denominator) for mt in ts.displaySequence.flat._partition]
         if ts.summedNumerator:
@@ -4512,42 +4680,48 @@ class MeasureExporter(XMLExporterBase):
                                 self.stream).getByClass('RepeatBracket')
         
     def setTranspose(self):
+        '''
+        Set the transposition interval based on whether the active
+        instrument for this period has a transposition object.
+        
+        Stores in self.transpositionInterval.  Returns None
+        '''
         if self.parent is None:
-            return
+            return None
         if self.parent.stream is None:
-            return
+            return None
         if self.parent.stream.atSoundingPitch is True:
-            return
+            return None
 
         m = self.stream
         self.measureOffsetStart = m.getOffsetBySite(self.parent.stream)
 
         instSubStream = self.parent.instrumentStream.getElementsByOffset(
-                    self.measureOffsetStart,
-                    self.measureOffsetStart + m.duration.quarterLength,
-                    includeEndBoundary=False)        
+                            self.measureOffsetStart,
+                            self.measureOffsetStart + m.duration.quarterLength,
+                            includeEndBoundary=False)        
         if len(instSubStream) == 0:
-            return
+            return None
         
         instSubObj = instSubStream[0]
         if instSubObj.transposition is None:
-            return
+            return None
         self.transpositionInterval = instSubObj.transposition
         # do here???
         #self.mxTranspose = self.intervalToMXTranspose()
-
+        return None
 
 
 #-------------------------------------------------------------------------------
 def indent(elem, level=0):
-    i = "\n" + level*"  "
+    i = "\n" + level * "  "
     if len(elem):
         if not elem.text or not elem.text.strip():
             elem.text = i + "  "
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
-        for elem in elem:
-            indent(elem, level+1)
+        for subEl in elem:
+            indent(subEl, level + 1)
         if not elem.tail or not elem.tail.strip():
             elem.tail = i
     else:
@@ -4556,7 +4730,6 @@ def indent(elem, level=0):
             
 
 class Test(unittest.TestCase):
-
     def runTest(self):
         pass
 
@@ -4564,36 +4737,34 @@ class Test(unittest.TestCase):
         pass
 
 class TestExternal(unittest.TestCase):
-
     def runTest(self):
         pass
 
     def testBasic(self):
         pass
 
-
-    def testFindOneError(self):
-        from music21 import corpus
-
-        b = corpus.parse('schoenberg')
-
-        SX = ScoreExporter(b)
-        mxScore = SX.parse()
-        for x in mxScore.findall('part'):
-            print(x)
-            for y in x:
-                print(y)
-                for z in y:
-                    print(z)
-                    for w in z:
-                        print(w)
-                        for v in w:
-                            print(v)
-                            SX.dump(v)
-                            for u in v:
-                                print(u)
-                                SX.dump(u)
-        
+#     def testFindOneError(self):
+#         from music21 import corpus
+# 
+#         b = corpus.parse('schoenberg')
+# 
+#         SX = ScoreExporter(b)
+#         mxScore = SX.parse()
+#         for x in mxScore.findall('part'):
+#             print(x)
+#             for y in x:
+#                 print(y)
+#                 for z in y:
+#                     print(z)
+#                     for w in z:
+#                         print(w)
+#                         for v in w:
+#                             print(v)
+#                             SX.dump(v)
+#                             for u in v:
+#                                 print(u)
+#                                 SX.dump(u)
+#         
 
     def testSimple(self):
         from xml.etree.ElementTree import ElementTree as ETObj

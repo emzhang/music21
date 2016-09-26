@@ -25,7 +25,6 @@ from music21 import environment
 _MOD = 'bar.py'
 environLocal = environment.Environment(_MOD)
 
-
 #-------------------------------------------------------------------------------
 
 class BarException(exceptions21.Music21Exception):
@@ -304,12 +303,12 @@ class Repeat(RepeatMark, Barline):
         
         >>> lb.times = 3
         Traceback (most recent call last):
-        BarException: cannot set repeat times on a start Repeat
+        music21.bar.BarException: cannot set repeat times on a start Repeat
         
         >>> rb.times = 3
         >>> rb.times = -3
         Traceback (most recent call last):
-        BarException: cannot set repeat times to a value less than zero: -3
+        music21.bar.BarException: cannot set repeat times to a value less than zero: -3
         ''')
 
 

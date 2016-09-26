@@ -33,12 +33,9 @@ to get a pitches across any range, get a pitch for scale step, get a
 scale step for pitch, and, for any given pitch ascend or descend to the 
 next pitch. In all cases :class:`~music21.pitch.Pitch` objects are returned.
 
-
-
 >>> sc1 = scale.MajorScale('a')
 >>> [str(p) for p in sc1.getPitches('g2', 'g4')]
 ['G#2', 'A2', 'B2', 'C#3', 'D3', 'E3', 'F#3', 'G#3', 'A3', 'B3', 'C#4', 'D4', 'E4', 'F#4']
-
 
 >>> sc2 = scale.MelodicMinorScale('a')
 >>> [str(p) for p in sc2.getPitches('g2', 'g4', direction='descending')]
@@ -50,23 +47,22 @@ next pitch. In all cases :class:`~music21.pitch.Pitch` objects are returned.
 
 __ALL__ = ['intervalNetwork', 'scala']
 
-from music21.scale import intervalNetwork
-from music21.scale import scala
-#--------------------------
 import abc
 import copy
 import unittest
 
+from music21.scale import intervalNetwork
+from music21.scale import scala
+#--------------------------
 from music21 import base
 from music21 import common
+from music21 import environment
 from music21 import exceptions21
 from music21 import pitch
 from music21 import interval
 from music21 import sieve
 
 from music21.ext import six
-
-from music21 import environment
 _MOD = "scale.py"
 environLocal = environment.Environment(_MOD)
 
@@ -1236,12 +1232,8 @@ class ConcreteScale(Scale):
     Descending form:
 
     >>> [str(p) for p in complexscale.getPitches("C7","C5")]
-    ['A6', 'F#6', 'D~6', 'B5', 'G5', 'F5', 'E-5', 'C#5']
-    
-    
+    ['A6', 'F#6', 'D~6', 'B5', 'G5', 'F5', 'E-5', 'C#5']    
     '''
-    isConcrete = True
-
     def __init__(self, tonic=None, pitches=None):
         super(ConcreteScale, self).__init__()
 
@@ -1282,9 +1274,9 @@ class ConcreteScale(Scale):
             
     @property
     def isConcrete(self):
-        '''Return True if the scale is Concrete, that is, it has a defined Tonic. 
+        '''
+        Return True if the scale is Concrete, that is, it has a defined Tonic. 
 
-        
         >>> sc1 = scale.MajorScale('c')
         >>> sc1.isConcrete
         True
@@ -1444,44 +1436,47 @@ class ConcreteScale(Scale):
         pitchColl = self.getPitches(minPitch=minPitch, maxPitch=maxPitch,
                     direction=direction)
         pitchCollNames = [p.name for p in pitchColl]
-        #for p in streamObj.pitches: # this is always recursive
-        for e in streamObj.flat.notes: # get notes and chords
 
+        def tuneOnePitch(p):
+            # some pitches might be quarter / 3/4 tones; need to convert
+            # these to microtonal representations so that we can directly
+            # compare pitch names
+            pAlt = p.convertQuarterTonesToMicrotones(inPlace=False)
+            # need to permit enharmonic comparisons: G# and A- should 
+            # in most cases match
+            testEnharmonics = pAlt.getAllCommonEnharmonics(alterLimit=2)
+            testEnharmonics.append(pAlt)
+            for pEnh in testEnharmonics:
+                if pEnh.name not in pitchCollNames:
+                    continue
+                # get the index from the names and extract the pitch by
+                # index
+                pDst = pitchColl[pitchCollNames.index(pEnh.name)]
+                # get a deep copy for each note
+                pDstNew = copy.deepcopy(pDst)
+                pDstNew.octave = pEnh.octave # copy octave
+                # need to adjust enharmonic
+                pDstNewEnh = pDstNew.getAllCommonEnharmonics(alterLimit=2)
+                match = None
+                for x in pDstNewEnh:
+                    # try to match enharmonic with original alt
+                    if x.name == pAlt.name:
+                        match = x
+                if match is None: # get original
+                    dst.append(pDstNew)
+                else:
+                    dst.append(match)
+            
+        #for p in streamObj.pitches: # this is always recursive
+        for e in streamObj.recurse().notes: # get notes and chords
             if e.isChord:
-                src = e.pitches
+                elementPitches = e.pitches
             else: # simulate a lost
-                src = [e.pitch]
+                elementPitches = [e.pitch]
 
             dst = [] # store dst in a list of resetting chord pitches
-            for p in src:
-                # some pitches might be quarter / 3/4 tones; need to convert
-                # these to microtonal representations so that we can directly
-                # compare pitch names
-                pAlt = p.convertQuarterTonesToMicrotones(inPlace=False)
-                # need to permit enharmonic comparisons: G# and A- should 
-                # in most cases match
-                testEnharmonics = pAlt.getAllCommonEnharmonics(alterLimit=2)
-                testEnharmonics.append(pAlt)
-                for pEnh in testEnharmonics:
-                    if pEnh.name in pitchCollNames:
-                        # get the index from the names and extract the pitch by
-                        # index
-                        pDst = pitchColl[pitchCollNames.index(pEnh.name)]
-                        # get a deep copy for each note
-                        pDstNew = copy.deepcopy(pDst)
-                        pDstNew.octave = pEnh.octave # copy octave
-                        # need to adjust enharmonic
-                        pDstNewEnh = pDstNew.getAllCommonEnharmonics(
-                                     alterLimit=2)
-                        match = None
-                        for x in pDstNewEnh:
-                            # try to match enharmonic with original alt
-                            if x.name == pAlt.name:
-                                match = x
-                        if match is None: # get original
-                            dst.append(pDstNew)
-                        else:
-                            dst.append(match)
+            for p in elementPitches:
+                tuneOnePitch(p)
             # reassign the changed pitch
             if dst:
                 if e.isChord:
@@ -1493,8 +1488,8 @@ class ConcreteScale(Scale):
 
 
     def romanNumeral(self, degree):
-        '''Return a RomanNumeral object built on the specified scale degree.
-
+        '''
+        Return a RomanNumeral object built on the specified scale degree.
         
         >>> sc1 = scale.MajorScale('a-4')
         >>> h1 = sc1.romanNumeral(1)
@@ -1915,15 +1910,17 @@ class ConcreteScale(Scale):
         >>> eflatMaj = key.Key('E-')
         >>> eflatMaj.solfeg(pitch.Pitch('G'))
         'mi'
-        >>> eflatMaj.solfeg(pitch.Pitch('A'))
+        >>> eflatMaj.solfeg('A')
         'fi'
-        >>> eflatMaj.solfeg(pitch.Pitch('A'), chromatic=False)
+        >>> eflatMaj.solfeg('A', chromatic=False)
         'fa'        
         >>> eflatMaj.solfeg(pitch.Pitch('G#'), variant='music21') #default
         'mis'
         >>> eflatMaj.solfeg(pitch.Pitch('G#'), variant='humdrum')
         'my'
         '''
+        if isinstance(pitchTarget, six.string_types):
+            pitchTarget = pitch.Pitch(pitchTarget)
         (scaleDeg, accidental) = self.getScaleDegreeAndAccidentalFromPitch(pitchTarget, direction)
         if variant == 'music21':
             syllableDict = self._solfegSyllables
@@ -2430,7 +2427,7 @@ class DiatonicScale(ConcreteScale):
         >>> sc = scale.DiatonicScale()
         >>> sc.getTonic()
         Traceback (most recent call last):
-        IntervalNetworkException: pitchReference cannot be None
+        music21.scale.intervalNetwork.IntervalNetworkException: pitchReference cannot be None
         '''
         # NOTE: override method on ConcreteScale that simply returns _tonic
         return self.pitchFromDegree(self._abstract.tonicDegree)
@@ -3019,7 +3016,7 @@ class ScalaScale(ConcreteScale):
 
     >>> sc = scale.ScalaScale('badFileName.scl')
     Traceback (most recent call last):
-    ScaleException: Could not find a file named badFileName.scl in the scala database
+    music21.scale.ScaleException: Could not find a file named badFileName.scl in the scala database
     '''
     def __init__(self, tonic=None, scalaString=None):
         if (tonic is not None 
@@ -4058,7 +4055,3 @@ if __name__ == "__main__":
 
 #------------------------------------------------------------------------------
 # eof
-
-
-
-

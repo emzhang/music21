@@ -33,6 +33,12 @@ import copy
 import unittest
 
 from collections import OrderedDict
+try:
+    import networkx
+except ImportError:
+    # lacking this does nothing
+    networkx = None
+    #_missingImport.append('networkx')
 
 from music21 import exceptions21
 from music21 import interval
@@ -45,13 +51,6 @@ from music21 import environment
 _MOD = "intervalNetwork.py"
 environLocal = environment.Environment(_MOD)
 
-
-try:
-    import networkx
-except ImportError:
-    # lacking this does nothing
-    networkx = None
-    #_missingImport.append('networkx')
 
 # these are just symbols/place holders; values do not matter as long
 # as they are not positive ints
@@ -270,7 +269,7 @@ class Edge(object):
         [(1, 'terminusLow')]
 
         '''
-        if direction == None:
+        if direction is None:
             direction = self._direction # assign native direction
 
         # do not need to supply direction, because direction is defined
@@ -810,7 +809,7 @@ class IntervalNetwork(object):
         '''
         x = None
         for n in self._nodes.values():
-            if x == None:
+            if x is None:
                 x = n.degree
             if n.degree > x:
                 x = n.degree
@@ -833,7 +832,7 @@ class IntervalNetwork(object):
             # reject terminus high, as this duplicates terminus low
             if nId == TERMINUS_HIGH:
                 continue
-            if x == None:
+            if x is None:
                 x = n.degree
             if n.degree > x:
                 x = n.degree
@@ -2041,10 +2040,10 @@ class IntervalNetwork(object):
             if i == 0 and nId in [TERMINUS_LOW, TERMINUS_HIGH]:
                 continue
             # turn off collection after finding next terminus
-            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect == True:
+            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect is True:
                 postPairs.append((p, nId))
                 break
-            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect == False:
+            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect is False:
                 collect = True
             if collect:
                 postPairs.append((p, nId))
@@ -2058,10 +2057,10 @@ class IntervalNetwork(object):
             if i == 0 and nId in [TERMINUS_LOW, TERMINUS_HIGH]:
                 continue
             # turn off collection after finding next terminus
-            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect == True:
+            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect is True:
                 prePairs.append((p, nId))
                 break
-            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect == False:
+            elif nId in [TERMINUS_LOW, TERMINUS_HIGH] and collect is False:
                 collect = True
             if collect:
                 prePairs.append((p, nId))
@@ -2271,13 +2270,13 @@ class IntervalNetwork(object):
         1
         >>> net.getRelativeNodeId('a', 1, 'c', comparisonAttribute = 'step')
         1
-        >>> net.getRelativeNodeId('a', 1, 'b-4') == None
+        >>> net.getRelativeNodeId('a', 1, 'b-4') is None
         True
         '''
         if alteredDegrees is None:
             alteredDegrees = {}
         # TODO: this always takes the first: need to add weighted selection
-        if nodeName == None: # assume first
+        if nodeName is None: # assume first
             nodeId = self._getTerminusLowNodes()[0]
         else:
             nodeId = self._nodeNameToNodes(nodeName)[0]
@@ -2356,7 +2355,7 @@ class IntervalNetwork(object):
         if alteredDegrees is None:
             alteredDegrees = {}
         # TODO: this takes the first, need to add probabilistic selection
-        if nodeName == None: # assume first
+        if nodeName is None: # assume first
             nodeId = self._getTerminusLowNodes()[0]
         else:
             nodeId = self._nodeNameToNodes(nodeName)[0]
@@ -2426,7 +2425,7 @@ class IntervalNetwork(object):
         >>> net.getRelativeNodeDegree('e-2', 1, 'd') # if e- is tonic, what is d3
         7
 
-        >>> net.getRelativeNodeDegree('e3', 1, 'd5') == None
+        >>> net.getRelativeNodeDegree('e3', 1, 'd5') is None
         True
         >>> net.getRelativeNodeDegree('e3', 1, 'd5', comparisonAttribute='step')
         7
@@ -2440,7 +2439,7 @@ class IntervalNetwork(object):
         1
         >>> net.getRelativeNodeDegree('e-2', 1, 'f3')
         2
-        >>> net.getRelativeNodeDegree('e-3', 1, 'b6') == None
+        >>> net.getRelativeNodeDegree('e-3', 1, 'b6') is None
         True
 
         >>> net.getRelativeNodeDegree('e-3', 1, 'e-2')
@@ -2491,7 +2490,7 @@ class IntervalNetwork(object):
             comparisonAttribute=comparisonAttribute, 
             alteredDegrees=alteredDegrees, 
             direction=direction)
-        if nId == None:
+        if nId is None:
             return None
         else:
             return self._nodeIdToDegree(nId)
@@ -2696,7 +2695,7 @@ class IntervalNetwork(object):
             alteredDegrees = {}
         # these return a Node, not a nodeId
         # TODO: just getting first
-        if nodeId == None: # assume first
+        if nodeId is None: # assume first
             nodeId = self._getTerminusLowNodes()[0]
         else:
             nodeId = self._nodeNameToNodes(nodeId)[0]
@@ -2748,7 +2747,7 @@ class IntervalNetwork(object):
             alteredDegrees = {}
             
         # these return a Node, not a nodeId
-        if nodeId == None: # assume first
+        if nodeId is None: # assume first
             nodeId = self._getTerminusLowNodes()[0]
         else:
             nodeId = self._nodeNameToNodes(nodeId)[0]
@@ -3473,7 +3472,6 @@ _DOC_ORDER = [IntervalNetwork, Node, Edge]
 if __name__ == "__main__":
     import music21
     music21.mainTest(Test)
-
 
 #------------------------------------------------------------------------------
 # eof

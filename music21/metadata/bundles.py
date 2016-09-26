@@ -1025,7 +1025,8 @@ class MetadataBundle(object):
 
         >>> anonymousBundle = metadata.bundles.MetadataBundle().read()
         Traceback (most recent call last):
-        MetadataException: Unnamed MetadataBundles have no default file path to read from.
+        music21.exceptions21.MetadataException: Unnamed MetadataBundles have 
+            no default file path to read from.
 
         '''
         timer = common.Timer()
@@ -1134,9 +1135,8 @@ class MetadataBundle(object):
                         if metadataEntry.sourcePath.endswith(fileExtension):
                             include = True
                             break
-                        elif fileExtension.endswith('xml') \
-                            and metadataEntry.sourcePath.endswith(
-                                ('mxl', 'mx')):
+                        elif (fileExtension.endswith('xml')
+                                and metadataEntry.sourcePath.endswith(('mxl', 'mx'))):
                             include = True
                             break
                 else:

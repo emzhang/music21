@@ -141,6 +141,7 @@ class SubConverter(object):
                 launchKey = self.launchKey
                 app = environLocal[launchKey]
             else:
+                launchKey = environLocal.formatToKey(fmt)
                 app = environLocal.formatToApp(fmt)
 
         platform = common.getPlatform()
@@ -260,6 +261,7 @@ class ConverterIPython(SubConverter):
     registerFormats = ('ipython',)
     registerOutputExtensions = ()
     registerOutputSubformatExtensions = {'lilypond': 'ly'}
+    
 #     def vfshow(self, s):
 #         '''
 #         pickle this object and send it to Vexflow
@@ -294,8 +296,15 @@ class ConverterIPython(SubConverter):
         if subformats and subformats[0] == 'vexflow':
             return self.vfshow(obj)
             #subformats = ['lilypond','png']
-        helperFormat = subformats[0]
-        helperSubformats = subformats[1:]
+        if subformats:
+            helperFormat = subformats[0]
+            helperSubformats = subformats[1:]
+        else:
+            helperFormat = "musicxml"
+            helperSubformats = []
+            
+        if not helperSubformats:
+            helperSubformats = ['png']
         
         from music21 import converter
         
@@ -303,7 +312,7 @@ class ConverterIPython(SubConverter):
         helperConverter.setSubconverterFromFormat(helperFormat)
         helperSubConverter = helperConverter.subConverter
 
-        if helperFormat == 'musicxml':        
+        if helperFormat in ('musicxml', 'xml', 'lilypond', 'lily'):        
             ### hack to make musescore excerpts -- fix with a converter class in MusicXML
             savedDefaultTitle = defaults.title
             savedDefaultAuthor = defaults.author
@@ -361,7 +370,7 @@ class ConverterLilypond(SubConverter):
     Convert to Lilypond and from there usually to png, pdf, or svg.
     '''
     registerFormats = ('lilypond', 'lily')
-    registerOutputExtensions = ('ly','png','pdf','svg')
+    registerOutputExtensions = ('ly', 'png', 'pdf', 'svg')
     registerOutputSubformatExtensions = {'png': 'png',
                                          'pdf': 'pdf',
                                          'svg': ''} # sic! (Why?)
@@ -424,6 +433,8 @@ class ConverterBraille(SubConverter):
     def write(self, obj, fmt, fp=None, subformats=None, **keywords):
         from music21 import braille
         dataStr = braille.translate.objectToBraille(obj)
+        if 'ascii' in subformats:
+            dataStr = braille.basic.brailleUnicodeToBrailleAscii(dataStr)
         fp = self.writeDataStream(fp, dataStr)
         return fp
     
@@ -681,6 +692,9 @@ class ConverterMusicXML(SubConverter):
     registerFormats = ('musicxml','xml')
     registerInputExtensions = ('xml', 'mxl', 'mx', 'musicxml')
     registerOutputExtensions = ('xml', 'mxl')
+    registerOutputSubformatExtensions = {'png': 'png',
+                                         'pdf': 'pdf',
+                                         }
     
     def __init__(self, **keywords):
         SubConverter.__init__(self, **keywords)
@@ -742,7 +756,7 @@ class ConverterMusicXML(SubConverter):
             c.stream.metadata.movementName = fn
         self.stream = c.stream
 
-    def runThroughMusescore(self, fp, **keywords):
+    def runThroughMusescore(self, fp, subformats=None, **keywords):
         '''
         Take the output of the conversion process and run it through musescore to convert it
         to a png.
@@ -757,14 +771,20 @@ class ConverterMusicXML(SubConverter):
                         "Cannot find a path to the 'mscore' file at " + 
                         "%s -- download MuseScore" % musescorePath)
 
+        if subformats is None:
+            subformatExtension = 'png'
+        else:
+            subformatExtension = subformats[0]
+
         fpOut = fp[0:len(fp) - 3]
-        fpOut += "png"
+        fpOut += subformatExtension
+
         musescoreRun = '"' + musescorePath + '" ' + fp + " -o " + fpOut + " -T 0 "
         if 'dpi' in keywords:
             musescoreRun += " -r " + str(keywords['dpi'])
         if common.runningUnderIPython():
             musescoreRun += " -r " + str(defaults.ipythonImageDpi)
-
+        
         storedStrErr = sys.stderr
         fileLikeOpen = six.StringIO()
         sys.stderr = fileLikeOpen
@@ -772,6 +792,7 @@ class ConverterMusicXML(SubConverter):
         fileLikeOpen.close()
         sys.stderr = storedStrErr
         
+
         # check whether total number of pngs is in 1-9, 10-99, or 100-999 range, then return appropriate fp
         if os.path.exists(fpOut[0:len(fpOut) - 4] + "-1.png"):
             fp = fpOut[0:len(fpOut) - 4] + "-1.png"
@@ -800,8 +821,11 @@ class ConverterMusicXML(SubConverter):
     
     def write(self, obj, fmt, fp=None, subformats=None, **keywords):
         from music21.musicxml import m21ToXml
+        
+        
         ### hack to make musescore excerpts -- fix with a converter class in MusicXML
         if subformats is not None and 'png' in subformats:
+            # do not print a title or author -- to make the PNG smaller.
             savedDefaultTitle = defaults.title
             savedDefaultAuthor = defaults.author
             defaults.title = ''
@@ -816,8 +840,9 @@ class ConverterMusicXML(SubConverter):
             defaults.author = savedDefaultAuthor
 
         
-        if subformats is not None and 'png' in subformats:
-            fp = self.runThroughMusescore(fp, **keywords)
+        if subformats is not None and ('png' in subformats or 'pdf' in subformats):
+            fp = self.runThroughMusescore(fp, subformats, **keywords)
+            
         return fp
 
     def show(self, obj, fmt, app=None, subformats=None, **keywords):
@@ -825,8 +850,11 @@ class ConverterMusicXML(SubConverter):
         Override to do something with png...
         '''
         returnedFilePath = self.write(obj, fmt, subformats=subformats, **keywords)
-        if subformats is not None and 'png' in subformats:
-            fmt = 'png'
+        if subformats is not None:
+            if 'png' in subformats:
+                fmt = 'png'
+            elif 'pdf' in subformats:
+                fmt = 'pdf'
         self.launch(returnedFilePath, fmt=fmt, app=app)
    
 

@@ -1199,8 +1199,7 @@ class Test(unittest.TestCase):
         self.assertEqual(len(allPlayingWhileSounding), 1)
         self.assertTrue(allPlayingWhileSounding[0] is n24)
 
-    #    trimPlayingWhileSounding = \
-    #         stream2.trimPlayingWhileSounding(n12)
+    #    trimPlayingWhileSounding = stream2.trimPlayingWhileSounding(n12)
     #    assert trimPlayingWhileSounding[0] == n22
     #    assert trimPlayingWhileSounding[1].duration.quarterLength == 3.5
 
@@ -1391,8 +1390,7 @@ class Test(unittest.TestCase):
         p.transferOffsetToElements()
 
         junk = p.getTimeSignatures(searchContext=True, sortByCreationTime=True)
-        p.makeRests(refStreamOrTimeRange=[0, 100], 
-            inPlace=True)
+        p.makeRests(refStreamOrTimeRange=[0, 100], inPlace=True)
 
         self.assertEqual(p.lowestOffset, 0)
         self.assertEqual(p.highestTime, 100.0)
@@ -7610,7 +7608,7 @@ class Test(unittest.TestCase):
 
 if __name__ == "__main__":
     import music21
-    music21.mainTest(Test, 'verbose') #, runTest='testTransposeByPitchA')
+    music21.mainTest(Test, 'verbose') #, runTest='testExtendTiesA')
 
 #------------------------------------------------------------------------------
 # eof

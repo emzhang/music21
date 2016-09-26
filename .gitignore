@@ -1,5 +1,9 @@
 *.py[cod]
 __pycache__/
+*$py.class
+
+#PYCharm
+.idea
 
 # OSX
 .DS_Store

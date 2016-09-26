@@ -83,8 +83,8 @@ class Corpus(object):
         matched = []
         if six.PY2:
             rootDirectoryPath = unicode(rootDirectoryPath)
-        for rootDirectory, directoryNames, filenames in os.walk(
-            rootDirectoryPath):
+            
+        for rootDirectory, directoryNames, filenames in os.walk(rootDirectoryPath):
             if '.svn' in directoryNames:
                 directoryNames.remove('.svn')
             for filename in filenames:
@@ -93,8 +93,7 @@ class Corpus(object):
                         continue
                 except UnicodeDecodeError as error:
                     raise corpus.CorpusException(
-                        'Incorrect filename in corpus path: {0}: {1!r}'.format(
-                            filename, error))
+                        'Incorrect filename in corpus path: {0}: {1!r}'.format(filename, error))
                 for extension in fileExtensions:
                     if filename.endswith(extension):
                         matched.append(os.path.join(rootDirectory, filename))
@@ -163,7 +162,7 @@ class Corpus(object):
 
     ### PUBLIC METHODS ###
     @abc.abstractmethod
-    def getPaths(self):
+    def getPaths(self, fileExtensions=None, expandExtensions=True):
         r'''
         The paths of the files in a given corpus.
         '''
@@ -940,22 +939,22 @@ class LocalCorpus(Corpus):
             )
         cacheKey = (self.cacheName, tuple(fileExtensions))
         # not cached, fetch and reset
-        if True:
         #if cacheKey not in Corpus._pathsCache:
             # check paths before trying to search
-            validPaths = []
-            for directoryPath in self.directoryPaths:
-                if not os.path.isdir(directoryPath):
-                    environLocal.warn(
-                        'invalid path set as localCorpusSetting: {0}'.format(
-                            directoryPath))
-                else:
-                    validPaths.append(directoryPath)
-            # append successive matches into one list
-            matches = []
-            for directoryPath in validPaths:
-                matches += self._findPaths(directoryPath, fileExtensions)
-            Corpus._pathsCache[cacheKey] = matches
+        validPaths = []
+        for directoryPath in self.directoryPaths:
+            if not os.path.isdir(directoryPath):
+                environLocal.warn(
+                    'invalid path set as localCorpusSetting: {0}'.format(
+                        directoryPath))
+            else:
+                validPaths.append(directoryPath)
+        # append successive matches into one list
+        matches = []
+        for directoryPath in validPaths:
+            matches += self._findPaths(directoryPath, fileExtensions)
+        Corpus._pathsCache[cacheKey] = matches
+
         return Corpus._pathsCache[cacheKey]
 
     def removePath(self, directoryPath):
