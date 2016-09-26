@@ -9,8 +9,8 @@
 # Copyright:    Copyright © 2010 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
-
-'''This module describes classes for performing windowed and overlapping windowed analysis. 
+'''
+This module describes classes for performing windowed and overlapping windowed analysis. 
 The :class:`music21.analysis.windowed.WindowedAnalysis` provides a reusable framework for 
 systematic overlapping window analysis at the starting at the level of the quarter note 
 and moving to the size of an entire :class:`music21.stream.Stream`.
@@ -19,7 +19,7 @@ Modular analysis procedures inherit from :class:`music21.analysis.discrete.Discr
 The :class:`music21.analysis.discrete.KrumhanslSchmuckler` (for algorithmic key detection) 
 and :class:`music21.analysis.discrete.Ambitus` (for pitch range analysis) classes provide examples.
 '''
-
+from __future__ import division, print_function, absolute_import
 
 import unittest
 
@@ -29,6 +29,10 @@ from music21 import common
 from music21 import meter
 from music21 import stream 
 
+from music21.ext import six
+if six.PY2:
+    # pylint: disable=redefined-builtin
+    from music21.common import py3round as round
 
 from music21 import environment
 _MOD = 'windowed.py'
@@ -209,38 +213,43 @@ class WindowedAnalysis(object):
 
         
         >>> s = corpus.parse('bach/bwv324')
-        >>> p = analysis.discrete.KrumhanslSchmuckler()
-        >>> # placing one part into analysis
-        >>> wa = analysis.windowed.WindowedAnalysis(s.parts[0], p)
-        >>> x, y, z = wa.process(1, 1, includeTotalWindow=False)
-        >>> len(x) # we only have one series of windows
+        >>> ksAnalyzer = analysis.discrete.KrumhanslSchmuckler()
+        
+        placing one part into analysis
+        
+        >>> sopr = s.parts[0]
+        >>> wa = analysis.windowed.WindowedAnalysis(sopr, ksAnalyzer)
+        >>> solutions, colors, meta = wa.process(1, 1, includeTotalWindow=False)
+        >>> len(solutions) # we only have one series of windows
         1
 
-        >>> y[0][0].startswith('#') # for each window, we get a solution and a color
-        True
-        >>> x[0][0][0] 
-        <music21.pitch.Pitch B>
-
-        >>> x, y, z = wa.process(1, 2, includeTotalWindow=False)
-        >>> len(x) # we have two series of windows
+        >>> solutions, colors, meta = wa.process(1, 2, includeTotalWindow=False)
+        >>> len(solutions) # we have two series of windows
         2
 
-        >>> x[0][0] # the data returned is processor dependent; here we get
-        (<music21.pitch.Pitch B>, 'major', 0.6868258874056411)
-        >>> y[0][0].startswith('#') # a color is returned for each matching data position
-        True
+        >>> solutions[1]
+        [(<music21.pitch.Pitch B>, 'major', 0.6868...), 
+         (<music21.pitch.Pitch B>, 'minor', 0.8308...), 
+         (<music21.pitch.Pitch D>, 'major', 0.6868...), 
+         (<music21.pitch.Pitch B>, 'minor', 0.8308...),...]
+         
+        >>> colors[1]
+        ['#ffb5ff', '#9b519b', '#ffd752', '#9b519b', ...]
+
+        >>> meta
+        [{'windowSize': 1}, {'windowSize': 2}]
         '''
-        if maxWindow == None:
+        if maxWindow is None:
             maxLength = len(self._windowedStream)
         else:
             maxLength = maxWindow
 
-        if minWindow == None:
+        if minWindow is None:
             minLength = len(self._windowedStream)
         else:
             minLength = minWindow
         
-        if windowType == None:
+        if windowType is None:
             windowType = 'overlap'
         elif windowType.lower() in ['overlap']:
             windowType = 'overlap'
@@ -264,7 +273,7 @@ class WindowedAnalysis(object):
             x = minLength
             while True:
                 windowSizes.append(x)
-                x = x * int(round(float(num)))
+                x = x * round(int(num))
                 if x > (maxLength * .75):
                     break
 
@@ -334,18 +343,18 @@ class Test(unittest.TestCase):
 
         from music21 import note
         s1 = stream.Stream()
-        s1.append(note.Note('c'))
-        s1.append(note.Note('c'))
+        s1.append(note.Note('C'))
+        s1.append(note.Note('C'))
 
         s2 = stream.Stream()
-        s2.append(note.Note('c'))
-        s2.append(note.Note('d'))
-        s2.append(note.Note('e'))
-        s2.append(note.Note('f'))
-        s2.append(note.Note('g'))
-        s2.append(note.Note('a'))
-        s2.append(note.Note('b'))
-        s2.append(note.Note('c'))
+        s2.append(note.Note('C'))
+        s2.append(note.Note('D'))
+        s2.append(note.Note('E'))
+        s2.append(note.Note('F'))
+        s2.append(note.Note('G'))
+        s2.append(note.Note('A'))
+        s2.append(note.Note('B'))
+        s2.append(note.Note('C'))
 
         wa1= WindowedAnalysis(s1, p)
         wa2= WindowedAnalysis(s2, p)

@@ -20,12 +20,12 @@ The Beams object is stored in :class:`~music21.note.Note` and
 :class:`~music21.chord.Chord` objects as their :attr:`~music21.note.Note.beams`
 attributes.   Beams objects can largely be treated as a list.
 
-See `meter.TimeSignature`.:meth:`~music21.meter.TimeSignature.getBeams` for a
+See `meter.TimeSignature`. :meth:`~music21.meter.TimeSignature.getBeams` for a
 way of getting beam information for a measure given the meter.  The
-`meter.TimeSignature`.:attr:`~music21.meter.TimeSignature.beamSequence`
+`meter.TimeSignature`. :attr:`~music21.meter.TimeSignature.beamSequence`
 attribute holds information about how to beam given the TimeSignature
 
-Run `stream.Stream`.:meth:`~music21.stream.Stream.makeBeams` to set beaming
+Run `Stream`. :meth:`~music21.stream.Stream.makeBeams` to set beaming
 information automatically given the current meter.
 
 Suppose you had a measure of two eighths and a quarter and wanted to explicitly
@@ -78,14 +78,14 @@ import unittest
 from music21 import common
 from music21 import exceptions21
 from music21 import duration
-from music21.common import SlottedObjectMixin
+from music21.common import EqualSlottedObjectMixin
 
 
 class BeamException(exceptions21.Music21Exception):
     pass
 
 
-class Beam(SlottedObjectMixin):
+class Beam(EqualSlottedObjectMixin):
     '''
     A Beam is an object representation of one single beam, that is, one
     horizontal line connecting two notes together (or less commonly a note to a
@@ -105,14 +105,24 @@ class Beam(SlottedObjectMixin):
 
     Two ways of doing the same thing
 
-    >>> b3 = beam.Beam(type='partial', direction='left')
+    >>> b3 = beam.Beam(number=1, type='partial', direction='left')
+    >>> b3
+    <music21.beam.Beam 1/partial/left>
+    
     >>> b4 = beam.Beam('partial', 'left')
     >>> b4.number = 1
     >>> b4
     <music21.beam.Beam 1/partial/left>
 
+    All attributes must be the same for equality:
+    
+    >>> b3 == b4
+    True
+
     >>> b2
     <music21.beam.Beam None/start>
+    >>> b2 == b3
+    False
     '''
 
     ### CLASS VARIABLES ###
@@ -126,27 +136,25 @@ class Beam(SlottedObjectMixin):
 
     ### INITIALIZER ###
     # pylint: disable=redefined-builtin
-    def __init__(self, type=None, direction=None):  # type is okay @ReservedAssignment
+    def __init__(self, type=None, direction=None, number=None):  # type is okay @ReservedAssignment
         self.type = type  # start, stop, continue, partial
         self.direction = direction  # left or right for partial
         self.independentAngle = None
         # represents which beam line referred to
         # 8th, 16th, etc represented as 1, 2, ...
-        self.number = None
+        self.number = number
 
     ### SPECIAL METHODS ###
-
     def __repr__(self):
         if self.direction is None:
             return '<music21.beam.Beam %s/%s>' % (self.number, self.type)
         else:
             return '<music21.beam.Beam %s/%s/%s>' % (self.number, self.type, self.direction)
 
-
 #------------------------------------------------------------------------------
 
 
-class Beams(SlottedObjectMixin):
+class Beams(EqualSlottedObjectMixin):
     '''
     The Beams object stores in it attribute beamsList (a list) all the Beam
     objects defined above.  Thus len(beam.Beams) tells you how many beams the
@@ -275,7 +283,7 @@ class Beams(SlottedObjectMixin):
 
         >>> a.fill(7)
         Traceback (most recent call last):
-        BeamException: cannot fill beams for level 7
+        music21.beam.BeamException: cannot fill beams for level 7
         '''
         #TODO -- why not to 2048th?
         self.beamsList = []
@@ -385,7 +393,7 @@ class Beams(SlottedObjectMixin):
 
         >>> a.setAll('sexy')
         Traceback (most recent call last):
-        BeamException: beam type cannot be sexy
+        music21.beam.BeamException: beam type cannot be sexy
 
         '''
         if type not in ('start', 'stop', 'continue', 'partial'):
@@ -422,7 +430,7 @@ class Beams(SlottedObjectMixin):
 
         >>> a.setByNumber(2, 'crazy')
         Traceback (most recent call last):
-        BeamException: beam type cannot be crazy
+        music21.beam.BeamException: beam type cannot be crazy
 
         '''
         # permit providing one argument hyphenated

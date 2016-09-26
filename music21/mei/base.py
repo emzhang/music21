@@ -524,7 +524,7 @@ def _attrTranslator(attr, name, mapping):
     '#'
     >>> _attrTranslator('9', 'dur', _DUR_ATTR_DICT)
     Traceback (most recent call last):
-    MeiValueError: Unexpected value for "dur" attribute: 9
+    music21.mei.base.MeiValueError: Unexpected value for "dur" attribute: 9
     '''
     try:
         return mapping[attr]
@@ -1588,7 +1588,8 @@ def staffGrpFromElement(elem, slurBundle=None, staffDefDict=None):
 
     For now, this function is merely a container-processor  for <staffDef> elements contained
     in this <staffGrp> element given as the "elem" argument. That is, the function does not yet
-    create the brackets/braces and labels expected of a staff group. Note however that all <staffDef>
+    create the brackets/braces and labels expected of a staff group. 
+    Note however that all <staffDef>
     elements will be processed, even if they're contained within several layers of <staffGrp>.
 
     :param elem: The ``<staffGrp>`` element to process.
@@ -3180,6 +3181,9 @@ def sectionScoreCore(elem, allPartNs, slurBundle, **kwargs):
     - ``'backupMeasureNum'`` is equal to the ``backupMeasureNum`` argument plus the number of
         <measure> elements found in this <score> or <section>.
     '''
+    # pylint: disable=too-many-nested-blocks
+    # ^^^ -- was not required at time of contribution
+    
     # TODO: replace the returned 4-tuple with a namedtuple
 
     # set the optional kwargs

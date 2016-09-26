@@ -16,12 +16,13 @@ To do a release,
 
 1. update the VERSION in _version.py and the single test cases in base.py and 
      in case of major version changes freezeThaw.JSONFreezer.jsonPrint if this wasn't done already.
-2. for a major change, run 
+2. for a major change, run in Py3
     `corpus.cacheMetadata(['core', 'virtual'], verbose=True)`.
     every once in a while run corpus.corpora.CoreCorpus().metadataBundle.rebuild() 
     (40 min on MacPro) -- either of these MAY change a lot of tests in corpus, metadata, etc.
     so don't skip the next step!
 3. run test/multiprocessTest.py  for Python2 AND Python3
+3.5 run test/testLint.py and fix any lint errors
 4. commit and then check test/testSingleCoreAll.py results on Travis-CI
      (normally not necessary, because it's slower and mostly duplicates multiprocessTest, 
      but should be done before making a release).  Done automatically by Travis-CI on GitHub commit
@@ -283,8 +284,7 @@ class Distributor(object):
             #setup.runDisutils(type)
             savePath = os.getcwd()
             os.chdir(self.fpPackageDir)
-            os.system('%s setup.py %s' % 
-                        (PY, buildType))
+            os.system('%s setup.py %s' % (PY, buildType))
             os.chdir(savePath)
 
 #        os.system('cd %s; %s setup.py bdist_egg' % (self.fpPackageDir, PY))
@@ -330,7 +330,7 @@ class Distributor(object):
 
     def getMD5Path(self):
         '''
-        for PyPi
+        for PyPi -- no longer used.
         '''
         gitHubPath = "https://github.com"
         user = "cuthbertLab"
@@ -355,5 +355,5 @@ if __name__ == '__main__':
     d.buildNoCorpus = True
     d.build()
     d.updatePaths()
-    d.getMD5Path()
+    #d.getMD5Path()
     #d.uploadPyPi()

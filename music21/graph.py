@@ -18,7 +18,7 @@ graphing archetypes using the matplotlib library. The :class:`~music21.graph.Plo
 object subclasses provide reusable approaches to graphing data and structures in 
 :class:`~music21.stream.Stream` objects.
 '''
-from __future__ import division
+from __future__ import division, print_function, absolute_import
 
 from collections import namedtuple
 
@@ -45,6 +45,9 @@ from music21.analysis import windowed
 from music21 import features
 from music21.ext import six
 from music21.ext import webcolors
+if six.PY2:
+    # pylint: disable=redefined-builtin
+    from music21.common import py3round as round
 
 
 from music21 import environment
@@ -56,7 +59,7 @@ ExtendedModules = namedtuple('ExtendedModules',
 
 def _getExtendedModules():
     '''
-    this is done inside a def, so that the slow import of matplotlib is not done
+    this is done inside a function, so that the slow import of matplotlib is not done
     in ``from music21 import *`` unless it's actually needed.
 
     Returns a namedtuple: (matplotlib, Axes3D, collections, patches, plt, networkx)
@@ -112,37 +115,51 @@ def _substituteAccidentalSymbols(label):
 FORMATS = ['horizontalbar', 'histogram', 'scatter', 'scatterweighted', 
             '3dbars', 'colorgrid', 'horizontalbarweighted']
 
+# first for each row needs to match a format.
+FORMAT_SYNONYMS = [('horizontalbar', 'bar', 'horizontal', 'pianoroll', 'piano'),
+                   ('histogram', 'histo', 'count'),
+                   ('scatter', 'point'),
+                   ('scatterweighted', 'weightedscatter', 'weighted'),
+                   ('3dbars', '3d'),
+                   ('colorgrid', 'grid', 'window', 'windowed'),
+                   ('horizontalbarweighted', 'barweighted', 'weightedbar')]
+
+
 def userFormatsToFormat(value):
     '''
     Replace possible user format strings with defined format names as used herein. 
     Returns string unaltered if no match.
+    
+    >>> graph.userFormatsToFormat('horizontal')
+    'horizontalbar'
+    >>> graph.userFormatsToFormat('Weighted Scatter')
+    'scatterweighted'
+    >>> graph.userFormatsToFormat('3D')
+    '3dbars'
+    
+    Unknown:
+    
+    >>> graph.userFormatsToFormat('4D super chart')
+    '4dsuperchart'
     '''
     #environLocal.printDebug(['calling user userFormatsToFormat:', value])
     value = value.lower()
     value = value.replace(' ', '')
-    if value in ['bar', 'horizontal', 'horizontalbar', 'pianoroll', 'piano']:
-        return 'horizontalbar'
-    elif value in ['histogram', 'histo', 'count']:
-        return 'histogram'
-    elif value in ['scatter', 'point']:
-        return 'scatter'
-    elif value in ['weightedscatter', 'weighted', 'scatterweighted']:
-        return 'scatterweighted'
-    elif value in ['3dbars', '3d']:
-        return '3dbars'
-    elif value in ['colorgrid', 'grid', 'window', 'windowed']:
-        return 'colorgrid'
-    elif value in ['horizontalbarweighted', 'barweighted', 'weightedbar']:
-        return 'horizontalbarweighted'
-    else: # return unaltered if no match
-        #environLocal.printDebug(['userFormatsToFormat(): could not match value', value])
-        return value
+
+    for opt in FORMAT_SYNONYMS:
+        if value in opt:
+            return opt[0] # first one for each is the preferred
+    
+    # return unaltered if no match
+    #environLocal.printDebug(['userFormatsToFormat(): could not match value', value])
+    return value
 
 VALUES = ['pitch', 'pitchspace', 'ps', 'pitchclass', 'pc', 'duration', 
           'quarterlength', 'offset', 'time', 'dynamic', 'dynamics', 'instrument']
 
 def userValuesToValues(valueList):
-    '''Given a value list, replace string with synonymes. Let unmatched values pass.
+    '''
+    Given a value list, replace string with synonyms. Let unmatched values pass.
     '''  
     post = []
     for value in valueList:
@@ -166,7 +183,8 @@ def userValuesToValues(valueList):
 
 
 def getColor(color):
-    '''Convert any specification of a color to a hexadecimal color used by matplotlib. 
+    '''
+    Convert any specification of a color to a hexadecimal color used by matplotlib. 
     
     >>> graph.getColor('red')
     '#ff0000'
@@ -176,11 +194,11 @@ def getColor(color):
     '#4682b4'
     >>> graph.getColor('#f50')
     '#ff5500'
-    >>> graph.getColor([.5, .5, .5])
+    >>> graph.getColor([0.5, 0.5, 0.5])
     '#808080'
-    >>> graph.getColor(.8)
+    >>> graph.getColor(0.8)
     '#cccccc'
-    >>> graph.getColor([.8])
+    >>> graph.getColor([0.8])
     '#cccccc'
     >>> graph.getColor([255, 255, 255])
     '#ffffff'
@@ -189,15 +207,15 @@ def getColor(color):
     
     >>> graph.getColor('l')
     Traceback (most recent call last):
-    GraphException: invalid color abbreviation: l
+    music21.graph.GraphException: invalid color abbreviation: l
 
     >>> graph.getColor('chalkywhitebutsortofgreenish')
     Traceback (most recent call last):
-    GraphException: invalid color name: chalkywhitebutsortofgreenish
+    music21.graph.GraphException: invalid color name: chalkywhitebutsortofgreenish
 
     >>> graph.getColor(True)
     Traceback (most recent call last):
-    GraphException: invalid color specification: True
+    music21.graph.GraphException: invalid color specification: True
     '''
     # expand a single value to three
     if common.isNum(color):
@@ -226,6 +244,7 @@ def getColor(color):
             return webcolors.css3_names_to_hex[color]
         except KeyError: # no color match
             raise GraphException('invalid color name: %s' % color)
+        
     elif common.isListLike(color):
         percent = False
         for sub in color:
@@ -269,28 +288,46 @@ class Graph(object):
     third option, None, does the processing but does not write any output.
     
     TODO: add color for individual points.
+
+    figureSize:
+    
+        A two-element iterable.
+        
+        Scales all graph components but because of matplotlib limitations
+        (esp. on 3d graphs) no all labels scale properly. 
+        
+        defaults to .figureSizeDefault
+        
+
     '''
+    axisKeys = ('x', 'y')
+    figureSizeDefault = (6, 6)
 
     def __init__(self, *args, **keywords):
         '''
-        >>> a = graph.Graph(title='a graph of some data to be given soon', tickFontSize = 9)
-        >>> a.setData(['some', 'arbitrary', 'data', 14, 9.04, None])
+        >>> a = graph.Graph(title='a graph of some data to be given soon', tickFontSize=9)
+        >>> a.data = ['some', 'arbitrary', 'data', 14, 9.04, None]
+        
         '''
         _getExtendedModules()
         self.data = None
         self.fig = None
         # define a component dictionary for each axis
         self.axis = {}
-        self.axisKeys = ['x', 'y']
+        for ax in self.axisKeys:
+            self.axis[ax] = {}
+            self.axis[ax]['range'] = None
+        
         self.grid = True
-        self._axisRangesAlreadySet = {}
+        self.axisRangeHasBeenSet = {}
+        
         for axisKey in self.axisKeys:
-            self._axisRangesAlreadySet[axisKey] = False
+            self.axisRangeHasBeenSet[axisKey] = False
 
         if 'alpha' in keywords:
             self.alpha = keywords['alpha']
         else:
-            self.alpha = .2
+            self.alpha = 0.2
 
         if 'dpi' in keywords:
             self.dpi = keywords['dpi']
@@ -315,19 +352,19 @@ class Graph(object):
             self.colorGrid = '#666666'
         
         if 'title' in keywords:
-            self.setTitle(keywords['title'])
+            self.title = keywords['title']
         else:
-            self.setTitle('Music21 Graph')
+            self.title = 'Music21 Graph'
    
         if 'doneAction' in keywords:
             self.setDoneAction(keywords['doneAction'])
         else: # default is to write a file
             self.setDoneAction('write')
 
-        if 'figureSize' in keywords:
-            self.setFigureSize(keywords['figureSize'])
+        if 'figureSize' in keywords and len(keywords['figureSize']) >= 2:
+            self.figureSize = keywords['figureSize']
         else: # default is to write a file
-            self.setFigureSize([6,6])
+            self.figureSize = self.figureSizeDefault # (6, 6)
 
         if 'marker' in keywords:
             self.marker = keywords['marker']
@@ -370,6 +407,7 @@ class Graph(object):
         self.hideXGrid = False
         if 'hideXGrid' in keywords:
             self.hideXGrid = keywords['hideXGrid']
+
         self.hideYGrid = False
         if 'hideYGrid' in keywords:
             self.hideYGrid = keywords['hideYGrid']
@@ -381,31 +419,16 @@ class Graph(object):
         #self.hideYTick = True
         #self.hideXTick = True
 
-    def _axisInit(self):
-        for ax in self.axisKeys:
-            self.axis[ax] = {}
-            self.axis[ax]['range'] = None
-
     def _getFigure(self):
         '''
         Configure and return a figure object -- does nothing in the abstract class
         '''
         pass
 
+    @common.deprecated('August 2016', 'December 2016', 'use self.data = data instead')
     def setData(self, data):
         self.data = data
 
-    def setTitle(self, title):
-        self.title = title
-
-    def setFigureSize(self, figSize):
-        '''
-        Set the figure size as an x,y pair. 
-        
-        Scales all graph components but because of matplotlib limitations
-        (esp. on 3d graphs) no all labels scale properly. 
-        '''
-        self.figureSize = figSize
 
     def setDoneAction(self, action):
         '''
@@ -422,44 +445,70 @@ class Graph(object):
         Set the tick-labels for a given graph or plot's axisKey
         (generally 'x', and 'y') with a set of pairs
         
-        Pairs are tuples of positions and labels.
+        Pairs are iterables of positions and labels.
 
         N.B. -- both 'x' and 'y' ticks have to be set in
-        order to get matplotlib to display either...
+        order to get matplotlib to display either... (and presumably 'z' for 3D graphs)
+        
+        >>> g = graph.GraphHorizontalBar()
+        >>> g.axis['x']['ticks']
+        Traceback (most recent call last):
+        KeyError: 'ticks'
+        >>> g.axis['x']
+        {'range': None}
+        
+        >>> g.setTicks('x', [(0, 'a'), (1, 'b')])
+        >>> g.axis['x']['ticks']
+        ([0, 1], ['a', 'b'])
+
+        >>> g.setTicks('m', [('a', 'b')])
+        Traceback (most recent call last):
+        music21.graph.GraphException: Cannot find key 'm' in self.axis
+
+        >>> g.setTicks('x', [])
+        >>> g.axis['x']['ticks']
+        ([], [])
         '''
-        if pairs != None:
-            positions = []
-            labels = []
-            # ticks are value, label pairs
-            for value, label in pairs:
-                positions.append(value)
-                labels.append(label)
-            #environLocal.printDebug(['got labels', labels])
-            self.axis[axisKey]['ticks'] = positions, labels
+        if pairs is None: # is okay to send an empty list to clear everything...
+            return
+        if axisKey not in self.axis:
+            raise GraphException("Cannot find key '{}' in self.axis".format(axisKey))
+        
+
+        positions = []
+        labels = []
+        # ticks are value, label pairs
+        for value, label in pairs:
+            positions.append(value)
+            labels.append(label)
+        #environLocal.printDebug(['got labels', labels])
+        self.axis[axisKey]['ticks'] = positions, labels
 
     def setIntegerTicksFromData(self, unsortedData, axisKey='y', dataSteps=8):
         '''
-        Set the ticks for an axis (usually 'y') given the data
+        Set the ticks for an axis (usually 'y') given unsorted data.
+        
+        Data steps shows how many ticks to make from the data.
+
+        >>> g = graph.GraphHorizontalBar()
+        >>> g.setIntegerTicksFromData([10, 5, 3, 8, 20, 11], dataSteps=4)
+        >>> g.axis['y']['ticks']
+        ([0, 5, 10, 15, 20], ['0', '5', '10', '15', '20'])
+
+        TODO: should this not also use min? instead of always starting from zero?
         '''
         maxData = max(unsortedData)
-        yTicks = []
-        yTickStep = int(round(maxData / (dataSteps+0.0)))
-        if yTickStep <= 1:
-            yTickStep = 2
-        for y in range(0, maxData + 1, yTickStep):
-            yTicks.append([y, '%s' % y])
-        yTicks.sort()
-        positions = []
-        labels = []
+        tickStep = round(maxData / dataSteps)
 
-        for value, label in yTicks:
-            positions.append(value)
-            labels.append(label)
+        tickList = []
+        if tickStep <= 1:
+            tickStep = 2
+        for y in range(0, maxData + 1, tickStep):
+            tickList.append([y, '%s' % y])
+        tickList.sort()
+        return self.setTicks(axisKey, tickList)        
 
-        self.axis[axisKey]['ticks'] = positions, labels
-        
-
-    def setAxisRange(self, axisKey, valueRange, paddingFraction=.1):
+    def setAxisRange(self, axisKey, valueRange, paddingFraction=0.1):
         '''
         Set the range for the axis for a given axis key
         (generally, 'x', or 'y')
@@ -480,26 +529,33 @@ class Graph(object):
         else:
             shift = 0
         # set range with shift
-        self.axis[axisKey]['range'] = (valueRange[0]-shift,
-                                       valueRange[1]+shift)
+        self.axis[axisKey]['range'] = (valueRange[0] - shift,
+                                       valueRange[1] + shift)
         
-        self._axisRangesAlreadySet[axisKey] = True
+        self.axisRangeHasBeenSet[axisKey] = True
 
     def setAxisLabel(self, axisKey, label):
         if axisKey not in self.axisKeys: # pragma: no cover
             raise GraphException('No such axis exists: %s' % axisKey)
         self.axis[axisKey]['label'] = label
 
-    def _adjustAxisSpines(self, ax, leftBottom=False):
-        '''Remove the right and left spines from the diagram
+    @staticmethod
+    def hideAxisSpines(ax, leftBottom=False):
+        '''
+        Remove the right and top spines from the diagram.
+        
+        If leftBottom is True, remove the left and bottom spines as well.
+        
+        Spines are removed by setting their colors to 'none' and every other
+        tickline set_visible to False.
         '''
         for loc, spine in ax.spines.items():
-            if loc in ['left','bottom']:
+            if loc in ('left', 'bottom'):
                 if leftBottom:
                     spine.set_color('none') # don't draw spine
                 # this pushes them outward in an interesting way
                 #spine.set_position(('outward',10)) # outward by 10 points
-            elif loc in ['right','top']:
+            elif loc in ('right', 'top'):
                 spine.set_color('none') # don't draw spine
             else: # pragma: no cover
                 raise ValueError('unknown spine location: %s'%loc)
@@ -512,11 +568,11 @@ class Graph(object):
                 if leftBottom:
                     line.set_visible(False)
 
-    def _applyFormatting(self, ax):
+    def applyFormatting(self, ax):
         '''
         Apply formatting to the Axes container and Figure instance.  
         '''
-        #environLocal.printDebug('calling _applyFormatting')
+        #environLocal.printDebug('calling applyFormatting')
 
         rect = ax.axesPatch
         # this sets the color of the main data presentation window
@@ -525,85 +581,7 @@ class Graph(object):
         # rect.set_edgecolor(getColor('red'))
 
         for axis in self.axisKeys:
-            if self.axis[axis]['range'] != None:
-                # for 2d graphs
-                if axis == 'x' and len(self.axisKeys) == 2:
-                    ax.set_xlim(*self.axis[axis]['range'])
-                elif axis == 'y' and len(self.axisKeys) == 2:
-                    ax.set_ylim(*self.axis[axis]['range'])
-                elif axis == 'z' and len(self.axisKeys) == 2:
-                    ax.set_zlim(*self.axis[axis]['range'])
-                # for 3d graphs
-                elif axis == 'x' and len(self.axisKeys) == 3:
-                    ax.set_xlim3d(*self.axis[axis]['range'])
-                elif axis == 'y' and len(self.axisKeys) == 3:
-                    ax.set_ylim3d(*self.axis[axis]['range'])
-                elif axis == 'z' and len(self.axisKeys) == 3:
-                    ax.set_zlim3d(*self.axis[axis]['range'])
-
-            if 'label' in self.axis[axis]:
-                if self.axis[axis]['label'] != None:
-                    if axis == 'x':
-                        ax.set_xlabel(self.axis[axis]['label'],
-                        fontsize=self.labelFontSize, family=self.fontFamily)
-                    elif axis == 'y':
-                        ax.set_ylabel(self.axis[axis]['label'],
-                        fontsize=self.labelFontSize, family=self.fontFamily,
-                        rotation='horizontal')
-                    elif axis == 'z':
-                        ax.set_zlabel(self.axis[axis]['label'],
-                        fontsize=self.labelFontSize, family=self.fontFamily)
-
-            if 'scale' in self.axis[axis]:
-                if self.axis[axis]['scale'] != None:
-                    if axis == 'x':
-                        ax.set_xscale(self.axis[axis]['scale'])
-                    elif axis == 'y':
-                        ax.set_yscale(self.axis[axis]['scale'])
-                    elif axis == 'z':
-                        ax.set_zscale(self.axis[axis]['scale'])
-
-            if 'ticks' in self.axis[axis]:
-                if axis == 'x':
-                    # note: this problem needs to be update to use the
-                    # same format as y, below
-                    #plt.xticks(*self.axis[axis]['ticks'], fontsize=7)
-
-                    if 'ticks' in self.axis[axis]:
-                        values, labels = self.axis[axis]['ticks']
-                        #environLocal.printDebug(['x tick labels, x tick values', labels, values])
-                        ax.set_xticks(values)
-                        # using center alignment to account for odd spacing in 
-                        # accidentals
-                        #environLocal.printDebug(['setting labels', labels])
-                        ax.set_xticklabels(
-                            labels, 
-                            fontsize=self.tickFontSize,
-                            family=self.fontFamily, 
-                            horizontalalignment=self.xTickLabelHorizontalAlignment, 
-                            verticalalignment=self.xTickLabelVerticalAlignment, 
-                            rotation=self.xTickLabelRotation,
-                            y=-.01)
-
-                elif axis == 'y':
-                    # this is the old way ticks were set:
-                    #plt.yticks(*self.axis[axis]['ticks'])
-                    # new way:
-                    if 'ticks' in self.axis[axis]:
-                        values, labels = self.axis[axis]['ticks']
-                        #environLocal.printDebug(['y tick labels, y tick values', labels, values])
-                        ax.set_yticks(values)
-                        ax.set_yticklabels(labels, fontsize=self.tickFontSize,
-                            family=self.fontFamily,
-                            horizontalalignment='right', verticalalignment='center')
-            else: # apply some default formatting to default ticks
-                if axis == 'x':
-                    ax.set_xticklabels(ax.get_xticks(),
-                        fontsize=self.tickFontSize, family=self.fontFamily) 
-                elif axis == 'y':
-                    ax.set_yticklabels(ax.get_yticks(),
-                        fontsize=self.tickFontSize, family=self.fontFamily) 
-
+            self.applyFormattingToOneAxis(ax, axis)
 
         if self.title:
             ax.set_title(self.title, fontsize=self.titleFontSize, family=self.fontFamily)
@@ -614,6 +592,7 @@ class Graph(object):
         # provide control for each grid line
         if self.hideYGrid:
             ax.yaxis.grid(False)
+        
         if self.hideXGrid:
             ax.xaxis.grid(False)
 
@@ -630,12 +609,85 @@ class Graph(object):
 #         ax.set_yscale('linear')
 #         ax.set_aspect('normal')
 
+    def applyFormattingToOneAxis(self, ax, axis):
+        '''
+        Given a matplotlib.Axes object (from figure or subplot) and a string of
+        'x', 'y', or 'z', set the Axes object's xlim (or ylim or zlim or xlim3d, etc.) from
+        self.axis[axis]['range'], Set the label from self.axis[axis]['label'],
+        the scale, the ticks, and the ticklabels.
+        '''
+        thisAxis = self.axis[axis]
+        if axis not in ('x', 'y', 'z'):
+            return
+        
+        if 'range' in thisAxis and thisAxis['range'] is not None:
+            rangeFuncs = {('x', 2): 'set_xlim',
+                          ('y', 2): 'set_ylim',
+                          ('z', 2): 'set_zlim',
+                          ('x', 3): 'set_xlim3d',
+                          ('y', 3): 'set_ylim3d',
+                          ('z', 3): 'set_zlim3d',
+                          }
+            thisRangeFunc = getattr(ax, rangeFuncs[(axis, len(self.axisKeys))])
+            thisRangeFunc(*thisAxis['range'])
+            
+        if 'label' in thisAxis and thisAxis['label'] is not None:
+            # ax.set_xlabel, set_ylabel, set_zlabel <-- for searching do not delete.
+            setLabelFunction = getattr(ax, 'set_' + axis + 'label')
+            setLabelFunction(thisAxis['label'],
+                    fontsize=self.labelFontSize, family=self.fontFamily)
+            
+        if 'scale' in thisAxis and thisAxis['scale'] is not None:
+            # ax.set_xscale, set_yscale, set_zscale <-- for searching do not delete.
+            setLabelFunction = getattr(ax, 'set_' + axis + 'scale')
+            setLabelFunction(thisAxis['scale'])
+        
+        
+        try:
+            getTickFunction = getattr(ax, 'get_' + axis + 'ticks')
+            setTickFunction = getattr(ax, 'set_' + axis + 'ticks')
+            setTickLabelFunction = getattr(ax, 'set_' + axis + 'ticklabels')
+        except AttributeError:
+            # for z ?? or maybe it will work now?
+            getTickFunction = None
+            setTickFunction = None
+            setTickLabelFunction = None
+        
+        if 'ticks' not in thisAxis:
+            # apply some default formatting to default ticks
+            setTickLabelFunction(getTickFunction(), 
+                                 fontsize=self.tickFontSize, 
+                                 family=self.fontFamily)                                      
+        else:
+            values, labels = thisAxis['ticks']
+            setTickFunction(values)
+            if axis == 'x':
+                ax.set_xticklabels(labels, 
+                                   fontsize=self.tickFontSize,
+                                   family=self.fontFamily, 
+                                   horizontalalignment=self.xTickLabelHorizontalAlignment, 
+                                   verticalalignment=self.xTickLabelVerticalAlignment, 
+                                   rotation=self.xTickLabelRotation,
+                                   y=-.01)
+        
+            elif axis == 'y':
+                ax.set_yticklabels(labels, 
+                                   fontsize=self.tickFontSize,
+                                   family=self.fontFamily,
+                                   horizontalalignment='right', 
+                                   verticalalignment='center')
+            else:
+                setTickLabelFunction(labels,
+                                     fontsize=self.tickFontSize,
+                                     family=self.fontFamily)
+
+
     def process(self):
         '''process data and prepare plot'''
         pass
 
     #---------------------------------------------------------------------------
-    def done(self, fp=None):
+    def callDoneAction(self, fp=None):
         '''
         Implement the desired doneAction, after data processing
         '''
@@ -643,8 +695,9 @@ class Graph(object):
             self.show()
         elif self.doneAction == 'write': # pragma: no cover
             self.write(fp)
-        elif self.doneAction == None:
-            pass
+        elif self.doneAction is None:
+            extm = _getExtendedModules() #@UnusedVariable
+            extm.plt.close()
 
     def show(self): # pragma: no cover
         '''
@@ -659,10 +712,10 @@ class Graph(object):
         '''
         Writes the graph to a file. If no file path is given, a temporary file is used. 
         '''
-        if fp == None:
+        if fp is None:
             fp = environLocal.getTempFile('.png')
 
-        if self.dpi != None:
+        if self.dpi is not None:
             self.fig.savefig(fp, 
                              facecolor=getColor(self.colorBackgroundFigure),      
                              edgecolor=getColor(self.colorBackgroundFigure),
@@ -682,26 +735,22 @@ class GraphNetworxGraph(Graph):
     Requires the optional networkx module.
     
     '''
-    _DOC_ATTR = {
-        'networkxGraph' : '''An instance of a networkx graph object.'''
-    }
-
 #     
 #     >>> #_DOCS_SHOW g = graph.GraphNetworxGraph()
 # 
 #     .. image:: images/GraphNetworxGraph.*
 #         :width: 600
+    _DOC_ATTR = {
+        'networkxGraph' : '''An instance of a networkx graph object.'''
+    }
+
 
     def __init__(self, *args, **keywords):
         super(GraphNetworxGraph, self).__init__(*args, **keywords)
         extm = _getExtendedModules() 
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
-
-        if 'figureSize' not in keywords:
-            self.setFigureSize([6, 6])
+        
         if 'title' not in keywords:
-            self.setTitle('Network Plot')
+            self.title = 'Network Plot'
 
         self.networkxGraph = None
         if 'networkxGraph' in keywords: # pragma: no cover
@@ -734,13 +783,13 @@ class GraphNetworxGraph(Graph):
         for nId, nData in self.networkxGraph.nodes(data=True):
             posNodes[nId] = nData['pos']
             # shift labels off center of nodes
-            posNodeLabels[nId] = (nData['pos'][0]+.125, nData['pos'][1])
+            posNodeLabels[nId] = (nData['pos'][0] + 0.125, nData['pos'][1])
 
         #environLocal.printDebug(['get position', posNodes])
         #posNodes = networkx.spring_layout(self.networkxGraph, weighted=True) 
         # draw nodes
         networkx.draw_networkx_nodes(self.networkxGraph, posNodes, 
-            node_size=300, ax=ax, node_color='#605C7F', alpha=.5)
+            node_size=300, ax=ax, node_color='#605C7F', alpha=0.5)
 
         for (u,v,d) in self.networkxGraph.edges(data=True):
             environLocal.printDebug(['GraphNetworxGraph', (u,v,d)])
@@ -765,9 +814,9 @@ class GraphNetworxGraph(Graph):
         # turn off grid
         self.grid = False
         # standard procedures
-        self._adjustAxisSpines(ax, leftBottom=True)
-        self._applyFormatting(ax)
-        self.done()
+        self.hideAxisSpines(ax, leftBottom=True)
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 
 
@@ -787,20 +836,14 @@ class GraphColorGrid(Graph):
     >>> data = [['#55FF00', '#9b0000', '#009b00'], 
     ...         ['#FFD600', '#FF5600'], 
     ...         ['#201a2b', '#8f73bf', '#a080d5', '#403355', '#999999']]
-    >>> g.setData(data)
+    >>> g.data = data
     >>> g.process()
 
     .. image:: images/GraphColorGrid.*
         :width: 600
     '''
-    def __init__(self, *args, **keywords):
-        super(GraphColorGrid, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
+    figureSizeDefault = (9, 6)
 
-        if 'figureSize' not in keywords:
-            self.setFigureSize([9, 6])
-                
     def process(self):
         extm = _getExtendedModules() 
         plt = extm.plt
@@ -816,26 +859,28 @@ class GraphColorGrid(Graph):
         # this sets the color of the main data presentation window
         #axTop.axesPatch.set_facecolor('#000000')
 
-        # axTop.bar([.5], [1], 1, color=['#000000'], linewidth=.5, edgecolor='#111111')
+        # axTop.bar([0.5], [1], 1, color=['#000000'], linewidth=0.5, edgecolor='#111111')
         
         rowCount = len(self.data)
 
         for i in range(rowCount):
+            thisRowData = self.data[i]
+            
             positions = []
             heights = []
             subColors = []
             
-            for j in range(len(self.data[i])):
-                positions.append((1/2)+j)
+            for j, thisColor in enumerate(thisRowData):
+                positions.append(j) # + 1/2)
                 # collect colors in a list to set all at once
-                subColors.append(self.data[i][j])
+                subColors.append(thisColor)
                 #correlations.append(float(self.data[i][j][2]))
                 heights.append(1)
             
             # add a new subplot for each row    
-            ax = self.fig.add_subplot(rowCount, 1, len(self.data)-i)
+            ax = self.fig.add_subplot(rowCount, 1, rowCount - i)
 
-            # linewidth: .1 is the thinnest possible
+            # linewidth: 0.1 is the thinnest possible
             # antialiased = false, for small diagrams, provides tighter images
             ax.bar(positions, 
                    heights, 
@@ -848,7 +893,7 @@ class GraphColorGrid(Graph):
             # remove spines from each bar plot; cause excessive thickness
             for unused_loc, spine in ax.spines.items():
                 #spine.set_color('none') # don't draw spine
-                spine.set_linewidth(.3) 
+                spine.set_linewidth(0.3) 
                 spine.set_color('#000000') 
                 spine.set_alpha(1) 
 
@@ -866,19 +911,21 @@ class GraphColorGrid(Graph):
 
 
         # adjust space between the bars
-        # .1 is about the smallest that gives some space
+        # 0.1 is about the smallest that gives some space
         if rowCount > 12:
             self.fig.subplots_adjust(hspace=0)
         else:
-            self.fig.subplots_adjust(hspace=.1)
+            self.fig.subplots_adjust(hspace=0.1)
 
-        self.setAxisRange('x', range(rowCount), 0)
+
+        axisRangeNumbers = (0, 1)
+        self.setAxisRange('x', axisRangeNumbers, 0)
         # turn off grid
         self.grid = False
         # standard procedures
-        self._adjustAxisSpines(axTop, leftBottom=True)
-        self._applyFormatting(axTop)
-        self.done()
+        self.hideAxisSpines(axTop, leftBottom=True)
+        self.applyFormatting(axTop)
+        self.callDoneAction()
 
 
 class GraphColorGridLegend(Graph):
@@ -894,28 +941,21 @@ class GraphColorGridLegend(Graph):
     >>> data = []
     >>> data.append(('Major', [('C#', '#00AA55'), ('D-', '#5600FF'), ('G#', '#2B00FF')]))
     >>> data.append(('Minor', [('C#', '#004600'), ('D-', '#00009b'), ('G#', '#00009B')]))
-    >>> g.setData(data)
+    >>> g.data = data
     >>> g.process()
 
     .. image:: images/GraphColorGridLegend.*
         :width: 600
 
     '''
-
-#     >>> data = [('a', [('q', '#525252'), ('r', '#5f5f5f'), ('s', '#797979')]),
-#                 ('b', [('t', '#858585'), ('u', '#00ff00'), ('v', '#6c6c6c')]), 
-#                 ('c', [('w', '#8c8c8c'), ('x', '#8c8c8c'), ('y', '#6c6c6c')])
+    figureSizeDefault = (5, 1.5)
 
     def __init__(self, *args, **keywords):
         super(GraphColorGridLegend, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
-
-        if 'figureSize' not in keywords:
-            self.setFigureSize([5, 1.5])
+        
         if 'title' not in keywords:
-            self.setTitle('Legend')
-                
+            self.title = 'Legend'
+                                
     def process(self):
         extm = _getExtendedModules()
         plt = extm.plt
@@ -925,65 +965,23 @@ class GraphColorGridLegend(Graph):
 
         axTop = self.fig.add_subplot(1, 1, 1)
         
-        for i in range(len(self.data)):
-            rowLabel = self.data[i][0]
-            rowData = self.data[i][1]
-            #environLocal.printDebug(['rowLabel', rowLabel, i])
-
-            positions = []
-            heights = []
-            subColors = []
+        for i, rowLabelAndData in enumerate(self.data):
+            rowLabel = rowLabelAndData[0]
+            rowData = rowLabelAndData[1]
+            self.makeOneRowOfGraph(self.fig, i, rowLabel, rowData)
             
-            for j in range(len(rowData)):
-                positions.append(.5+j)
-                subColors.append(rowData[j][1]) # second value is colors
-                heights.append(1)
             
-            # add a new subplot for each row    
-            posTriple = (len(self.data), 1, i+1)
-            #environLocal.printDebug(['posTriple', posTriple])
-            ax = self.fig.add_subplot(*posTriple)
-            # 1 here is width
-            ax.bar(positions, heights, 1, color=subColors, linewidth=.3, edgecolor='#000000')
-            
-            # remove spines from each bar plot; cause excessive thickness
-            for unused_loc, spine in ax.spines.items():
-                #spine.set_color('none') # don't draw spine
-                spine.set_linewidth(.3) 
-                spine.set_color('#000000') 
+        self.setAxisRange('x', (0, 1), 0)
 
-            # remove all ticks for subplots
-            for j, line in enumerate(ax.get_xticklines() + ax.get_yticklines()):
-                line.set_visible(False)
-
-            # need one label for each left side; .5 is in the middle
-            ax.set_yticks([.5])
-            ax.set_yticklabels([rowLabel], fontsize=self.tickFontSize, 
-                family=self.fontFamily, horizontalalignment='right', 
-                verticalalignment='center') # one label for one tick
-
-            # need a label for each bars
-            ax.set_xticks([x + 1 for x in range(len(rowData))])
-            # get labels from row data; first of pair
-            # need to push y down as need bottom alignment for lower case
-            ax.set_xticklabels(
-                [_substituteAccidentalSymbols(x) for x, unused_y in rowData], 
-                fontsize=self.tickFontSize, family=self.fontFamily, 
-                horizontalalignment='center', verticalalignment='center', 
-                y=-.4)
-            # this is the scaling to see all bars; not necessary
-            ax.set_xlim([.5, len(rowData)+.5])
-            
-        self.setAxisRange('x', range(len(self.data)), 0)
-
-        for j, line in enumerate(axTop.get_xticklines() + axTop.get_yticklines()):
+        allTickLines = axTop.get_xticklines() + axTop.get_yticklines()
+        for j, line in enumerate(allTickLines):
             line.set_visible(False)
 
         # sets the space between subplots
         # top and bottom here push diagram more toward center of frame
         # may be useful in other graphs
         # , 
-        self.fig.subplots_adjust(hspace=1.5, top=.75, bottom=.2)
+        self.fig.subplots_adjust(hspace=1.5, top=0.75, bottom=0.2)
 
         self.setAxisLabel('y', '')
         self.setAxisLabel('x', '')
@@ -991,13 +989,88 @@ class GraphColorGridLegend(Graph):
         self.setTicks('x', [])
 
         # standard procedures
-        self._adjustAxisSpines(axTop, leftBottom=True)
-        self._applyFormatting(axTop)
-        self.done()
+        self.hideAxisSpines(axTop, leftBottom=True)
+        self.applyFormatting(axTop)
+        self.callDoneAction()
 
+    def makeOneRowOfGraph(self, figure, rowIndex, rowLabel, rowData):
+        '''
+        Makes a subplot for one row of data (such as for the Major label) 
+        and returns a matplotlib.axes.AxesSubplot instance representing the subplot.
+        
+        Here we create an axis with a part of Scriabin's mapping of colors
+        to keys in Prometheus: The Poem of Fire.
+        
+        >>> import matplotlib.pyplot
+        >>> gcgl = graph.GraphColorGridLegend()
+        >>> fig = matplotlib.pyplot.figure()
+        >>> rowData = [('C', '#ff0000'), ('G', '#ff8800'), ('D', '#ffff00'),
+        ...            ('A', '#00ff00'), ('E', '#4444ff')]
+        >>> gcgl.data = [['Scriabin Mapping', rowData]]
+        >>> ax = gcgl.makeOneRowOfGraph(fig, 0, 'Scriabin Mapping', rowData)
+        >>> ax
+        <matplotlib...AxesSubplot object at 0x111e13828>
+        '''
+        #environLocal.printDebug(['rowLabel', rowLabel, i])
 
+        positions = []
+        heights = []
+        subColors = []
+        
+        for j, oneColorMapping in enumerate(rowData):
+            positions.append(0.5 + j)
+            subColors.append(oneColorMapping[1]) # second value is colors
+            heights.append(1)
+        
+        # add a new subplot for each row    
+        posTriple = (len(self.data), 1, rowIndex + 1)
+        #environLocal.printDebug(['posTriple', posTriple])
+        ax = figure.add_subplot(*posTriple)
+        
+        # ax is an Axes object
+        # 1 here is width
+        ax.bar(positions, heights, 1, color=subColors, linewidth=0.3, edgecolor='#000000')
+        
+        # lower thickness of spines 
+        for spineArtist in ax.spines.values():
+            #spineArtist.set_color('none') # don't draw spine
+            spineArtist.set_linewidth(0.3) 
+            spineArtist.set_color('#000000') 
+
+        # remove all ticks for subplots
+        allTickLines = ax.get_xticklines() + ax.get_yticklines()
+        for j, line in enumerate(allTickLines):
+            line.set_visible(False)
+
+        # need one label for each left side; 0.5 is in the middle
+        ax.set_yticks([0.5])
+        ax.set_yticklabels([rowLabel], 
+                           fontsize=self.tickFontSize, 
+                           family=self.fontFamily, 
+                           horizontalalignment='right', 
+                           verticalalignment='center') # one label for one tick
+
+        # need a label for each bars
+        ax.set_xticks([x + 1 for x in range(len(rowData))])
+        # get labels from row data; first of pair
+        # need to push y down as need bottom alignment for lower case
+        substitutedAccidentalLabels = [_substituteAccidentalSymbols(x) 
+                                            for x, unused_y in rowData]
+        ax.set_xticklabels(
+            substitutedAccidentalLabels, 
+            fontsize=self.tickFontSize, 
+            family=self.fontFamily, 
+            horizontalalignment='center', 
+            verticalalignment='center', 
+            y=-0.4)
+        # this is the scaling to see all bars; not necessary
+        ax.set_xlim([0.5, len(rowData) + 0.5])
+
+        return ax
 
 class GraphHorizontalBar(Graph):
+    figureSizeDefault = (10, 4)
+    
     def __init__(self, *args, **keywords):
         '''
         Numerous horizontal bars in discrete channels, where bars 
@@ -1012,7 +1085,7 @@ class GraphHorizontalBar(Graph):
         >>> data = [('Chopin', [(1810, 1849-1810)]), 
         ...         ('Schumanns', [(1810, 1856-1810), (1819, 1896-1819)]), 
         ...         ('Brahms', [(1833, 1897-1833)])]
-        >>> a.setData(data)
+        >>> a.data = data
         >>> a.process()
 
         .. image:: images/GraphHorizontalBar.*
@@ -1020,18 +1093,13 @@ class GraphHorizontalBar(Graph):
 
         '''
         super(GraphHorizontalBar, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
-
+        
         self._barSpace = 8
         self._margin = 2
         self._barHeight = self._barSpace - (self._margin * 2)
 
-        # if figure size has not been defined, configure
-        if 'figureSize' not in keywords:
-            self.setFigureSize([10, 4])
         if 'alpha' not in keywords:
-            self.alpha = .6
+            self.alpha = 0.6
 
     def process(self):
         extm  = _getExtendedModules()
@@ -1069,8 +1137,8 @@ class GraphHorizontalBar(Graph):
                         if x not in xPoints:
                             xPoints.append(x)
             # ticks are value, label
-            yTicks.append([yPos + self._barSpace * .5, key])
-            #yTicks.append([key, yPos + self._barSpace * .5])
+            yTicks.append([yPos + self._barSpace * 0.5, key])
+            #yTicks.append([key, yPos + self._barSpace * 0.5])
             yPos += self._barSpace
             i += 1
 
@@ -1085,23 +1153,26 @@ class GraphHorizontalBar(Graph):
 
         # first, see if ticks have been set externally
         if 'ticks' in self.axis['x'] and len(self.axis['x']['ticks']) == 0:
-            rangeStep = int(xMin + int(round(xRange / 10)))
+            rangeStep = int(xMin + round(xRange / 10))
             if rangeStep == 0:
                 rangeStep = 1
             for x in range(int(math.floor(xMin)), 
-                           int(round(math.ceil(xMax))), 
+                           round(math.ceil(xMax)), 
                            rangeStep):
                 xTicks.append([x, '%s' % x])
             self.setTicks('x', xTicks)  
 
         #environLocal.printDebug([yTicks])
-        self._adjustAxisSpines(ax)
-        self._applyFormatting(ax)
-        self.done()
+        self.hideAxisSpines(ax)
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 
 
 class GraphHorizontalBarWeighted(Graph):
+    
+    figureSizeDefault = (10, 4)
+
     def __init__(self, *args, **keywords):
         '''
         Numerous horizontal bars in discrete channels, 
@@ -1110,27 +1181,22 @@ class GraphHorizontalBarWeighted(Graph):
         respective channel.
         '''
         super(GraphHorizontalBarWeighted, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
-
+        
         self._barSpace = 8 
-        self._margin = .25 # was 8; determines space between channels
+        self._margin = 0.25 # was 8; determines space between channels
         # this is a maximum value
         self._barHeight = self._barSpace - (self._margin * 2)
 
-        # if figure size has not been defined, configure
-        if 'figureSize' not in keywords:
-            self.setFigureSize([10,4])
         # this default alpha is used if not specified per bar
         if 'alpha' not in keywords:
             self.alpha = 1
 
 # example data
 #         data =  [
-#         ('Violins',  [(3, 5, 1, '#fff000'), (1, 12, .2, '#3ff203')]  ), 
-#         ('Celli',    [(2, 7, .2, '#0ff302'), (10, 3, .6, '#ff0000', 1)]  ), 
-#         ('Clarinet', [(5, 1, .5, '#3ff203')]  ),
-#         ('Flute',    [(5, 1, .1, '#00ff00'), (7, 20, .3, '#00ff88')]  ),
+#         ('Violins',  [(3, 5, 1, '#fff000'), (1, 12, 0.2, '#3ff203')]  ), 
+#         ('Celli',    [(2, 7, 0.2, '#0ff302'), (10, 3, 0.6, '#ff0000', 1)]  ), 
+#         ('Clarinet', [(5, 1, 0.5, '#3ff203')]  ),
+#         ('Flute',    [(5, 1, 0.1, '#00ff00'), (7, 20, 0.3, '#00ff88')]  ),
 #                 ]
 
     def process(self):
@@ -1160,18 +1226,17 @@ class GraphHorizontalBarWeighted(Graph):
             alphas = []
             colors = []
             for i, data in enumerate(points):
+                
+                color = self.colors[i % len(self.colors)]
+                alpha = self.alpha
+                yShift = 0 # between -1 and 1
+
                 if len(data) == 3:
                     x, span, heightScalar = data
-                    color = self.colors[i%len(self.colors)]
-                    alpha = self.alpha
-                    yShift = 0 # between -1 and 1
                 elif len(data) == 4:
                     x, span, heightScalar, color = data
-                    alpha = self.alpha
-                    yShift = 0 # between -1 and 1
                 elif len(data) == 5:
                     x, span, heightScalar, color, alpha = data
-                    yShift = 0 # between -1 and 1
                 elif len(data) == 6:
                     x, span, heightScalar, color, alpha, yShift = data
                 # filter color value
@@ -1189,22 +1254,24 @@ class GraphHorizontalBarWeighted(Graph):
                 # TODO: add high/low shift to position w/n range
                 # provide a list of start, end points;
                 # then start y position, bar height
-                h = self._barHeight*heightScalar
-                yAdjust = (self._barHeight-h) * .5
-                yShiftUnit = self._barHeight * (1-heightScalar) * .5
-                yRanges.append((yPos + 
-                    self._margin + yAdjust + (yShiftUnit*yShift), h))
+                h = self._barHeight * heightScalar
+                yAdjust = (self._barHeight - h) * 0.5
+                yShiftUnit = self._barHeight * (1 - heightScalar) * 0.5
+                adjustedY = yPos + self._margin + yAdjust + (yShiftUnit * yShift)
+                yRanges.append((adjustedY, h))
 
             for i, xRange in enumerate(xRanges):
                 # note: can get ride of bounding lines by providing
                 # linewidth=0, however, this may leave gaps in adjacent regions
-                ax.broken_barh([xRange], yRanges[i],
-                        facecolors=colors[i], alpha=alphas[i], 
-                        edgecolor=colors[i])
+                ax.broken_barh([xRange], 
+                               yRanges[i],
+                               facecolors=colors[i], 
+                               alpha=alphas[i], 
+                               edgecolor=colors[i])
 
             # ticks are value, label
-            yTicks.append([yPos + self._barSpace * .5, key])
-            #yTicks.append([key, yPos + self._barSpace * .5])
+            yTicks.append([yPos + self._barSpace * 0.5, key])
+            #yTicks.append([key, yPos + self._barSpace * 0.5])
             yPos += self._barSpace
             i += 1
 
@@ -1215,25 +1282,25 @@ class GraphHorizontalBarWeighted(Graph):
 
         # NOTE: these pad values determine extra space inside the graph that
         # is not filled with data, a sort of inner margin
-        self.setAxisRange('y', (0, len(keys) * self._barSpace), paddingFraction=.05)
-        self.setAxisRange('x', (xMin, xMax), paddingFraction=.01)
+        self.setAxisRange('y', (0, len(keys) * self._barSpace), paddingFraction=0.05)
+        self.setAxisRange('x', (xMin, xMax), paddingFraction=0.01)
         self.setTicks('y', yTicks)  
 
         # first, see if ticks have been set externally
 #         if 'ticks' in self.axis['x'] and len(self.axis['x']['ticks']) == 0:
-#             rangeStep = int(xMin+int(round(xRange/10)))
+#             rangeStep = int(xMin round(xRange/10))
 #             if rangeStep == 0:
 #                 rangeStep = 1
 #             for x in range(int(math.floor(xMin)), 
-#                            int(round(math.ceil(xMax))), 
+#                            round(math.ceil(xMax)), 
 #                            rangeStep):
 #                 xTicks.append([x, '%s' % x])
 #                 self.setTicks('x', xTicks)  
 #         environLocal.printDebug(['xTicks', xTicks])
 
-        self._adjustAxisSpines(ax)
-        self._applyFormatting(ax)
-        self.done()
+        self.hideAxisSpines(ax)
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 
 
@@ -1245,27 +1312,23 @@ class GraphScatterWeighted(Graph):
     >>> #_DOCS_SHOW g = graph.GraphScatterWeighted()
     >>> g = graph.GraphScatterWeighted(doneAction=None) #_DOCS_HIDE
     >>> data = [(23, 15, 234), (10, 23, 12), (4, 23, 5), (15, 18, 120)]
-    >>> g.setData(data)
+    >>> g.data = data
     >>> g.process()
 
     .. image:: images/GraphScatterWeighted.*
         :width: 600
 
     '''
-
+    figureSizeDefault = (5, 5)
+    
     def __init__(self, *args, **keywords):
         super(GraphScatterWeighted, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
-
-        # if figure size has not been defined, configure
-        if 'figureSize' not in keywords:
-            self.setFigureSize([5,5])
+        
         if 'alpha' not in keywords:
-            self.alpha = .6
+            self.alpha = 0.6
 
         self._maxDiameter = 1.25
-        self._minDiameter = .25
+        self._minDiameter = 0.25
         self._rangeDiameter = self._maxDiameter - self._minDiameter
 
     def process(self):
@@ -1314,9 +1377,9 @@ class GraphScatterWeighted(Graph):
             else:
                 # this will make the minimum scalar 0 when z is zero
                 if zRange != 0:
-                    scalar = (z-zMin) / zRange # shifted part / range
+                    scalar = (z - zMin) / zRange # shifted part / range
                 else:
-                    scalar = .5 # if all the same size, use .5
+                    scalar = 0.5 # if all the same size, use 0.5
                 scaled = self._minDiameter + (self._rangeDiameter * scalar)
                 zNorm.append([scaled, scalar])
 
@@ -1326,8 +1389,8 @@ class GraphScatterWeighted(Graph):
             y = yList[i]
             z, unused_zScalar = zNorm[i] # normalized values
 
-            width=z*xDistort
-            height=z*yDistort
+            width = z * xDistort
+            height = z * yDistort
             e = patches.Ellipse(xy=(x, y), width=width, height=height)
             #e = patches.Circle(xy=(x, y), radius=z)
             ax.add_artist(e)
@@ -1335,48 +1398,48 @@ class GraphScatterWeighted(Graph):
             e.set_clip_box(ax.bbox)
             #e.set_alpha(self.alpha*zScalar)
             e.set_alpha(self.alpha)
-            e.set_facecolor(getColor(self.colors[i%len(self.colors)])) 
+            e.set_facecolor(getColor(self.colors[i % len(self.colors)])) 
             # can do this here
             #environLocal.printDebug([e])
 
             # only show label if min if greater than zNorm min
             if zList[i] > 1:
                 # xdistort does not seem to
-                # width shift can be between .1 and .25
+                # width shift can be between 0.1 and 0.25
                 # width is already shifted by distort
                 # use half of width == radius
-                ax.text(x+((width*.5)+(.05*xDistort)),
-                        y+.10,
-                        "%s" % zList[i], size=6,
-                        va="baseline", ha="left", multialignment="left")
+                adjustedX = x + ((width * 0.5) + (0.05 * xDistort))
+                adjustedY = y + 0.10 # why?
+                
+                ax.text(adjustedX,
+                        adjustedY,
+                        str(zList[i]),
+                        size=6,
+                        va="baseline", 
+                        ha="left", 
+                        multialignment="left")
 
-        self.setAxisRange('y', (yMin, yMax),)
-        self.setAxisRange('x', (xMin, xMax),)
+        self.setAxisRange('y', (yMin, yMax))
+        self.setAxisRange('x', (xMin, xMax))
 
-        self._adjustAxisSpines(ax)
-        self._applyFormatting(ax)
-        self.done()
+        self.hideAxisSpines(ax)
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 
 class GraphScatter(Graph):
-    '''Graph two parameters in a scatter plot. Data representation is a list of points of values. 
+    '''
+    Graph two parameters in a scatter plot. Data representation is a list of points of values. 
 
-    
     >>> #_DOCS_SHOW g = graph.GraphScatter()
     >>> g = graph.GraphScatter(doneAction=None) #_DOCS_HIDE
-    >>> data = [(x, x*x) for x in range(50)]
-    >>> g.setData(data)
+    >>> data = [(x, x * x) for x in range(50)]
+    >>> g.data = data
     >>> g.process()
 
     .. image:: images/GraphScatter.*
         :width: 600
     '''
-
-    def __init__(self, *args, **keywords):
-        super(GraphScatter, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
-
     def process(self):
         '''
         runs the data through the processor and if doneAction == 'show' (default), show the graph
@@ -1391,6 +1454,7 @@ class GraphScatter(Graph):
         xValues = []
         yValues = []
         i = 0
+        
         for row in self.data:
             if len(row) < 2: # pragma: no cover
                 raise GraphException("Need at least two points for a graph data object!")
@@ -1405,7 +1469,7 @@ class GraphScatter(Graph):
             x = row[0]
             y = row[1]
             marker = self.marker
-            color = getColor(self.colors[i%len(self.colors)])
+            color = getColor(self.colors[i % len(self.colors)])
             alpha = self.alpha
             markerSize = self.markerSize
             if len(row) >= 3:
@@ -1422,14 +1486,15 @@ class GraphScatter(Graph):
             ax.plot(x, y, marker, color=color, alpha=alpha, ms=markerSize)
             i += 1
         # values are sorted, so no need to use max/min
-        if not self._axisRangesAlreadySet['y']:
+        if not self.axisRangeHasBeenSet['y']:
             self.setAxisRange('y', (yValues[0], yValues[-1]))
-        if not self._axisRangesAlreadySet['x']:
+            
+        if not self.axisRangeHasBeenSet['x']:
             self.setAxisRange('x', (xValues[0], xValues[-1]))
 
-        self._adjustAxisSpines(ax)
-        self._applyFormatting(ax)
-        self.done()
+        self.hideAxisSpines(ax)
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 class GraphHistogram(Graph):
     '''Graph the count of a single element.
@@ -1443,7 +1508,7 @@ class GraphHistogram(Graph):
     >>> #_DOCS_SHOW g = graph.GraphHistogram()
     >>> g = graph.GraphHistogram(doneAction=None) #_DOCS_HIDE
     >>> data = [(x, random.choice(range(30))) for x in range(50)]
-    >>> g.setData(data)
+    >>> g.data = data
     >>> g.process()
 
     .. image:: images/GraphHistogram.*
@@ -1453,8 +1518,7 @@ class GraphHistogram(Graph):
 
     def __init__(self, *args, **keywords):
         super(GraphHistogram, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
+        
         if 'binWidth' in keywords:
             self.binWidth = keywords['binWidth']
         else:
@@ -1479,14 +1543,15 @@ class GraphHistogram(Graph):
         binWidth = self.binWidth
         color = getColor(self.colors[0])
         alpha = self.alpha
-        for a,b in self.data:
+        for a, b in self.data:
             x.append(a)
             y.append(b)
-        ax.bar(x, y, width = binWidth, alpha=alpha, color=color)
+        
+        ax.bar(x, y, width=binWidth, alpha=alpha, color=color)
 
-        self._adjustAxisSpines(ax)
-        self._applyFormatting(ax)
-        self.done()
+        self.hideAxisSpines(ax)
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 
 
@@ -1505,13 +1570,12 @@ class GraphGroupedVerticalBar(Graph):
     [('bar0', OrderedDict([('a', 3), ('b', 2), ('c', 1)])), 
      ('bar1', OrderedDict([('a', 3), ('b', 2), ('c', 1)])), 
      ('bar2', OrderedDict([('a', 3), ('b', 2), ('c', 1)]))]    
-    >>> g.setData(data)
+    >>> g.data = data
     >>> g.process()
     '''
     def __init__(self, *args, **keywords):
         super(GraphGroupedVerticalBar, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y']
-        self._axisInit()
+        
         if 'roundDigits' in keywords:
             self.roundDigits = keywords['roundDigits']
         else:
@@ -1530,10 +1594,11 @@ class GraphGroupedVerticalBar(Graph):
     def labelBars(self, ax, rects):
         # attach some text labels
         for rect in rects:
+            adjustedX = rect.get_x() + (rect.get_width() / 2)
             height = rect.get_height()
-            ax.text(rect.get_x() + rect.get_width() / 2., 
+            ax.text(adjustedX, 
                     height, 
-                    '%s' % str(round(height, self.roundDigits)), 
+                    str(common.py3round(height, self.roundDigits)), 
                     ha='center', 
                     va='bottom', 
                     fontsize=self.tickFontSize, 
@@ -1545,7 +1610,7 @@ class GraphGroupedVerticalBar(Graph):
         matplotlib = extm.matplotlib
 
         self.fig = plt.figure()
-        self.fig.subplots_adjust(bottom=.3)
+        self.fig.subplots_adjust(bottom=0.3)
         ax = self.fig.add_subplot(1, 1, 1)
 
         # b value is a list of values for each bar
@@ -1576,7 +1641,7 @@ class GraphGroupedVerticalBar(Graph):
             for x in xVals:
                 xValsShifted.append(x + (widthShift * i))
 
-            rect = ax.bar(xValsShifted, yVals, width=widthShift, alpha=.8,
+            rect = ax.bar(xValsShifted, yVals, width=widthShift, alpha=0.8,
                     color=getColor(self.colors[i % len(self.colors)]))
             rects.append(rect)
 
@@ -1585,36 +1650,31 @@ class GraphGroupedVerticalBar(Graph):
             self.labelBars(ax, rect)
             colors.append(rect[0])
 
-        font = matplotlib.font_manager.FontProperties(size=self.tickFontSize,
-                         family=self.fontFamily) 
-        ax.legend(colors, subLabels, prop=font)
+        fontProps = matplotlib.font_manager.FontProperties(size=self.tickFontSize,
+                                                           family=self.fontFamily) 
+        ax.legend(colors, subLabels, prop=fontProps)
 
-        self._adjustAxisSpines(ax)
-        self._applyFormatting(ax)
-        self.done()
+        self.hideAxisSpines(ax)
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 
 class _Graph3DBars(Graph):
-    '''Not functioning in all matplotlib versions
     '''
-    def __init__(self, *args, **keywords):
-        '''
-        Graph multiple parallel bar graphs in 3D.
+    Graph multiple parallel bar graphs in 3D.
 
-        Note: there is bug in matplotlib .99.0 that causes the units to be unusual here. 
-        This is supposed to be fixed in a forthcoming release.
+    Note: there is bug in matplotlib .99.0 that causes the units to be unusual here. 
+    This is supposed to be fixed in a forthcoming release.
 
-        Data definition:
-        A dictionary where each key forms an array sequence along the z
-        plane (which is depth)
-        For each dictionary, a list of value pairs, where each pair is the
-        (x, y) coordinates.
-       
-        >>> a = graph._Graph3DBars()
-        '''
-        super(_Graph3DBars, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y', 'z']
-        self._axisInit()
+    Data definition:
+    A dictionary where each key forms an array sequence along the z
+    plane (which is depth)
+    For each dictionary, a list of value pairs, where each pair is the
+    (x, y) coordinates.
+   
+    >>> a = graph._Graph3DBars()
+    '''
+    axisKeys = ('x', 'y', 'z')
 
     def process(self):
         extm = _getExtendedModules()
@@ -1636,13 +1696,13 @@ class _Graph3DBars(Graph):
         #environLocal.printDebug(['yVals', yVals])
         #environLocal.printDebug(['xVals', xVals])
 
-        if self.axis['x']['range'] == None:
+        if self.axis['x']['range'] is None:
             self.axis['x']['range'] =  min(xVals), max(xVals)
         # swap y for z
-        if self.axis['z']['range'] == None:
+        if self.axis['z']['range'] is None:
             self.axis['z']['range'] =  min(yVals), max(yVals)
-        if self.axis['y']['range'] == None:
-            self.axis['y']['range'] =  min(zVals), max(zVals)+1
+        if self.axis['y']['range'] is None:
+            self.axis['y']['range'] =  min(zVals), max(zVals) + 1
 
         for z in range(*self.axis['y']['range']):
             #c = ['b', 'g', 'r', 'c', 'm'][z%5]
@@ -1650,18 +1710,15 @@ class _Graph3DBars(Graph):
             xs = [x for x, y in self.data[z]]
             # list of y values
             ys = [y for x, y in self.data[z]]
-            # width=.1, color=c, alpha=self.alpha
+            # width=0.1, color=c, alpha=self.alpha
             ax.bar(xs, ys, zs=z, zdir='y')
 
         self.setAxisLabel('x', 'x')
         self.setAxisLabel('y', 'y')
         self.setAxisLabel('z', 'z')
 
-        #ax.set_xlabel('X')
-        #ax.set_ylabel('Y')
-        #ax.set_zlabel('Z')
-        self._applyFormatting(ax)
-        self.done()
+        self.applyFormatting(ax)
+        self.callDoneAction()
    
 
 class Graph3DPolygonBars(Graph):
@@ -1680,22 +1737,21 @@ class Graph3DPolygonBars(Graph):
     >>> for i in range(len(dk)):
     ...    q = [(x, random.choice(range(10*(i+1)))) for x in range(20)]
     ...    data[dk[i]] = q
-    >>> g.setData(data)
+    >>> g.data = data
     >>> g.process()
 
     .. image:: images/Graph3DPolygonBars.*
         :width: 600
-
     '''
+    axisKeys = ('x', 'y', 'z')
+    
     def __init__(self, *args, **keywords):
         super(Graph3DPolygonBars, self).__init__(*args, **keywords)
-        self.axisKeys = ['x', 'y', 'z']
-        self._axisInit()
 
         if 'barWidth' in keywords:
             self.barWidth = keywords['barWidth']
         else:
-            self.barWidth = .1
+            self.barWidth = 0.1
         
         if 'useKeyValues' in keywords:
             self.useKeyValues = keywords['useKeyValues']
@@ -1785,8 +1841,8 @@ class Graph3DPolygonBars(Graph):
         poly.set_alpha(self.alpha)
 
         ax.add_collection3d(poly, zs=zs, zdir='y')
-        self._applyFormatting(ax)
-        self.done()
+        self.applyFormatting(ax)
+        self.callDoneAction()
 
 
 
@@ -1811,7 +1867,7 @@ class PlotStream(object):
     # a string representation of the type of graph
     format = ''
     # store a list of parameters that are graphed
-    values = []
+    values = [] # this seems not good!
 
     def __init__(self, streamObj, flatten=True, *args, **keywords):
         '''
@@ -1828,7 +1884,7 @@ class PlotStream(object):
 
         # store axis label type for time-based plots
         # either measure or offset
-        self._axisLabelUsesMeasures = None
+        self.useMeasuresForAxisLabel = None
 
     #---------------------------------------------------------------------------
     def _extractChordDataOneAxis(self, fx, c):
@@ -1925,13 +1981,16 @@ class PlotStream(object):
         return xValues, yValues
 
     def _extractData(self):
-        '''Override in subclass
+        '''
+        Override in subclass
         '''
         return None
 
     def process(self):
-        '''This will process all data, as well as call the done() method. 
-        What happens when the done() is called is determined by the keyword argument `doneAction`; 
+        '''
+        This will process all data, as well as call the callDoneAction() method. 
+        What happens when the callDoneAction() is called is 
+        determined by the keyword argument `doneAction`; 
         options are 'show' (display immediately), 'write' (write the file to a supplied file path), 
         and None (do processing but do not write or show a graph).
 
@@ -1968,10 +2027,10 @@ class PlotStream(object):
         Return an axis label for measure or offset, depending on if measures are available.
         '''
         # look for this attribute; only want to do ticksOffset procedure once
-        if self._axisLabelUsesMeasures is None: # pragma: no cover
-            raise GraphException('call ticksOffset() first')
+        if self.useMeasuresForAxisLabel is None: # pragma: no cover
+            raise GraphException('Axis label does not use measures, so call ticksOffset() first')
         # this parameter is set in 
-        if self._axisLabelUsesMeasures:
+        if self.useMeasuresForAxisLabel:
             return 'Measure Number'
         else:
             return 'Offset'
@@ -1993,11 +2052,10 @@ class PlotStream(object):
     def _filterPitchLabel(self, ticks):
         '''
         Given a list of ticks, replace all labels with alternative/unicode symbols where necessary.
-
         '''
         #environLocal.printDebug(['calling filterPitchLabel', ticks])
-        # this uses tex mathtext, which happens to define harp and flat
-        # http://matplotlib.sourceforge.net/users/mathtext.html
+        # this uses tex mathtext, which happens to define sharp and flat
+        #http://matplotlib.org/users/mathtext.html
         post = []
         for value, label in ticks:
             label = _substituteAccidentalSymbols(label)
@@ -2310,9 +2368,9 @@ class PlotStream(object):
         else:
             sSrc = self.streamObj
 
-        if offsetMin == None:
+        if offsetMin is None:
             offsetMin = sSrc.lowestOffset
-        if offsetMax == None:
+        if offsetMax is None:
             offsetMax = sSrc.highestTime
    
         # see if this stream has any Measures, or has any references to
@@ -2331,11 +2389,11 @@ class PlotStream(object):
         else:
             offsetMap = self.streamObj.measureOffsetMap([note.Note])
         if len(offsetMap) > 0:
-            self._axisLabelUsesMeasures = True
+            self.useMeasuresForAxisLabel = True
         else:
-            self._axisLabelUsesMeasures = False
+            self.useMeasuresForAxisLabel = False
         #environLocal.printDebug(['ticksOffset: got offset map keys', offsetMap.keys(), 
-        #    self._axisLabelUsesMeasures])
+        #    self.useMeasuresForAxisLabel])
 
         ticks = [] # a list of graphed value, string label pairs
         if len(offsetMap) > 0:
@@ -2376,7 +2434,7 @@ class PlotStream(object):
                     ticks.append([offset, '%s' % mNumber])
                     i += mNoStepSize
         else: # generate numeric ticks
-            if offsetStepSize == None:
+            if offsetStepSize is None:
                 offsetStepSize = 10
             #environLocal.printDebug(['using offsets for offset ticks'])
             # get integers for range calculation
@@ -2399,7 +2457,7 @@ class PlotStream(object):
             return math.log(x, 2)
         except ValueError: # pragma: no cover
             raise GraphException('cannot take log of x value: %s' %  x)
-        #return pow(x, .5)
+        #return pow(x, 0.5)
 
     # pylint: disable=redefined-builtin
     def ticksQuarterLength(self, min=None, max=None, remap=True): #@ReservedAssignment
@@ -2466,9 +2524,9 @@ class PlotStream(object):
         [[3, '$ppp$'], [4, '$pp$'], [5, '$p$'], [6, '$mp$']]
 
         '''
-        if minNameIndex == None:
+        if minNameIndex is None:
             minNameIndex = 0
-        if maxNameIndex == None:
+        if maxNameIndex is None:
             # will add one in range()
             maxNameIndex = len(dynamics.shortNames)-1
 
@@ -2531,8 +2589,8 @@ class PlotMultiStream(object):
     def process(self):
         '''
         This will process all data, as well as call 
-        the done() method. What happens when the done() is 
-        called is determined by the keyword argument `doneAction`; 
+        the callDoneAction() method. What happens when the callDoneAction() is 
+        called is determined by the attribute `doneAction`; 
         options are 'show' (display immediately), 
         'write' (write the file to a supplied file path), 
         and None (do processing but do not write or show a graph).
@@ -2603,16 +2661,24 @@ class PlotWindowedAnalysis(PlotStream):
         else:
             self.compressLegend = True
 
+        self.createGraph(*args, **keywords)
+        
+    def createGraph(self, *args, **keywords):
+        '''
+        actually create the graph...
+        '''
         # create a color grid
         self.graph = GraphColorGrid(*args, **keywords)
         # uses self.processor
+        
+        # data is a list of lists where the outer list represents one row
+        # of the graph and the inner list represents the color of each cell
         data, yTicks = self._extractData()
         xTicks = self.ticksOffset(minMaxOnly=True)
         
-        self.graph.setData(data)
+        self.graph.data = data
         self.graph.setAxisLabel('y', 'Window Size\n(Quarter Lengths)')
-        self.graph.setAxisLabel('x', 'Windows (%s Span)' %
-                                 self._axisLabelMeasureOrOffset())
+        self.graph.setAxisLabel('x', 'Windows (%s Span)' % self._axisLabelMeasureOrOffset())
         self.graph.setTicks('y', yTicks)
 
         # replace offset values with 0 and 1, as proportional here
@@ -2621,46 +2687,61 @@ class PlotWindowedAnalysis(PlotStream):
         else:
             environLocal.printDebug(['raw xTicks', xTicks])
             xTicks = []
+        environLocal.printDebug(['xTicks', xTicks])
         self.graph.setTicks('x', xTicks)
 
         
     def _extractData(self):
-        '''Extract data actually calls the processing routine. 
+        '''
+        Extract data actually calls the processing routine. 
+        
+        Returns two element tuple of the data (colorMatrix) and the yTicks list
         '''
         wa = windowed.WindowedAnalysis(self.streamObj, self.processor)
         unused_solutionMatrix, colorMatrix, metaMatrix = wa.process(self.minWindow, 
-            self.maxWindow, self.windowStep, windowType=self.windowType)
+                                                                    self.maxWindow, 
+                                                                    self.windowStep, 
+                                                                    windowType=self.windowType)
                 
+        # if more than 12 bars, reduce the number of ticks
+        if len(metaMatrix) > 12:
+            tickRange = range(0, len(metaMatrix), len(metaMatrix) // 12)
+        else:
+            tickRange = range(len(metaMatrix))
+
+        environLocal.printDebug(['tickRange', tickRange])
+        #environLocal.printDebug(['last start color', colorMatrix[-1][0]])
+        
+
         # get dictionaries of meta data for each row
         pos = 0
         yTicks = []
-
-        # if more than 12 bars, reduce the number of ticks
-        if len(metaMatrix) > 12:
-            tickRange = range(0, len(metaMatrix), int(len(metaMatrix) / 12))
-        else:
-            tickRange = range(len(metaMatrix))
-        environLocal.printDebug(['tickRange', tickRange])
-        for y in tickRange:        
+        
+        for y in tickRange: 
+            thisWindowSize = metaMatrix[y]['windowSize']
             # pad three ticks for each needed
             yTicks.append([pos, '']) # pad first
-            yTicks.append([pos+1, '%s' % metaMatrix[y]['windowSize']])
-            yTicks.append([pos+2, '']) # pad last
+            yTicks.append([pos + 1, str(thisWindowSize)])
+            yTicks.append([pos + 2, '']) # pad last
             pos += 3
 
         return colorMatrix, yTicks
     
     def _getLegend(self):
+        '''
+        Returns a solution legend for a WindowedAnalysis
+        '''
         title = (self.processor.name + 
                 ' (%s)' % self.processor.solutionUnitString())
         graphLegend = GraphColorGridLegend(doneAction=self.graph.doneAction, 
-                           title=title)
-        graphLegend.setData(self.processor.solutionLegend(
-                           compress=self.compressLegend))
+                                           title=title)
+        graphData = self.processor.solutionLegend(compress=self.compressLegend)
+        graphLegend.data = graphData
         return graphLegend
 
     def process(self):
-        '''Process method here overridden to provide legend.
+        '''
+        Process method here overridden to provide legend.
         '''
         # call the process routine in the base graph
         self.graph.process()
@@ -2669,9 +2750,10 @@ class PlotWindowedAnalysis(PlotStream):
         self.graphLegend.process()
 
     def write(self, fp=None): # pragma: no cover
-        '''Process method here overridden to provide legend.
         '''
-        if fp == None:
+        Process method here overridden to provide legend.
+        '''
+        if fp is None:
             fp = environLocal.getTempFile('.png')
 
         directory, fn = os.path.split(fp)
@@ -2725,7 +2807,7 @@ class PlotWindowedAardenEssen(PlotWindowedAnalysis):
     '''
     values = discrete.AardenEssen.identifiers
     def __init__(self, streamObj, *args, **keywords):
-        super(PlotWindowedAnalysis, self).__init__(streamObj, 
+        super(PlotWindowedAardenEssen, self).__init__(streamObj, 
             discrete.AardenEssen(streamObj), *args, **keywords)
 
 class PlotWindowedSimpleWeights(PlotWindowedAnalysis):
@@ -2839,7 +2921,7 @@ class PlotHistogram(PlotStream):
                 if value not in data:
                     data[value] = 0
                     # this is the offset that is used to shift labels
-                    # into bars; this only is .5 if x values are integers
+                    # into bars; this only is 0.5 if x values are integers
                     dataTick[value+.4] = ticks[i]
                 data[value] += 1
                 if data[value] >= countMax:
@@ -2852,7 +2934,7 @@ class PlotHistogram(PlotStream):
         xTicks = dataTick
         # alway have min and max
         yTicks = []
-        yTickStep = int(round(countMax / 8.))
+        yTickStep = round(countMax / 8)
         if yTickStep <= 1:
             yTickStep = 2
         for y in range(0, countMax+1, yTickStep):
@@ -2891,7 +2973,7 @@ class PlotHistogramPitchSpace(PlotHistogram):
         xTicks = self._filterPitchLabel(xTicks)
 
         self.graph = GraphHistogram(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('x', xTicks)
         self.graph.setTicks('y', yTicks)
@@ -2901,9 +2983,9 @@ class PlotHistogramPitchSpace(PlotHistogram):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([9,6])
+            self.graph.figureSize = (9, 6)
         if 'title' not in keywords:
-            self.graph.setTitle('Pitch Histogram')
+            self.graph.title = 'Pitch Histogram'
 
         # make smaller for axis display
         if 'tickFontSize' not in keywords:
@@ -2942,7 +3024,7 @@ class PlotHistogramPitchClass(PlotHistogram):
         xTicks = self._filterPitchLabel(xTicks)
 
         self.graph = GraphHistogram(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('x', xTicks)
         self.graph.setTicks('y', yTicks)
@@ -2950,11 +3032,8 @@ class PlotHistogramPitchClass(PlotHistogram):
         self.graph.setAxisLabel('y', 'Count')
         self.graph.setAxisLabel('x', 'Pitch Class')
 
-        # need more space for pitch axis labels
-        if 'figureSize' not in keywords:
-            self.graph.setFigureSize([6,6])
         if 'title' not in keywords:
-            self.graph.setTitle('Pitch Class Histogram')
+            self.graph.title = 'Pitch Class Histogram'
 
 
 
@@ -2986,7 +3065,7 @@ class PlotHistogramQuarterLength(PlotHistogram):
         self.data, xTicks, yTicks = self._extractData(dataValueLegit=False)
 
         self.graph = GraphHistogram(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('x', xTicks)
         self.graph.setTicks('y', yTicks)
@@ -2994,11 +3073,8 @@ class PlotHistogramQuarterLength(PlotHistogram):
         self.graph.setAxisLabel('y', 'Count')
         self.graph.setAxisLabel('x', 'Quarter Length')
 
-        # need more space for pitch axis labels
-        if 'figureSize' not in keywords:
-            self.graph.setFigureSize([6,6])
         if 'title' not in keywords:
-            self.graph.setTitle('Quarter Length Histogram')
+            self.graph.title = 'Quarter Length Histogram'
 
 
 
@@ -3116,7 +3192,7 @@ class PlotScatterPitchSpaceQuarterLength(PlotScatter):
         self.data, xTicks, yTicks = self._extractData(xLog=self.xLog)
 
         self.graph = GraphScatter(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('y', yTicks)
         self.graph.setTicks('x', xTicks)
@@ -3126,11 +3202,11 @@ class PlotScatterPitchSpaceQuarterLength(PlotScatter):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([6,6])
+            self.graph.figureSize = (6, 6)
         if 'title' not in keywords:
-            self.graph.setTitle('Pitch by Quarter Length Scatter')
+            self.graph.title = 'Pitch by Quarter Length Scatter'
         if 'alpha' not in keywords:
-            self.graph.alpha = .7
+            self.graph.alpha = 0.7
 
 
 class PlotScatterPitchClassQuarterLength(PlotScatter):
@@ -3149,7 +3225,8 @@ class PlotScatterPitchClassQuarterLength(PlotScatter):
         :width: 600
     '''
     # string name used to access this class
-    values = ['pitchClass', 'quarterLength']
+    values = ('pitchClass', 'quarterLength')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotScatterPitchClassQuarterLength, self).__init__(streamObj, *args, **keywords)
 
@@ -3163,7 +3240,7 @@ class PlotScatterPitchClassQuarterLength(PlotScatter):
         self.data, xTicks, yTicks = self._extractData(xLog=self.xLog)
 
         self.graph = GraphScatter(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('y', yTicks)
         self.graph.setTicks('x', xTicks)
@@ -3172,11 +3249,11 @@ class PlotScatterPitchClassQuarterLength(PlotScatter):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([6,6])
+            self.graph.figureSize = (6, 6)
         if 'title' not in keywords:
-            self.graph.setTitle('Pitch Class by Quarter Length Scatter')
+            self.graph.title = 'Pitch Class by Quarter Length Scatter'
         if 'alpha' not in keywords:
-            self.graph.alpha = .7
+            self.graph.alpha = 0.7
 
 
 class PlotScatterPitchClassOffset(PlotScatter):
@@ -3194,7 +3271,8 @@ class PlotScatterPitchClassOffset(PlotScatter):
     .. image:: images/PlotScatterPitchClassOffset.*
         :width: 600
     '''
-    values = ['pitchClass', 'offset']
+    values = ('pitchClass', 'offset')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotScatterPitchClassOffset, self).__init__(streamObj, *args, **keywords)
 
@@ -3208,7 +3286,7 @@ class PlotScatterPitchClassOffset(PlotScatter):
         self.data, xTicks, yTicks = self._extractData()
 
         self.graph = GraphScatter(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('y', yTicks)
         self.graph.setTicks('x', xTicks)
@@ -3217,16 +3295,16 @@ class PlotScatterPitchClassOffset(PlotScatter):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([10,5])
+            self.graph.figureSize = (10, 5)
         if 'title' not in keywords:
-            self.graph.setTitle('Pitch Class by Offset Scatter')
+            self.graph.title = 'Pitch Class by Offset Scatter'
         if 'alpha' not in keywords:
-            self.graph.alpha = .7
+            self.graph.alpha = 0.7
 
 
 class PlotScatterPitchSpaceDynamicSymbol(PlotScatter):
-    '''A graph of dynamics used by pitch space.
-
+    '''
+    A graph of dynamics used by pitch space.
     
     >>> s = converter.parse('tinynotation: 4/4 C4 d E f', makeNotation=False) #_DOCS_HIDE
     >>> s.insert(0.0, dynamics.Dynamic('pp')) #_DOCS_HIDE
@@ -3240,7 +3318,9 @@ class PlotScatterPitchSpaceDynamicSymbol(PlotScatter):
         :width: 600
     '''
     # string name used to access this class
-    values = ['pitchClass', 'dynamics']
+    values = ('pitchClass', 'dynamics')
+    figureSizeDefault = (12, 6)
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotScatterPitchSpaceDynamicSymbol, self).__init__(streamObj, *args, **keywords)
 
@@ -3259,7 +3339,7 @@ class PlotScatterPitchSpaceDynamicSymbol(PlotScatter):
         yTicks = self.fyTicks(min(yVals), max(yVals))
 
         self.graph = GraphScatter(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('y', yTicks)
         self.graph.setTicks('x', xTicks)
@@ -3268,11 +3348,11 @@ class PlotScatterPitchSpaceDynamicSymbol(PlotScatter):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([12,6])
+            self.graph.figureSize = self.figureSizeDefault
         if 'title' not in keywords:
-            self.graph.setTitle('Pitch Class by Quarter Length Scatter')
+            self.graph.title = 'Pitch Class by Quarter Length Scatter'
         if 'alpha' not in keywords:
-            self.graph.alpha = .7
+            self.graph.alpha = 0.7
         # make smaller for axis display
         if 'tickFontSize' not in keywords:
             self.graph.tickFontSize = 7
@@ -3284,9 +3364,11 @@ class PlotScatterPitchSpaceDynamicSymbol(PlotScatter):
 # horizontal bar graphs
 
 class PlotHorizontalBar(PlotStream):
-    '''A graph of events, sorted by pitch, over time
+    '''
+    A graph of events, sorted by pitch, over time
     '''
     format = 'horizontalbar'
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotHorizontalBar, self).__init__(streamObj, *args, **keywords)
 
@@ -3327,7 +3409,8 @@ class PlotHorizontalBar(PlotStream):
         # y ticks are auto-generated in lower-level routines
         # this is used just for creating labels
         yTicks = self.fyTicks(min(dataUnique.keys()),
-                                       max(dataUnique.keys()))
+                              max(dataUnique.keys()))
+
         for numericValue, label in yTicks:
             if numericValue in dataUnique:
                 data.append([label, dataUnique[numericValue]])
@@ -3353,7 +3436,8 @@ class PlotHorizontalBarPitchClassOffset(PlotHorizontalBar):
         :width: 600
 
     '''
-    values = ['pitchClass', 'offset', 'pianoroll']
+    values = ('pitchClass', 'offset', 'pianoroll')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotHorizontalBarPitchClassOffset, self).__init__(streamObj, *args, **keywords)
 
@@ -3367,7 +3451,7 @@ class PlotHorizontalBarPitchClassOffset(PlotHorizontalBar):
         #    'post processing xTicks', xTicks])
 
         self.graph = GraphHorizontalBar(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         # only need to add x ticks; y ticks added from data labels
         #environLocal.printDebug(['PlotHorizontalBarPitchClassOffset:', 
@@ -3379,9 +3463,9 @@ class PlotHorizontalBarPitchClassOffset(PlotHorizontalBar):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([10,4])
+            self.graph.figureSize = (10, 4)
         if 'title' not in keywords:
-            self.graph.setTitle('Note Quarter Length and Offset by Pitch Class')
+            self.graph.title = 'Note Quarter Length and Offset by Pitch Class'
 
 
 class PlotHorizontalBarPitchSpaceOffset(PlotHorizontalBar):
@@ -3397,8 +3481,8 @@ class PlotHorizontalBarPitchSpaceOffset(PlotHorizontalBar):
     .. image:: images/PlotHorizontalBarPitchSpaceOffset.*
         :width: 600
     '''
-
-    values = ['pitch', 'offset', 'pianoroll']
+    values = ('pitch', 'offset', 'pianoroll')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotHorizontalBarPitchSpaceOffset, self).__init__(streamObj, *args, **keywords)
        
@@ -3413,7 +3497,7 @@ class PlotHorizontalBarPitchSpaceOffset(PlotHorizontalBar):
         self.data, xTicks, unused_yTicks = self._extractData()
 
         self.graph = GraphHorizontalBar(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         # only need to add x ticks; y ticks added from data labels
         self.graph.setTicks('x', xTicks)  
@@ -3426,9 +3510,9 @@ class PlotHorizontalBarPitchSpaceOffset(PlotHorizontalBar):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([10,6])
+            self.graph.figureSize = (10, 6)
         if 'title' not in keywords:
-            self.graph.setTitle('Note Quarter Length by Pitch')
+            self.graph.title = 'Note Quarter Length by Pitch'
 
 
 
@@ -3462,7 +3546,8 @@ class PlotHorizontalBarWeighted(PlotStream):
 
 
     def _extractData(self):
-        '''Extract the data from the Stream.
+        '''
+        Extract the data from the Stream.
         '''
         if 'Score' not in self.streamObj.classes:
             raise GraphException('provided Stream must be Score')
@@ -3527,7 +3612,8 @@ class PlotDolan(PlotHorizontalBarWeighted):
         :width: 600
 
     '''
-    values = ['instrument']
+    values = ('instrument',)
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotDolan, self).__init__(streamObj, *args, **keywords)
 
@@ -3540,7 +3626,7 @@ class PlotDolan(PlotHorizontalBarWeighted):
         self.data, xTicks, unused_yTicks = self._extractData()
 
         self.graph = GraphHorizontalBarWeighted(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         # only need to add x ticks; y ticks added from data labels
         #environLocal.printDebug(['PlotHorizontalBarPitchClassOffset:', 
@@ -3551,12 +3637,13 @@ class PlotDolan(PlotHorizontalBarWeighted):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([10,4])
+            self.graph.figureSize = (10, 4)
+            
         if 'title' not in keywords:
-            self.graph.setTitle('Instrumentation')
+            self.graph.title = 'Instrumentation'
             if self.streamObj.metadata is not None:
                 if self.streamObj.metadata.title is not None:
-                    self.graph.setTitle(self.streamObj.metadata.title)
+                    self.graph.title = self.streamObj.metadata.title
         if 'hideYGrid' not in keywords:
             self.graph.hideYGrid = True
 
@@ -3734,8 +3821,8 @@ class PlotScatterWeightedPitchSpaceQuarterLength(PlotScatterWeighted):
     .. image:: images/PlotScatterWeightedPitchSpaceQuarterLength.*
         :width: 600
     '''
-
-    values = ['pitch', 'quarterLength']
+    values = ('pitch', 'quarterLength')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotScatterWeightedPitchSpaceQuarterLength, self).__init__(
                                                 streamObj, *args, **keywords)
@@ -3748,7 +3835,7 @@ class PlotScatterWeightedPitchSpaceQuarterLength(PlotScatterWeighted):
         self.data, xTicks, yTicks = self._extractData(xLog=self.xLog)
 
         self.graph = GraphScatterWeighted(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setAxisLabel('x', self._axisLabelQuarterLength(
                                 remap=self.xLog))
@@ -3759,11 +3846,11 @@ class PlotScatterWeightedPitchSpaceQuarterLength(PlotScatterWeighted):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([7,7])
+            self.graph.figureSize = (7, 7)
         if 'title' not in keywords:
-            self.graph.setTitle('Count of Pitch and Quarter Length')
+            self.graph.title = 'Count of Pitch and Quarter Length'
         if 'alpha' not in keywords:
-            self.graph.alpha = .8
+            self.graph.alpha = 0.8
 
 
 class PlotScatterWeightedPitchClassQuarterLength(PlotScatterWeighted):
@@ -3780,8 +3867,8 @@ class PlotScatterWeightedPitchClassQuarterLength(PlotScatterWeighted):
         :width: 600
 
     '''
-
-    values = ['pitchClass', 'quarterLength']
+    values = ('pitchClass', 'quarterLength')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotScatterWeightedPitchClassQuarterLength, self).__init__(
                                                             streamObj, *args, **keywords)
@@ -3794,7 +3881,7 @@ class PlotScatterWeightedPitchClassQuarterLength(PlotScatterWeighted):
         self.data, xTicks, yTicks = self._extractData(xLog = self.xLog)
 
         self.graph = GraphScatterWeighted(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setAxisLabel('x', self._axisLabelQuarterLength(
                                 remap=self.xLog))
@@ -3805,11 +3892,11 @@ class PlotScatterWeightedPitchClassQuarterLength(PlotScatterWeighted):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([7,7])
+            self.graph.figureSize = (7, 7)
         if 'title' not in keywords:
-            self.graph.setTitle('Count of Pitch Class and Quarter Length')
+            self.graph.title = 'Count of Pitch Class and Quarter Length'
         if 'alpha' not in keywords:
-            self.graph.alpha = .8
+            self.graph.alpha = 0.8
 
 
 
@@ -3828,7 +3915,8 @@ class PlotScatterWeightedPitchSpaceDynamicSymbol(PlotScatterWeighted):
         :width: 600
         
     '''
-    values = ['pitchClass', 'dynamicSymbol']
+    values = ('pitchClass', 'dynamicSymbol')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(PlotScatterWeightedPitchSpaceDynamicSymbol, self).__init__(
                                                 streamObj, *args, **keywords)
@@ -3849,7 +3937,7 @@ class PlotScatterWeightedPitchSpaceDynamicSymbol(PlotScatterWeighted):
 
 
         self.graph = GraphScatterWeighted(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setAxisLabel('x', 'Pitch')
         self.graph.setAxisLabel('y', 'Dynamics')
@@ -3859,11 +3947,11 @@ class PlotScatterWeightedPitchSpaceDynamicSymbol(PlotScatterWeighted):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([10,10])
+            self.graph.figureSize = (10, 10)
         if 'title' not in keywords:
-            self.graph.setTitle('Count of Pitch Class and Quarter Length')
+            self.graph.title = 'Count of Pitch Class and Quarter Length'
         if 'alpha' not in keywords:
-            self.graph.alpha = .8
+            self.graph.alpha = 0.8
         # make smaller for axis display
         if 'tickFontSize' not in keywords:
             self.graph.tickFontSize = 7
@@ -3975,8 +4063,8 @@ class Plot3DBarsPitchSpaceQuarterLength(Plot3DBars):
     .. image:: images/Plot3DBarsPitchSpaceQuarterLength.*
         :width: 600
     '''
-
-    values = ['pitch', 'quarterLength']
+    values = ('pitch', 'quarterLength')
+    
     def __init__(self, streamObj, *args, **keywords):
         super(Plot3DBarsPitchSpaceQuarterLength, self).__init__(streamObj, *args, **keywords)
 
@@ -3988,7 +4076,7 @@ class Plot3DBarsPitchSpaceQuarterLength(Plot3DBars):
         self.data, unused_xTicks, unused_yTicks, unused_zTicks = self._extractData()
 
         self.graph = Graph3DPolygonBars(*args, **keywords)
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         #self.graph.setTicks('y', yTicks)
         #self.graph.setTicks('x', xTicks)
@@ -3998,13 +4086,13 @@ class Plot3DBarsPitchSpaceQuarterLength(Plot3DBars):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([6,6])
+            self.graph.figureSize = (6, 6)
         if 'title' not in keywords:
-            self.graph.setTitle('Pitch by Quarter Length Count')
+            self.graph.title = 'Pitch by Quarter Length Count'
         if 'barWidth' not in keywords:
-            self.graph.barWidth = .1
+            self.graph.barWidth = 0.1
         if 'alpha' not in keywords:
-            self.graph.alpha = .5
+            self.graph.alpha = 0.5
 
 
 
@@ -4014,6 +4102,8 @@ class Plot3DBarsPitchSpaceQuarterLength(Plot3DBars):
 
 class PlotFeatures(PlotMultiStream):
     '''
+    Plots the output of a set of feature extractors.
+    
     FeatureExtractors can be ids or classes. 
     '''
     format = 'features'
@@ -4031,7 +4121,7 @@ class PlotFeatures(PlotMultiStream):
 
         self.graph = GraphGroupedVerticalBar(*args, **keywords)
         self.graph.grid = False
-        self.graph.setData(self.data)
+        self.graph.data = self.data
 
         self.graph.setTicks('x', xTicks)
         self.graph.setTicks('y', yTicks)
@@ -4046,9 +4136,9 @@ class PlotFeatures(PlotMultiStream):
 
         # need more space for pitch axis labels
         if 'figureSize' not in keywords:
-            self.graph.setFigureSize([10,6])
+            self.graph.figureSize = (10, 6)
         if 'title' not in keywords:
-            self.graph.setTitle(None)
+            self.graph.title = None
 
 
     def _extractData(self):
@@ -4076,7 +4166,7 @@ class PlotFeatures(PlotMultiStream):
         for i, di in enumerate(diList):
             sub = {}
             for fe in feList:
-                fe.setData(di)
+                fe.data = di
                 v = fe.extract().vector
                 if len(v) == 1:
                     sub[fe.name] = v[0]
@@ -4104,9 +4194,17 @@ class PlotFeatures(PlotMultiStream):
 
 #-------------------------------------------------------------------------------
 # public function
-def _getPlotsToMake(*args, **keywords):
+def getPlotsToMake(*args, **keywords):
     '''
-    Given `format` and `values` arguments, return a list of plot classes.
+    Given `format` and `values` provided as arguments or keywords, return a list of plot classes.
+    
+    no arguments = horizontalbar
+
+    >>> graph.getPlotsToMake()
+    [<class 'music21.graph.PlotHorizontalBarPitchSpaceOffset'>]
+    
+    >>> graph.getPlotsToMake('windowed')
+    [<class 'music21.graph.PlotWindowedTemperleyKostkaPayne'>]
     '''
     plotClasses = [
         # histograms
@@ -4140,7 +4238,7 @@ def _getPlotsToMake(*args, **keywords):
     ]
 
     showFormat = ''
-    values = []
+    values = ()
 
     # can match by format
     if 'format' in keywords:
@@ -4149,14 +4247,14 @@ def _getPlotsToMake(*args, **keywords):
         showFormat = keywords['showFormat']
 
     if 'values' in keywords:
-        values = keywords['values'] # should be a list
+        values = keywords['values'] # should be a tuple or list
 
     #environLocal.printDebug(['got args pre conversion', args])
     # if no args, use pianoroll
     foundClassName = None
     if (len(args) == 0 
             and showFormat == '' 
-            and values == []):
+            and not values):
         showFormat = 'horizontalbar'
         values = 'pitch'
     elif len(args) == 1:
@@ -4170,7 +4268,7 @@ def _getPlotsToMake(*args, **keywords):
         # if one arg, assume it is a histogram value
         if formatCandidate in VALUES:
             showFormat = 'histogram'
-            values = [args[0]]
+            values = (args[0],)
             match = True
         # permit directly matching the class name
         if not match:
@@ -4183,8 +4281,9 @@ def _getPlotsToMake(*args, **keywords):
         showFormat = userFormatsToFormat(args[0])
         values = args[1:] # get all remaining
     if not common.isListLike(values):
-        values = [values]
-    # make sure we have a list
+        values = (values,)
+        
+    # make it mutable
     values = list(values)
 
     #environLocal.printDebug(['got args post conversion', 'format', showFormat, 
@@ -4212,49 +4311,49 @@ def _getPlotsToMake(*args, **keywords):
             # try direct match of format and values
             plotClassNameValues = [x.lower() for x in plotClassName.values]
             plotClassNameFormat = plotClassName.format.lower()
-            if plotClassNameFormat == showFormat.lower():
-                #environLocal.printDebug(['matching format', showFormat])
-                # see if a matching set of values is specified
-                # normally plots need to match all values 
-                match = []
-                for requestedValue in values:
-                    if requestedValue is None: 
-                        continue
-                    if (requestedValue.lower() in plotClassNameValues):
-                        # do not allow the same value to be requested
-                        if requestedValue not in match:
-                            match.append(requestedValue)
-                if len(match) == len(values):
-                    plotMake.append(plotClassName)
-                else:
-                    sortTuple = (len(match), plotClassName)
-                    plotMakeCandidates.append(sortTuple)
+            if plotClassNameFormat != showFormat.lower():
+                continue
+            #environLocal.printDebug(['matching format', showFormat])
+            # see if a matching set of values is specified
+            # normally plots need to match all values 
+            match = []
+            for requestedValue in values:
+                if requestedValue is None: 
+                    continue
+                if (requestedValue.lower() in plotClassNameValues
+                        and requestedValue not in match):
+                    # do not allow the same value to be requested
+                    match.append(requestedValue)
+            if len(match) == len(values):
+                plotMake.append(plotClassName)
+            else:
+                sortTuple = (len(match), plotClassName)
+                plotMakeCandidates.append(sortTuple)
 
         # if no matches, try something more drastic:
-        if len(plotMake) == 0:
-            if len(plotMakeCandidates) > 0:
-                plotMakeCandidates.sort(key=lambda x: (x[0], x[1].__name__.lower()) )
-                # last in list has highest score; second item is class
-                plotMake.append(plotMakeCandidates[-1][1])
-            else:
-                for plotClassName in plotClasses:
-                    # create a list of all possible identifiers
-                    plotClassIdentifiers = [plotClassName.format.lower()]
-                    plotClassIdentifiers += [x.lower() for x in 
-                                            plotClassName.values]
-                    # combine format and values args
-                    for requestedValue in [showFormat] + values:
-                        if requestedValue.lower() in plotClassIdentifiers:
-                            plotMake.append(plotClassName)
-                            break
-                    if len(plotMake) > 0: # found a match
+        if len(plotMake) == 0 and len(plotMakeCandidates) > 0:
+            plotMakeCandidates.sort(key=lambda x: (x[0], x[1].__name__.lower()) )
+            # last in list has highest score; second item is class
+            plotMake.append(plotMakeCandidates[-1][1])
+
+        elif len(plotMake) == 0: # none to make and no candidates
+            for plotClassName in plotClasses:
+                # create a list of all possible identifiers
+                plotClassIdentifiers = [plotClassName.format.lower()]
+                plotClassIdentifiers += [x.lower() for x in plotClassName.values]
+                # combine format and values args
+                for requestedValue in [showFormat] + values:
+                    if requestedValue.lower() in plotClassIdentifiers:
+                        plotMake.append(plotClassName)
                         break
+                if len(plotMake) > 0: # found a match
+                    break
     #environLocal.printDebug(['plotMake', plotMake])
     return plotMake
 
 def plotStream(streamObj, *args, **keywords):
-    '''G
-    iven a stream and any keyword configuration arguments, create and display a plot.
+    '''
+    Given a stream and any keyword configuration arguments, create and display a plot.
 
     Note: plots require matplotib to be installed.
 
@@ -4322,7 +4421,7 @@ def plotStream(streamObj, *args, **keywords):
         :width: 600
 
     '''
-    plotMake = _getPlotsToMake(*args, **keywords)
+    plotMake = getPlotsToMake(*args, **keywords)
     #environLocal.printDebug(['plotClassName found', plotMake])
     for plotClassName in plotMake:
         obj = plotClassName(streamObj, *args, **keywords)
@@ -4341,27 +4440,28 @@ class TestExternal(unittest.TestCase):
         '''
         a = GraphScatter(doneAction='write', title='x to x*x', alpha=1)
         data = [(x, x*x) for x in range(50)]
-        a.setData(data)
+        a.data = data
         a.process()
         
         del a
 
         a = GraphHistogram(doneAction='write', title='50 x with random(30) y counts')
         data = [(x, random.choice(range(30))) for x in range(50)]
-        a.setData(data)
+        a.data = data
         a.process()
         
         del a
 
         a = Graph3DPolygonBars(doneAction='write', 
                                title='50 x with random values increase by 10 per x', 
-                               alpha=.8, colors=['b', 'g'])
+                               alpha=0.8, colors=['b', 'g'])
         data = {1:[], 2:[], 3:[], 4:[], 5:[]}
-        for i in range(len(data.keys())):
-            q = [(x, random.choice(range(10*i, 10*(i+1)))) for x in range(50)]
+        
+        for i in range(len(data)):
+            q = [(x, random.choice(range(10 * i, 10 * (i + 1)))) for x in range(50)]
             dk = list(data.keys())
             data[dk[i]] = q
-        a.setData(data)
+        a.data = data
         a.process()
         
         del a
@@ -4370,12 +4470,12 @@ class TestExternal(unittest.TestCase):
     def test3DGraph(self):
         a = Graph3DPolygonBars(doneAction='write', 
                                title='50 x with random values increase by 10 per x', 
-                               alpha=.8, colors=['b', 'g'])
+                               alpha=0.8, colors=['b', 'g'])
         data = {1:[], 2:[], 3:[], 4:[], 5:[]}
         for i in range(len(data.keys())):
-            q = [(x, random.choice(range(10*i, 10*(i+1)))) for x in range(50)]
-            data[data.keys()[i]] = q
-        a.setData(data)
+            q = [(x, random.choice(range(10 * i, 10 * (i + 1)))) for x in range(50)]
+            data[list(data.keys())[i]] = q
+        a.data = data
 
 
         xPoints = []
@@ -4404,7 +4504,7 @@ class TestExternal(unittest.TestCase):
         #environLocal.printDebug(['data points', data])
        
         a = GraphHorizontalBar()
-        a.setData(data)
+        a.data = data
         a.process()
         
 
@@ -4445,7 +4545,7 @@ class TestExternal(unittest.TestCase):
             data.append([x, y, z])
        
         a = GraphScatterWeighted()
-        a.setData(data)
+        a.data = data
         a.process()
 
     def testPlotScatterWeightedPitchSpaceQuarterLength(self):
@@ -4565,7 +4665,7 @@ class TestExternal(unittest.TestCase):
 
         for graphClassName, data in graphClasses:
             obj = graphClassName(doneAction=None)
-            obj.setData(data) # add data here
+            obj.data = data # add data here
             obj.process()
             fn = obj.__class__.__name__ + '.png'
             fp = os.path.join(environLocal.getRootTempDir(), fn)
@@ -4595,7 +4695,7 @@ class TestExternal(unittest.TestCase):
                 ['#999999', '#999999', '#999999', '#999999', '#999999', '#999999', 
                  '#999999', '#999999', '#999999', '#999999'], 
                 ['#999999', '#999999', '#999999', '#999999', '#999999']]
-        a.setData(data)
+        a.data = data
         a.process()
         fn = a.__class__.__name__ + '.png'
         fp = os.path.join(environLocal.getRootTempDir(), fn)
@@ -4649,13 +4749,13 @@ class TestExternal(unittest.TestCase):
         sDefault = corpus.parse('bach/bwv57.8')
 
         for plotClassName, work, titleStr in plotClasses:
-            if work == None:
+            if work is None:
                 s = sDefault
 
             else: # expecting data
                 s = converter.parse(work)
 
-            if titleStr != None:
+            if titleStr is not None:
                 obj = plotClassName(s, doneAction=None, title=titleStr)
             else:
                 obj = plotClassName(s, doneAction=None)
@@ -4674,17 +4774,17 @@ class TestExternal(unittest.TestCase):
 
         a = GraphScatter(doneAction=None)
         data = [(x, x*x) for x in range(50)]
-        a.setData(data)
+        a.data = data
         post.append([a, 'graphing-01'])
 
         a = GraphScatter(title='Exponential Graph', alpha=1, doneAction=None)
         data = [(x, x*x) for x in range(50)]
-        a.setData(data)
+        a.data = data
         post.append([a, 'graphing-02'])
 
         a = GraphHistogram(doneAction=None)
         data = [(x, random.choice(range(30))) for x in range(50)]
-        a.setData(data)
+        a.data = data
         post.append([a, 'graphing-03'])
 
         a = Graph3DPolygonBars(doneAction=None) 
@@ -4692,13 +4792,16 @@ class TestExternal(unittest.TestCase):
         for i in range(len(data.keys())):
             q = [(x, random.choice(range(10*(i+1)))) for x in range(20)]
             data[data.keys()[i]] = q
-        a.setData(data) 
+        a.data = data 
         post.append([a, 'graphing-04'])
 
 
-        b = Graph3DPolygonBars(title='Random Data', alpha=.8,\
-        barWidth=.2, doneAction=None, colors=['b','r','g']) 
-        b.setData(data)
+        b = Graph3DPolygonBars(title='Random Data', 
+                               alpha=0.8,
+                               barWidth=0.2, 
+                               doneAction=None, 
+                               colors=['b', 'r', 'g']) 
+        b.data = data
         post.append([b, 'graphing-05'])
 
 
@@ -4743,14 +4846,14 @@ class Test(unittest.TestCase):
     def testBasic(self):
         a = GraphScatter(doneAction=None, title='x to x*x', alpha=1)
         data = [(x, x*x) for x in range(50)]
-        a.setData(data)
+        a.data = data
         a.process()
         
         del a
 
         a = GraphHistogram(doneAction=None, title='50 x with random(30) y counts')
         data = [(x, random.choice(range(30))) for x in range(50)]
-        a.setData(data)
+        a.data = data
         a.process()
         
         del a
@@ -4758,13 +4861,14 @@ class Test(unittest.TestCase):
 
         a = Graph3DPolygonBars(doneAction=None, 
                                title='50 x with random values increase by 10 per x', 
-                               alpha=.8, colors=['b', 'g'])
+                               alpha=0.8, 
+                               colors=['b', 'g'])
         data = {1:[], 2:[], 3:[], 4:[], 5:[]}
         for i in range(len(data.keys())):
             q = [(x, random.choice(range(10*i, 10*(i+1)))) for x in range(50)]
             dk = list(data.keys())
             data[dk[i]] = q
-        a.setData(data)
+        a.data = data
         a.process()
         
         del a
@@ -4780,7 +4884,7 @@ class Test(unittest.TestCase):
             data.append([label, points])
        
         a = GraphHorizontalBar(doneAction=None)
-        a.setData(data)
+        a.data = data
         a.process()
         
 
@@ -4827,7 +4931,7 @@ class Test(unittest.TestCase):
 
         
     def testPlotWindowed(self, doneAction=None):
-        if doneAction != None: # pragma: no cover
+        if doneAction is not None: # pragma: no cover
             fp = random.choice(corpus.getBachChorales('.xml'))
             unused_directory, fn = os.path.split(fp)
             a = corpus.parse(fp)
@@ -4863,7 +4967,7 @@ class Test(unittest.TestCase):
         data = ks.solutionLegend()
         #print data
         a = GraphColorGridLegend(doneAction=doneAction, dpi=300)
-        a.setData(data)
+        a.data = data
         a.process()
         
 
@@ -4918,7 +5022,7 @@ class Test(unittest.TestCase):
 
         s = stream.Stream()
         s.append(sc.getChord('e3','a3', quarterLength=2))
-        s.append(note.Note('c3', quarterLength=.5))
+        s.append(note.Note('c3', quarterLength=0.5))
         b = PlotHistogramQuarterLength(s, doneAction=None)
         b.process()
         
@@ -4930,11 +5034,11 @@ class Test(unittest.TestCase):
 
 
         b = PlotScatter(stream.Stream(), doneAction=None)
-        c = chord.Chord(['b', 'c', 'd'], quarterLength=.5)
+        c = chord.Chord(['b', 'c', 'd'], quarterLength=0.5)
         fx = lambda n: n.pitch.midi
         fy = lambda n: n.quarterLength
         self.assertEqual(b._extractChordDataTwoAxis(fx, fy, c), ([71, 60, 62], [0.5]))
-        c = chord.Chord(['b', 'c', 'd'], quarterLength=.5)
+        c = chord.Chord(['b', 'c', 'd'], quarterLength=0.5)
         # matching the number of pitches for each data point may be needed
         self.assertEqual(b._extractChordDataTwoAxis(fx, fy, c, matchPitchCount=True), 
                          ([71, 60, 62], [0.5, 0.5, 0.5]) )
@@ -4944,7 +5048,7 @@ class Test(unittest.TestCase):
         sc = scale.MajorScale('c4')
 
         s = stream.Stream()
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         s.append(sc.getChord('b3','c5', quarterLength=1.5))
         s.append(note.Note('c3', quarterLength=2))
         b = PlotScatterPitchSpaceQuarterLength(s, doneAction=None, xLog=False)
@@ -4960,7 +5064,7 @@ class Test(unittest.TestCase):
         sc = scale.MajorScale('c4')
 
         s = stream.Stream()
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         s.append(sc.getChord('b3','c5', quarterLength=1.5))
         s.append(note.Note('c3', quarterLength=2))
         b = PlotScatterPitchClassQuarterLength(s, doneAction=None, xLog=False)
@@ -4976,7 +5080,7 @@ class Test(unittest.TestCase):
         sc = scale.MajorScale('c4')
 
         s = stream.Stream()
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         s.append(note.Note('c3', quarterLength=2))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
         s.append(note.Note('d3', quarterLength=2))
@@ -4996,7 +5100,7 @@ class Test(unittest.TestCase):
 
         s = stream.Stream()
         s.append(dynamics.Dynamic('f'))
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         #s.append(note.Note('c3', quarterLength=2))
         s.append(dynamics.Dynamic('p'))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
@@ -5017,7 +5121,7 @@ class Test(unittest.TestCase):
 
         s = stream.Stream()
         s.append(note.Note('c3'))
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         #s.append(note.Note('c3', quarterLength=2))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
 
@@ -5033,7 +5137,7 @@ class Test(unittest.TestCase):
 
         s = stream.Stream()
         s.append(note.Note('c3'))
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         #s.append(note.Note('c3', quarterLength=2))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
 
@@ -5050,7 +5154,7 @@ class Test(unittest.TestCase):
 
         s = stream.Stream()
         s.append(note.Note('c3'))
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         #s.append(note.Note('c3', quarterLength=2))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
         s.append(sc.getChord('f4','g5', quarterLength=3))
@@ -5068,7 +5172,7 @@ class Test(unittest.TestCase):
 
         s = stream.Stream()
         s.append(note.Note('c3'))
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         #s.append(note.Note('c3', quarterLength=2))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
         s.append(sc.getChord('f4','g5', quarterLength=3))
@@ -5079,7 +5183,7 @@ class Test(unittest.TestCase):
         b.process()
         
         self.assertEqual(b.data[0:8], [[0.5, 0, 0], [1.0, 0, 1], [1.5, 0, 1], 
-                                       [3, 0, 3], [0.5, 1, 0], [1.0, 1, 0], 
+                                       [3, 0, 3],   [0.5, 1, 0], [1.0, 1, 0], 
                                        [1.5, 1, 0], [3, 1, 0]])
         #b.write()
 
@@ -5090,7 +5194,7 @@ class Test(unittest.TestCase):
         s = stream.Stream()
         s.append(dynamics.Dynamic('f'))
         #s.append(note.Note('c3'))
-        c = sc.getChord('e3','a3', quarterLength=.5)
+        c = sc.getChord('e3','a3', quarterLength=0.5)
         self.assertEqual(repr(c), '<music21.chord.Chord E3 F3 G3 A3>')
         self.assertEqual([n.pitch.ps for n in c], [52.0, 53.0, 55.0, 57.0])
         s.append(c)
@@ -5125,7 +5229,7 @@ class Test(unittest.TestCase):
         s = stream.Stream()
         s.append(dynamics.Dynamic('f'))
         s.append(note.Note('c3'))
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         s.append(dynamics.Dynamic('mf'))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
         s.append(dynamics.Dynamic('pp'))
@@ -5148,7 +5252,7 @@ class Test(unittest.TestCase):
         s = stream.Stream()
         s.append(dynamics.Dynamic('f'))
         s.append(note.Note('c4'))
-        s.append(sc.getChord('e3','a3', quarterLength=.5))
+        s.append(sc.getChord('e3','a3', quarterLength=0.5))
         #s.append(note.Note('c3', quarterLength=2))
         s.append(dynamics.Dynamic('mf'))
         s.append(sc.getChord('b3','e4', quarterLength=1.5))
@@ -5175,53 +5279,53 @@ class Test(unittest.TestCase):
         
 
     def testGetPlotsToMakeA(self):
-        post = _getPlotsToMake(format='grid', values='krumhansl-schmuckler')
+        post = getPlotsToMake(format='grid', values='krumhansl-schmuckler')
         self.assertEqual(post, [PlotWindowedKrumhanslSchmuckler])
-        post = _getPlotsToMake(format='grid', values='aarden')
+        post = getPlotsToMake(format='grid', values='aarden')
         self.assertEqual(post, [PlotWindowedAardenEssen])
-        post = _getPlotsToMake(format='grid', values='simple')
+        post = getPlotsToMake(format='grid', values='simple')
         self.assertEqual(post, [PlotWindowedSimpleWeights])
-        post = _getPlotsToMake(format='grid', values='bellman')
+        post = getPlotsToMake(format='grid', values='bellman')
         self.assertEqual(post, [PlotWindowedBellmanBudge])
-        post = _getPlotsToMake(format='grid', values='kostka')
+        post = getPlotsToMake(format='grid', values='kostka')
         self.assertEqual(post, [PlotWindowedTemperleyKostkaPayne])
-        post = _getPlotsToMake(format='grid', values='KrumhanslKessler')
+        post = getPlotsToMake(format='grid', values='KrumhanslKessler')
         self.assertEqual(post, [PlotWindowedKrumhanslKessler])
 
 
         # no args get pitch space piano roll
-        post = _getPlotsToMake()
+        post = getPlotsToMake()
         self.assertEqual(post, [PlotHorizontalBarPitchSpaceOffset])
 
         # one arg gives a histogram of that parameters
-        post = _getPlotsToMake('duration')
+        post = getPlotsToMake('duration')
         self.assertEqual(post, [PlotHistogramQuarterLength])
-        post = _getPlotsToMake('quarterLength')
+        post = getPlotsToMake('quarterLength')
         self.assertEqual(post, [PlotHistogramQuarterLength])
-        post = _getPlotsToMake('ps')
+        post = getPlotsToMake('ps')
         self.assertEqual(post, [PlotHistogramPitchSpace])
-        post = _getPlotsToMake('pitch')
+        post = getPlotsToMake('pitch')
         self.assertEqual(post, [PlotHistogramPitchSpace])
-        post = _getPlotsToMake('pitchspace')
+        post = getPlotsToMake('pitchspace')
         self.assertEqual(post, [PlotHistogramPitchSpace])
-        post = _getPlotsToMake('pc')
+        post = getPlotsToMake('pc')
         self.assertEqual(post, [PlotHistogramPitchClass])
 
-        post = _getPlotsToMake('scatter', 'ps')
+        post = getPlotsToMake('scatter', 'ps')
         self.assertEqual(post, [PlotScatterPitchSpaceQuarterLength])
-        post = _getPlotsToMake('scatter', 'ps', 'duration')
+        post = getPlotsToMake('scatter', 'ps', 'duration')
         self.assertEqual(post, [PlotScatterPitchSpaceQuarterLength])
 
-        post = _getPlotsToMake('scatter', 'pc', 'offset')
+        post = getPlotsToMake('scatter', 'pc', 'offset')
         self.assertEqual(post, [PlotScatterPitchClassOffset])
 
 
     def testGetPlotsToMakeB(self):
-        post = _getPlotsToMake('dolan')
+        post = getPlotsToMake('dolan')
         self.assertEqual(post, [PlotDolan])
-        post = _getPlotsToMake(values='instrument')
+        post = getPlotsToMake(values='instrument')
         self.assertEqual(post, [PlotDolan])
-        post = _getPlotsToMake(format='horizontalbarweighted')
+        post = getPlotsToMake(format='horizontalbarweighted')
         self.assertEqual(post, [PlotDolan])
 
 
@@ -5231,7 +5335,7 @@ class Test(unittest.TestCase):
         
         g = graph.GraphGroupedVerticalBar(doneAction=None)
         data = [('bar%s' % x, {'a':3,'b':2,'c':1}) for x in range(10)]
-        g.setData(data)
+        g.data = data
         g.process()
         streamList = ['bach/bwv66.6', 'schoenberg/opus19/movement2', 'corelli/opus3no1/1grave']
         feList = ['ql1', 'ql2', 'ql3']
@@ -5243,8 +5347,8 @@ class Test(unittest.TestCase):
 
     def testColors(self):
         from music21 import graph
-        self.assertEqual(graph.getColor([.5, .5, .5]), '#808080')
-        self.assertEqual(graph.getColor(.5), '#808080')
+        self.assertEqual(graph.getColor([0.5, 0.5, 0.5]), '#808080')
+        self.assertEqual(graph.getColor(0.5), '#808080')
         self.assertEqual(graph.getColor(255), '#ffffff')
         self.assertEqual(graph.getColor('Steel Blue'), '#4682b4')
 
@@ -5324,7 +5428,7 @@ _DOC_ORDER = [
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
     import music21
-    music21.mainTest(Test)
+    music21.mainTest(Test) #TestExternal, 'noDocTest') #, runTest='testGetPlotsToMakeA')
 
 #------------------------------------------------------------------------------
 # eof

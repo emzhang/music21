@@ -83,22 +83,27 @@ memorization" (BMTM, 71). Some of these keywords are changed automatically in co
     there is a choice fingering (i.e. 5|4), the upper 
     number is transcribed before the lower number. If False, the reverse is the case.
 """
-
-from music21 import metadata, stream, exceptions21
-from music21.braille import segment
-from music21.ext import six
-
 import re
 import unittest
+
+try: # gives Py2 the zip of Py3
+    from future_builtins import zip # pylint: disable=redefined-builtin
+except ImportError:
+    pass
+
+
+from music21 import exceptions21
+from music21 import metadata
+from music21 import stream
+
+from music21.braille.basic import wordToBraille
+from music21.braille.lookup import alphabet
+from music21.braille import segment
+from music21.ext import six
 
 # pylint: disable=redefined-builtin    
 if six.PY3:
     unicode = str # @ReservedAssignment
-
-try: # gives Py2 the zip of Py3
-    from future_builtins import zip
-except ImportError:
-    pass
 
 
 #------------------------------------------------------------------------------
@@ -159,7 +164,7 @@ def streamToBraille(music21Stream, **keywords):
         return measureToBraille(music21Stream, **keywords)
     keyboardParts = music21Stream.getElementsByClass(stream.PartStaff)
     if len(keyboardParts) == 2:
-        return keyboardPartsToBraille(keyboardParts[0], keyboardParts[1], **keywords)
+        return keyboardPartsToBraille(music21Stream, **keywords)
     elif isinstance(music21Stream, stream.Score):
         return scoreToBraille(music21Stream, **keywords)
     elif isinstance(music21Stream, stream.Opus):
@@ -172,28 +177,39 @@ def scoreToBraille(music21Score, **keywords):
     """
     allBrailleLines = []
     for music21Metadata in music21Score.getElementsByClass(metadata.Metadata):
-        allBrailleLines.append(metadataToString(music21Metadata))
+        allBrailleLines.append(metadataToString(music21Metadata, returnBrailleUnicode=True))
     for p in music21Score.getElementsByClass(stream.Part):
         braillePart = partToBraille(p, **keywords)
         allBrailleLines.append(braillePart)
     return u"\n".join(allBrailleLines)
 
-def metadataToString(music21Metadata):
+def metadataToString(music21Metadata, returnBrailleUnicode=False):
     u"""
     >>> from music21.braille import translate
     >>> corelli = corpus.parse("monteverdi/madrigal.3.1.rntxt")
-    >>> corelli.getElementsByClass('Metadata')[0].__class__
+    >>> mdObject = corelli.getElementsByClass('Metadata')[0] 
+    >>> mdObject.__class__
     <class 'music21.metadata.Metadata'>
-    >>> print(translate.metadataToString(corelli.getElementsByClass('Metadata')[0]))
+    >>> print(translate.metadataToString(mdObject))
     Alternative Title: 3.1
     Title: La Giovinetta Pianta
+    
+    >>> print(translate.metadataToString(mdObject, returnBrailleUnicode=True))
+    ⠠⠁⠇⠞⠑⠗⠝⠁⠞⠊⠧⠑⠀⠠⠞⠊⠞⠇⠑⠒⠀⠼⠉⠲⠁
+    ⠠⠞⠊⠞⠇⠑⠒⠀⠠⠇⠁⠀⠠⠛⠊⠕⠧⠊⠝⠑⠞⠞⠁⠀⠠⠏⠊⠁⠝⠞⠁
     """
     allBrailleLines = []
     for key in music21Metadata._workIds:
         value = music21Metadata._workIds[key]
         if value is not None:
             n = u" ".join(re.findall(r"([A-Z]*[a-z]+)", key))
-            allBrailleLines.append("{0}: {1}".format(n.title(), value))
+            outString = u"{0}: {1}".format(n.title(), value)
+            if returnBrailleUnicode:
+                outTemp = []
+                for word in outString.split():
+                    outTemp.append(wordToBraille(word))
+                outString = alphabet[' '].join(outTemp)
+            allBrailleLines.append(outString)
     return u'\n'.join(sorted(allBrailleLines))
 
 def opusToBraille(music21Opus, **keywords):
@@ -264,17 +280,29 @@ def partToBraille(music21Part, **keywords):
             else:
                 allBrailleText.append(str(brailleSegment))
 
+    from music21.braille.basic import beamStatus
+    for x in list(beamStatus): # coerce to list first so that dictionary does not change size
+        del beamStatus[x]      # while iterating.
+
     if six.PY2 and debug:
         return u"\n".join(allBrailleText)
     else:
         return u"\n".join([unicode(bt) for bt in allBrailleText])
 
-def keyboardPartsToBraille(staffUpper, staffLower, **keywords):
+
+
+def keyboardPartsToBraille(keyboardScore, **keywords):
     """
-    Translates two :class:`~music21.stream.Part` instances to braille, an upper part and a lower
+    Translates a Score object containing two :class:`~music21.stream.Part` instances to braille, 
+    an upper part and a lower
     part. Assumes that the two parts are aligned and well constructed. Bar over bar format is used.
     """
+    parts = keyboardScore.getElementsByClass(['Part', 'PartStaff'])
+    if len(parts) != 2:
+        raise BrailleTranslateException("Can only translate two keyboard parts at a time")
     (inPlace, debug) = _translateArgs(**keywords)
+    staffUpper = parts[0]
+    staffLower = parts[1]
     upperPartToTranscribe = staffUpper
     if not inPlace:
         upperPartToTranscribe = staffUpper.makeNotation(cautionaryNotImmediateRepeat=False)

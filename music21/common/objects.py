@@ -12,6 +12,7 @@
 __all__ = ['defaultlist',
            'SingletonCounter',
            'SlottedObjectMixin',
+           'EqualSlottedObjectMixin',
            'Iterator',
            'Timer',           
           ]
@@ -122,9 +123,7 @@ class SlottedObjectMixin(object):
             state = getattr(self, '__dict__').copy()
         else:
             state = {}
-        slots = set()
-        for cls in self.__class__.mro():
-            slots.update(getattr(cls, '__slots__', ()))
+        slots = self._getSlotsRecursive()
         for slot in slots:
             sValue = getattr(self, slot, None)
             if isinstance(sValue, weakref.ref):
@@ -138,6 +137,53 @@ class SlottedObjectMixin(object):
         for slot, value in state.items():
             setattr(self, slot, value)
 
+    def _getSlotsRecursive(self):
+        '''
+        Find all slots recursively.
+        
+        A private attribute so as not to change the contents of inheriting
+        objects private interfaces:
+        
+        >>> b = beam.Beam()
+        >>> sSet = b._getSlotsRecursive()
+        
+        sSet is a set -- independent order.  Thus for the doctest
+        we need to preserve the order:
+        
+        >>> sorted(list(sSet))
+        ['direction', 'independentAngle', 'number', 'type']
+
+        When a normal Beam won't cut it...
+
+        >>> class FunkyBeam(beam.Beam):
+        ...     __slots__ = ('funkiness', 'groovability')
+        
+        >>> fb = FunkyBeam()
+        >>> sSet = fb._getSlotsRecursive()
+        >>> sorted(list(sSet))
+        ['direction', 'funkiness', 'groovability', 'independentAngle', 'number', 'type']
+        '''
+        slots = set()
+        for cls in self.__class__.mro():
+            slots.update(getattr(cls, '__slots__', ()))
+        return slots
+
+class EqualSlottedObjectMixin(SlottedObjectMixin):
+    '''
+    Same as above, but __eq__ and __ne__ functions are defined based on the slots.
+
+    Slots are the only things compared, so do not mix with a __dict__ based object.
+    '''
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        for thisSlot in self._getSlotsRecursive():
+            if getattr(self, thisSlot) != getattr(other, thisSlot):
+                return False
+        return True
+    
+    def __ne__(self, other):
+        return not (self == other)
 
 #-------------------------------------------------------------------------------
 class Iterator(object):
@@ -230,18 +276,18 @@ class Timer(object):
         Reports current time or, if stopped, stopped time.
         '''
         # if stopped, gets _tDif; if not stopped, gets current time
-        if self._tStop == None: # if not stoped yet
+        if self._tStop is None: # if not stoped yet
             t = time.time() - self._tStart
         else:
             t = self._tDif
         return t
 
     def __str__(self):
-        if self._tStop == None: # if not stoped yet
+        if self._tStop is None: # if not stoped yet
             t = time.time() - self._tStart
         else:
             t = self._tDif
-        return str(round(t,3))
+        return str(round(t, 3))
 
 
 if __name__ == '__main__':

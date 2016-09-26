@@ -11,6 +11,7 @@
 '''
 Various tools and utilities to find correlations between disparate objects in a Stream.
 '''
+from __future__ import division, print_function, absolute_import
 
 
 import unittest
@@ -67,9 +68,9 @@ class ActivityMatch(object):
         {'src': obj, 'dst': [objs]}
 
         '''        
-        if objNameSrc == None:
+        if objNameSrc is None:
             objNameSrc = (note.Note, chord.Chord)
-        if objNameDst == None:
+        if objNameDst is None:
             objNameDst = dynamics.Dynamic
 
         post = []

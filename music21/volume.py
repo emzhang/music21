@@ -20,6 +20,11 @@ from music21 import exceptions21
 from music21 import common
 from music21.common import SlottedObjectMixin
 
+from music21.ext import six
+if six.PY2:
+    # pylint: disable=redefined-builtin
+    from music21.common import py3round as round
+    
 from music21 import environment
 _MOD = "volume.py"
 environLocal = environment.Environment(_MOD)
@@ -250,7 +255,6 @@ class Volume(SlottedObjectMixin):
             # userArticulations can be a list of 1 or more articulation objects
             # as well as True/False
             if useArticulations is not False:
-                am = None
                 if common.isIterable(useArticulations):
                     am = useArticulations
                 elif (hasattr(useArticulations, 'classes')
@@ -258,6 +262,8 @@ class Volume(SlottedObjectMixin):
                     am = [useArticulations] # place in a list
                 elif self.client is not None:
                     am = self.client.articulations
+                else:
+                    am = None
                 if am is not None:
                     for a in am:
                         # add in volume shift for all articulations
@@ -391,7 +397,7 @@ class Volume(SlottedObjectMixin):
             scalar = 1
         else:
             scalar = value
-        self._velocity = int(round(scalar * 127))
+        self._velocity = round(scalar * 127)
 
 
 #-------------------------------------------------------------------------------
@@ -570,8 +576,6 @@ class Test(unittest.TestCase):
 
 
     def testGetRealizedB(self):
-
-
         from music21 import articulations
 
         v1 = Volume(velocity=64)
@@ -580,8 +584,8 @@ class Test(unittest.TestCase):
         a1 = articulations.StrongAccent()
         self.assertEqual(v1.getRealizedStr(useArticulations=a1), '0.65')
 
-        a1 = articulations.Accent()
-        self.assertEqual(v1.getRealizedStr(useArticulations=a1), '0.6')
+        a2 = articulations.Accent()
+        self.assertEqual(v1.getRealizedStr(useArticulations=a2), '0.6')
 
 #         d1 = dynamics.Dynamic('ppp')
 #         self.assertEqual(v1.getRealizedStr(useDynamicContext=d1), '0.1')
@@ -732,7 +736,3 @@ if __name__ == "__main__":
 
 #------------------------------------------------------------------------------
 # eof
-
-
-
-

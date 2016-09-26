@@ -5,7 +5,7 @@
 #
 # Authors:      Michael Scott Cuthbert
 #
-# Copyright:    Copyright ?? 2007-2012 Michael Scott Cuthbert and the music21 Project
+# Copyright:    Copyright © 2007-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
 '''
@@ -18,13 +18,16 @@ this replaces (July 2012) the old LilyString() conversion methods.
 from __future__ import unicode_literals
 
 import os
+import re
 import subprocess
 import sys
-import re
-from collections import OrderedDict
-# import threading
 import unittest
+
+from collections import OrderedDict
+
+
 from music21 import common
+from music21 import corpus
 from music21 import duration
 from music21 import environment
 from music21 import exceptions21
@@ -50,8 +53,6 @@ except ImportError: # pragma: no cover
     except ImportError:
         noPIL = True
 
-from music21 import corpus
-
 ### speed up tests! move to music21 base...
 class _sharedCorpusTestObject(object):
     sharedCache = {}
@@ -63,7 +64,6 @@ def _getCachedCorpusFile(keyName):
     if keyName not in sharedCacheObject.sharedCache:
         sharedCacheObject.sharedCache[keyName] = corpus.parse(keyName)
     return sharedCacheObject.sharedCache[keyName]
-
 
 #b.parts[0].measure(4)[2].color = 'blue'#.rightBarline = 'double'
 
@@ -1536,7 +1536,7 @@ class LilypondConverter(object):
         >>> d = duration.Duration(5.0)
         >>> str(lpc.lyMultipliedDurationFromDuration(d))
         Traceback (most recent call last):
-        LilyTranslateException: DurationException for durationObject 
+        music21.lily.translate.LilyTranslateException: DurationException for durationObject 
             <music21.duration.Duration 5.0>: Could not determine durationNumber from None
 
         Instead split by components:
@@ -2633,6 +2633,7 @@ class TestExternal(unittest.TestCase):
 
 #-------------------------------------------------------------------------------
 if __name__ == "__main__":
+    # pylint: disable=ungrouped-imports
     import music21
     music21.mainTest(Test) #, TestExternal)
     #music21.mainTest(TestExternal, 'noDocTest')

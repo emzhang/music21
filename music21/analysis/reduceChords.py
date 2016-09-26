@@ -12,6 +12,8 @@
 '''
 Automatically reduce a MeasureStack to a single chord or group of chords.
 '''
+from __future__ import division, print_function, absolute_import
+
 import collections
 import itertools
 import unittest
@@ -197,8 +199,8 @@ class ChordReducer(object):
             verticalityOne, verticalityTwo = verticalities
             pitchSetOne = verticalityOne.pitchSet
             pitchSetTwo = verticalityTwo.pitchSet
-            if not verticalityOne.isConsonant or \
-                not verticalityTwo.isConsonant:
+            if (not verticalityOne.isConsonant 
+                or not verticalityTwo.isConsonant):
                 continue
             if verticalityOne.measureNumber != verticalityTwo.measureNumber:
                 continue

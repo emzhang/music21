@@ -9,14 +9,14 @@
 # Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #
-# Changes:      04th March 2014 by Michael Bodenbach
+# Changes:      04 March 2014 by Michael Bodenbach
 #               - TabClef added
 #-------------------------------------------------------------------------------
 '''
 This module defines numerous subclasses of 
 :class:`~music21.clef.Clef`, providing object representations for all 
 commonly used clefs. Clef objects are often found 
-within :class:`~music21.stream.Measure` objects.  
+within :class:`~music21.stream.Measure` objects.
 '''
  
 import unittest
@@ -26,7 +26,7 @@ from music21 import common
 from music21 import exceptions21
 from music21 import environment
 _MOD = "clef.py"
-environLocal = environment.Environment(_MOD)
+environLocal = environment.Environment(_MOD) 
 
 
 class ClefException(exceptions21.Music21Exception):
@@ -36,9 +36,8 @@ class ClefException(exceptions21.Music21Exception):
 #-------------------------------------------------------------------------------
 class Clef(base.Music21Object):
     '''
-    A Clef is a basic music21 object for representing musical clefs
-    (Treble, Bass, etc.)
-    
+    A Clef is a basic `music21` object for representing musical clefs
+    (Treble, Bass, etc.) 
     
     Some clefs only represent the graphical element of the clef, 
     such as G clef, which is subclassed by TrebleClef() and FrenchViolinClef().
@@ -95,8 +94,10 @@ class Clef(base.Music21Object):
         False
         '''
         try:
-            if self.__class__ == other.__class__ and self.sign == other.sign \
-                    and self.line == other.line and self.octaveChange == other.octaveChange:
+            if (self.__class__ == other.__class__ 
+                    and self.sign == other.sign
+                    and self.line == other.line 
+                    and self.octaveChange == other.octaveChange):
                 return True
             else:
                 return False
@@ -133,7 +134,7 @@ class PercussionClef(Clef):
     def __init__(self):
         Clef.__init__(self)
         self.sign = 'percussion'
-        self.lowestLine = (7*4) + 3  # 4 octaves + 3 notes = e4
+        self.lowestLine = (7 * 4) + 3  # 4 octaves + 3 notes = e4
         
 class NoClef(Clef):
     '''
@@ -484,7 +485,7 @@ def clefFromString(clefString, octaveShift = 0):
     
     >>> invalidClef = clef.clefFromString("F6") 
     Traceback (most recent call last):
-    ClefException: line number (second character) must be 1-5; 
+    music21.clef.ClefException: line number (second character) must be 1-5; 
                 do not use this function for clefs on special staves such as 'F6'
     '''
     xnStr = clefString.strip()
@@ -561,7 +562,8 @@ class Test(unittest.TestCase):
         pass
 
     def testCopyAndDeepcopy(self):
-        '''Test copying all objects defined in this module
+        '''
+        Test copying all objects defined in this module
         '''
         import sys, types, copy
         for part in sys.modules[self.__module__].__dict__:
@@ -694,4 +696,3 @@ if __name__ == "__main__":
 
 #------------------------------------------------------------------------------
 # eof
-

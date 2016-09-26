@@ -16,10 +16,12 @@ See the chapter :ref:`User's Guide Chapter 14: Time Signatures <usersGuide_14_ti
 for more information on defining 
 metrical structures in music21.
 '''
-from music21 import stream
+from __future__ import division, print_function, absolute_import
 
 import copy
 import unittest
+
+from music21 import stream
 
 from music21 import environment
 _MOD = "analysis.metrical.py"

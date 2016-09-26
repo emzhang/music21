@@ -28,7 +28,8 @@ __all__ = ['ordinals', 'musicOrdinals',
            'numToIntOrFloat', 
            
            'opFrac', 'mixedNumeral',
-           'roundToHalfInteger', 'almostEquals',
+           'roundToHalfInteger', 'py3round',
+           'almostEquals',
            'addFloatPrecision', 'strTrimFloat', 
            'nearestMultiple',
            'standardDeviation',
@@ -97,8 +98,13 @@ def cleanupFloat(floatNum, maxDenominator=defaults.limitOffsetDenominator):
 
 def numToIntOrFloat(value):
     '''
-    Given a number, return an integer if it is very close to an integer, otherwise, return a float.
+    Given a number, return an integer if it is very close to an integer, 
+    otherwise, return a float.
 
+    This routine is very important for conversion of
+    :class:`~music21.pitch.Accidential` objects' `.alter`  attribute
+    in musicXML must be 1 (not 1.0) for sharp and -1 (not -1.0) for flat,
+    but allows for 0.5 for half-sharp.
 
     >>> common.numToIntOrFloat(1.0)
     1
@@ -108,10 +114,18 @@ def numToIntOrFloat(value):
     1.5
     >>> common.numToIntOrFloat(1.0000000005)
     1
+
+    >>> sharp = pitch.Accidental('sharp')
+    >>> common.numToIntOrFloat(sharp.alter)
+    1
+    >>> halfFlat = pitch.Accidental('half-flat')
+    >>> common.numToIntOrFloat(halfFlat.alter)
+    -0.5
+    
     
     :rtype: float
     '''
-    intVal = int(round(value))
+    intVal = py3round(value)
     if almostEquals(intVal, value, 1e-6):
         return intVal
     else: # source
@@ -393,8 +407,6 @@ def roundToHalfInteger(num):
     >>> common.roundToHalfInteger(-0.25)
     0
     
-    
-    
     :rtype: float
     '''
     intVal, floatVal = divmod(num, 1.0)
@@ -407,6 +419,44 @@ def roundToHalfInteger(num):
         floatVal = 1
     return intVal + floatVal
 
+def py3round(number, ndigits=None):
+    '''
+    Simulates Python3 rounding behavior in Python 2
+
+    >>> common.py3round(2.3)
+    2
+    >>> common.py3round(2.7)
+    3
+    >>> common.py3round(2.7, 0)
+    3.0
+    >>> common.py3round(1.5, 0)
+    2.0
+    >>> common.py3round(2.5, 0)
+    2.0
+    >>> common.py3round(-1.5)
+    -2
+    >>> common.py3round(-2.5)
+    -2
+    '''
+    if six.PY3:
+        if ndigits is not None:
+            return round(number, ndigits)
+        else:
+            return round(number)
+    
+    f = number
+    intIt = True if ndigits is None else False
+    ndigits = ndigits if ndigits is not None else 0
+    
+    if abs(round(float(f)) - float(f)) == 0.5:
+        retAmount = 2.0 * round(f / 2.0, ndigits)
+    else:
+        retAmount = round(f, ndigits)
+    
+    if intIt:
+        return int(retAmount)
+    else:
+        return retAmount
 
 def almostEquals(x, y = 0.0, grain=1e-7):
     '''
@@ -564,10 +614,10 @@ def nearestMultiple(n, unit):
         raise Exception('cannot place n between multiples: %s, %s', matchLow, matchHigh)
 
     if n >= matchLow and n <= (matchLow + halfUnit):
-        return matchLow, round(n - matchLow, 7), round(n - matchLow, 7)
+        return matchLow, py3round(n - matchLow, 7), py3round(n - matchLow, 7)
     else:
     #elif n >= (matchHigh - halfUnit) and n <= matchHigh:
-        return matchHigh, round(matchHigh - n, 7), round(n - matchHigh, 7)
+        return matchHigh, py3round(matchHigh - n, 7), py3round(n - matchHigh, 7)
 
 
 def standardDeviation(coll, bassel=False):
@@ -598,16 +648,23 @@ def dotMultiplier(dots):
     dotMultiplier(dots) returns how long to multiply the note 
     length of a note in order to get the note length with n dots
 
+    NOTE: the return of a Fraction is deprecated -- in v.4, a float will be returned. 
+    Since dotMultiplier always returns a power of two in the denominator,
+    the float will be exact.
+
     >>> common.dotMultiplier(1)
     Fraction(3, 2)
     >>> common.dotMultiplier(2)
     Fraction(7, 4)
     >>> common.dotMultiplier(3)
     Fraction(15, 8)
+
+    >>> common.dotMultiplier(0)
+    Fraction(1, 1)
     
     :rtype: Fraction
     '''
-    x = (((2**(dots+1.0))-1.0)/(2**dots))
+    x = (((2 ** (dots + 1.0)) - 1.0) / (2 ** dots))
     return Fraction(x)
 
 
@@ -989,7 +1046,7 @@ def fromRoman(num):
 
     >>> common.fromRoman('vx')
     Traceback (most recent call last):
-    Music21CommonException: input contains an invalid subtraction element: vx
+    music21.exceptions21.Music21CommonException: input contains an invalid subtraction element: vx
 
     :rtype: int
     '''
