@@ -14,7 +14,6 @@ requires numpy
 from music21 import base as base
 from music21 import exceptions21
 from music21 import interval
-from music21 import note
 
 from music21.alpha.analysis import hasher
 from music21.common import numberTools
@@ -38,18 +37,24 @@ class OmrMidiException(exceptions21.Music21Exception):
 class AlignmentTracebackException(OmrMidiException):
     pass
 
+
 class StreamAligner(object):
+    """
+    Stream Aligner object for two streams
     
+    """
     
-    def __init__(self, targetStream = None, sourceStream = None):
-        
+    def __init__(self, targetStream, sourceStream):
         self.targetStream = targetStream
         self.sourceStream = sourceStream
              
         self.h = hasher.Hasher()
+        self.hashedTargetStream = self.h.hashStream(self.targetStream)
+        self.hashedSourceStream = self.h.hashStream(self.sourceStream)
         
-        self.n = 0
-        self.m = 0
+        # n and m will be the dimensions of the Distance Matrix we set up
+        self.n = len(self.hashedTargetStream)
+        self.m = len(self.hashedSourceStream)
         
         self.distMatrix = None
         
@@ -60,48 +65,57 @@ class StreamAligner(object):
         '''
         main function
         '''
-        self.setup()
-        self.calculateDistMatrix()
+        self.setupDistMatrix()
+        self.populateDistMatrix()
+#         self.calculateDistMatrix()
         self.calculateChanges()
         
-    def setup(self):
+    def setupDistMatrix(self):
+        # TODO: why setup and setupDistMatrix?
         '''
         populates the hasher object
         creates the matrix of the right size after hashing
         '''
-        
-        ## Something is probably wrong here, need to hash the Streams in a strategic way
-#         self.targetStream.show('musicxml')
-#         self.sourceStream.show('musicxml')
-        
-        self.hashedTargetStream = self.h.hashStream(self.targetStream)
-        self.hashedSourceStream = self.h.hashStream(self.sourceStream)
-        
-        self.n = len(self.hashedTargetStream)
-        self.m = len(self.hashedSourceStream)
-        self.setupDistMatrix()
-    
-    def setupDistMatrix(self):
         if ('numpy' in base._missingImport):
             raise OmrMidiException("Cannot run OmrMidiFix without numpy ")
         import numpy as np
-                
         self.distMatrix = np.zeros((self.n+1, self.m+1), dtype=int)
         
         
+    def populateDistMatrix(self):
+        # setup all the entries in the first column
+        for i in range(1, self.n+1):
+            self.distMatrix[i][0] = self.distMatrix[i-1][0] + self.insertCost(self.hashedTargetStream[i-1])
+            
+        
+        # setup all the entries in the first row
+        for j in range(1, self.m+1):
+            self.distMatrix[0][j] = self.distMatrix[0][j-1] + self.deleteCost(self.hashedSourceStream[j-1])
+        
+        # fill in rest of matrix   
+        for i in range(1, self.n+1):
+            for j in range(1, self.m+1):
+                insertCost = self.insertCost(self.hashedTargetStream[i-1])
+                deleteCost = self.deleteCost(self.hashedSourceStream[j-1])
+                substCost = self.substCost(self.hashedTargetStream[i-1], self.hashedSourceStream[j-1])
+                previousValues = [self.distMatrix[i-1][j] + insertCost, 
+                                   self.distMatrix[i][j-1] + deleteCost, 
+                                   self.distMatrix[i-1][j-1] + substCost]  
+
+                self.distMatrix[i][j] = min(previousValues)
+                
+    
     def insertCost(self, tup):
         '''
-        cost of inserting an extra hashed item.
-        
-        for now, it's just the size of the tuple
+        Cost of inserting an extra hashed item.
+        For now, it's just the size of the tuple
         '''
         return len(tup)
     
     def deleteCost(self, tup):
         '''
-        cost of deleting an extra hashed item.
-        
-        for now, it's just the size of the tuple
+        Cost of deleting an extra hashed item.
+        For now, it's just the size of the tuple
         '''
         return len(tup)
         
@@ -131,42 +145,24 @@ class StreamAligner(object):
             else:
                 total -= 1
         return total
-    
-    def calculateDistMatrix(self):
-        '''
-        setup and calculations of all the entries
-        '''
-        # setup all the entries in the first column
-        for i in range(1, self.n+1):
-            self.distMatrix[i][0] = self.distMatrix[i-1][0] + self.insertCost(self.hashedTargetStream[i-1])
-            
         
-        # setup all the entries in the first row
-        for j in range(1, self.m+1):
-            self.distMatrix[0][j] = self.distMatrix[0][j-1] + self.deleteCost(self.hashedSourceStream[j-1])
-            
-        
-        # fill in rest of matrix   
-        for i in range(1, self.n+1):
-            for j in range(1, self.m+1):
-                insertCost = self.insertCost(self.hashedTargetStream[i-1])
-                deleteCost = self.deleteCost(self.hashedSourceStream[j-1])
-                substCost = self.substCost(self.hashedTargetStream[i-1], self.hashedSourceStream[j-1])
-                previousValues = [self.distMatrix[i-1][j] + insertCost, 
-                                   self.distMatrix[i][j-1] + deleteCost, 
-                                   self.distMatrix[i-1][j-1] + substCost]  
-
-                self.distMatrix[i][j] = min(previousValues)
-    
     def getPossibleMoves(self, i, j):
         '''
         i and j are current row and column index in self.distMatrix
         returns all possible moves (0 up to 3) 
         vertical, horizontal, diagonal costs of adjacent entries in self.distMatrix
         
-        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner()
-        >>> sa.n = 4
-        >>> sa.m = 3
+        >>> target = stream.Stream()
+        >>> source = stream.Stream()
+          
+        >>> note1 = note.Note("C4")
+        >>> note2 = note.Note("D4")
+        >>> note3 = note.Note("C4")
+        >>> note4 = note.Note("E4")
+          
+        >>> target.append([note1, note2, note3, note4])
+        >>> source.append([note1, note2, note3])
+        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
         >>> sa.setupDistMatrix()
         >>> for i in range(4+1):
         ...     for j in range(3+1):
@@ -181,6 +177,9 @@ class StreamAligner(object):
         >>> sa.getPossibleMoves(0, 0)
         [None, None, None]
         
+        >>> sa.getPossibleMoves(1, 1)
+        [0, 0, 0]
+        
         >>> sa.getPossibleMoves(4, 3)
         [9, 8, 6]
         
@@ -194,9 +193,9 @@ class StreamAligner(object):
         [0, None, None]
         
         '''
-        verticalCost = self.distMatrix[i-1][j] if i > 1 else None
-        horizontalCost = self.distMatrix[i][j-1] if j > 1 else None
-        diagonalCost = self.distMatrix[i-1][j-1] if (i > 1 and j > 1) else None
+        verticalCost = self.distMatrix[i-1][j] if i >= 1 else None
+        horizontalCost = self.distMatrix[i][j-1] if j >= 1 else None
+        diagonalCost = self.distMatrix[i-1][j-1] if (i >= 1 and j >= 1) else None
         
         possibleMoves = [verticalCost, horizontalCost, diagonalCost]
         return possibleMoves
@@ -210,10 +209,18 @@ class StreamAligner(object):
         3: diagonal movement, no change
         
         raises a ValueError if i == 0 and j == 0.
-
-        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner()
-        >>> sa.n = 4
-        >>> sa.m = 3
+        >>> target = stream.Stream()
+        >>> source = stream.Stream()
+          
+        >>> note1 = note.Note("C4")
+        >>> note2 = note.Note("D4")
+        >>> note3 = note.Note("C4")
+        >>> note4 = note.Note("E4")
+          
+        >>> target.append([note1, note2, note3, note4])
+        >>> source.append([note1, note2, note3])
+        
+        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
         >>> sa.setupDistMatrix()
         >>> for i in range(4+1):
         ...     for j in range(3+1):
@@ -268,6 +275,7 @@ class StreamAligner(object):
         i = self.n
         j = self.m
         
+        #and?
         while (i != 0 or j != 0):
             ## check if possible moves are indexable
             minIndex = self.getMovementDirection(i, j)
@@ -296,10 +304,8 @@ class StreamAligner(object):
         
         changesCount = Counter(elem[2] for elem in self.changes)
         self.percentageSimilar = float(changesCount['no change'])/len(self.changes)
-        print (self.changes)
-        print (self.percentageSimilar)
+        print(self.changes)
         
-    
 class OMRmidiNoteFixer(object):
     '''
     Fixes OMR stream according to MIDI information
@@ -517,21 +523,21 @@ class Test(unittest.TestCase):
         self.assertEqual(midiNote.nameWithOctave, 'B-4')
         self.assertTrue(fixer.isPossiblyMisaligned)
         
-    def testK525BassCelloDouble(self):
-        '''
-        K525's bass part doubles the cello part. don't hash the octave
-        '''
-        from music21 import converter
-        from music21.alpha.analysis import hasher
-        
-        midiFP = K525midiShortPath
-        omrFP = K525omrShortPath
-        midiStream = converter.parse(midiFP)
-        omrStream = converter.parse(omrFP)
-        
-        fixer = OMRmidiNoteFixer(omrStream, midiStream)
-        celloBassAnalysis = fixer.checkBassDoublesCello()
-        self.assertEqual(celloBassAnalysis, True)
+#     def testK525BassCelloDouble(self):
+#         '''
+#         K525's bass part doubles the cello part. don't hash the octave
+#         '''
+#         from music21 import converter
+#         from music21.alpha.analysis import hasher
+#         
+#         midiFP = K525midiShortPath
+#         omrFP = K525omrShortPath
+#         midiStream = converter.parse(midiFP)
+#         omrStream = converter.parse(omrFP)
+#     
+#         fixer = OMRmidiNoteFixer(omrStream, midiStream)
+#         celloBassAnalysis = fixer.checkBassDoublesCello()
+#         self.assertEqual(celloBassAnalysis, True)
         
     def testSameSimpleStream(self):
         '''
