@@ -25,6 +25,11 @@ import os
 import operator
 import unittest
 
+try:
+    import enum
+except ImportError:
+    from music21.ext import enum34 as enum
+
 pathName = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
 K525xmlShortPath = pathName + os.sep + 'k525short3.xml'
@@ -37,12 +42,18 @@ class OmrMidiException(exceptions21.Music21Exception):
 class AlignmentTracebackException(OmrMidiException):
     pass
 
+class ChangeOps(enum.IntEnum):
+    Insertion = 0
+    Deletion = 1
+    Substitution = 2
+    NoChange = 3
 
 class StreamAligner(object):
     """
     Stream Aligner object for two streams
     
     """
+     
     
     def __init__(self, targetStream, sourceStream):
         self.targetStream = targetStream
@@ -167,13 +178,14 @@ class StreamAligner(object):
         >>> for i in range(4+1):
         ...     for j in range(3+1):
         ...         sa.distMatrix[i][j] = i * j
+        
         >>> sa.distMatrix
         array([[ 0,  0,  0,  0],
                [ 0,  1,  2,  3],
                [ 0,  2,  4,  6],
                [ 0,  3,  6,  9],
                [ 0,  4,  8, 12]])        
-
+        
         >>> sa.getPossibleMoves(0, 0)
         [None, None, None]
         
@@ -200,8 +212,10 @@ class StreamAligner(object):
         possibleMoves = [verticalCost, horizontalCost, diagonalCost]
         return possibleMoves
     
-    def getMovementDirection(self, i, j):
+    def getOpFromLocation(self, i, j):
         '''
+        Insert, Delete, Substitution, No Change = range(4) 
+        
         return the direction that traceback moves
         0: vertical movement, insertion
         1: horizontal movement, deletion
@@ -222,30 +236,36 @@ class StreamAligner(object):
         
         >>> sa = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
         >>> sa.setupDistMatrix()
-        >>> for i in range(4+1):
-        ...     for j in range(3+1):
-        ...         sa.distMatrix[i][j] = i * j
+        >>> sa.populateDistMatrix()
         >>> sa.distMatrix
-        array([[ 0,  0,  0,  0],
-               [ 0,  1,  2,  3],
-               [ 0,  2,  4,  6],
-               [ 0,  3,  6,  9],
-               [ 0,  4,  8, 12]])        
+        array([[ 0,  3,  6,  9],
+               [ 3,  0,  3,  6],
+               [ 6,  3,  0,  3],
+               [ 9,  6,  3,  0],
+               [12,  9,  6,  3]])     
         
         
-        >>> sa.getMovementDirection(4, 3)
-        2
+        >>> sa.getOpFromLocation(4, 3)
+        <ChangeOps.Insertion: 0>
         
-        >>> sa.getMovementDirection(2, 2)
-        2
+        >>> sa.getOpFromLocation(2, 2)
+        <ChangeOps.NoChange: 3>
         
-        >>> sa.getMovementDirection(0, 2)
-        1
+        >>> sa.getOpFromLocation(0, 2)
+        <ChangeOps.Deletion: 1>
         
-        >>> sa.getMovementDirection(3, 0)
-        0
+        >>> sa.distMatrix[0][0] = 1
+        >>> sa.distMatrix
+        array([[ 1,  3,  6,  9],
+               [ 3,  0,  3,  6],
+               [ 6,  3,  0,  3],
+               [ 9,  6,  3,  0],
+               [12,  9,  6,  3]])     
         
-        >>> sa.getMovementDirection(0, 0)
+        >>> sa.getOpFromLocation(1, 1)
+        <ChangeOps.Substitution: 2>
+        
+        >>> sa.getOpFromLocation(0, 0)
         Traceback (most recent call last):
         ValueError: No movement possible from the origin
         '''
@@ -255,16 +275,17 @@ class StreamAligner(object):
             if possibleMoves[1] is None:
                 raise ValueError('No movement possible from the origin')
             else:
-                return 1
+                return ChangeOps.Deletion
         elif possibleMoves[1] is None:
-            return 0
+            return ChangeOps.Insertion
         
         currentCost = self.distMatrix[i][j]
         minIndex, minNewCost = min(enumerate(possibleMoves), key=operator.itemgetter(1))
         if currentCost == minNewCost:
-            minIndex = 3
+            return ChangeOps.NoChange
         
-        return minIndex
+        else:
+            return ChangeOps(minIndex)
     
     def calculateChanges(self):
         '''
@@ -278,24 +299,23 @@ class StreamAligner(object):
         #and?
         while (i != 0 or j != 0):
             ## check if possible moves are indexable
-            minIndex = self.getMovementDirection(i, j)
-        
-            # minIndex : 0: insertion, 1: deletion, 2: substitution; 3: nothing
-            if minIndex == 0:
-                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'insertion'))
+            bestOp = self.getOpFromLocation(i, j)
+            
+            self.changes.insert(0, (self.hashedTargetStream[i-1], 
+                                        self.hashedSourceStream[j-1],
+                                        bestOp))
+            # bestOp : 0: insertion, 1: deletion, 2: substitution; 3: nothing
+            if bestOp == ChangeOps.Insertion:
                 i -= 1
                 
-            elif minIndex == 1:
-                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'deletion'))
+            elif bestOp == ChangeOps.Deletion:
                 j -= 1
                 
-            elif minIndex == 2:
-                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'substitution'))
+            elif bestOp == ChangeOps.Substitution:
                 i -= 1
                 j -= 1
                 
-            else: # 3: nothing
-                self.changes.insert(0, (self.hashedTargetStream[i-1], self.hashedSourceStream[j-1], 'no change'))
+            else: # 3: ChangeOps.NoChange
                 i -= 1
                 j -= 1
         
@@ -303,7 +323,7 @@ class StreamAligner(object):
             raise AlignmentTracebackException('Traceback of best alignment did not end properly')
         
         changesCount = Counter(elem[2] for elem in self.changes)
-        self.percentageSimilar = float(changesCount['no change'])/len(self.changes)
+        self.percentageSimilar = float(changesCount[ChangeOps.NoChange])/len(self.changes)
         print(self.changes)
         
 class OMRmidiNoteFixer(object):
