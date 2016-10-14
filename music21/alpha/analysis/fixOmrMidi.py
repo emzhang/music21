@@ -53,13 +53,35 @@ class StreamAligner(object):
     Stream Aligner object for two streams
     
     """
-     
     
     def __init__(self, targetStream, sourceStream):
         self.targetStream = targetStream
         self.sourceStream = sourceStream
              
+        self.distMatrix = None
+        
         self.h = hasher.Hasher()
+        
+        self.changes = []
+        self.percentageSimilar = 0
+        
+    def align(self):
+        '''
+        main function:
+        setupDistMatrix() hashes the two streams and creates a matrix of the right size 
+        populateDistMatrix() enters in all the correct values in the distance matrix
+        calculateChanges() does a backtrace of the distance matrix to find the best path
+        '''
+        
+        self.setupDistMatrix()
+        self.populateDistMatrix()
+        self.calculateChanges()
+        
+    def setupDistMatrix(self):
+        '''
+        creates the matrix of the right size after hashing
+        '''
+        
         self.hashedTargetStream = self.h.hashStream(self.targetStream)
         self.hashedSourceStream = self.h.hashStream(self.sourceStream)
         
@@ -67,28 +89,8 @@ class StreamAligner(object):
         self.n = len(self.hashedTargetStream)
         self.m = len(self.hashedSourceStream)
         
-        self.distMatrix = None
-        
-        self.changes = []
-        self.percentageSimilar = 0
-        
-    def align(self):
-        '''
-        main function
-        '''
-        self.setupDistMatrix()
-        self.populateDistMatrix()
-#         self.calculateDistMatrix()
-        self.calculateChanges()
-        
-    def setupDistMatrix(self):
-        # TODO: why setup and setupDistMatrix?
-        '''
-        populates the hasher object
-        creates the matrix of the right size after hashing
-        '''
         if ('numpy' in base._missingImport):
-            raise OmrMidiException("Cannot run OmrMidiFix without numpy ")
+            raise OmrMidiException("Cannot run OmrMidiFix without numpy.")
         import numpy as np
         self.distMatrix = np.zeros((self.n+1, self.m+1), dtype=int)
         
@@ -131,8 +133,6 @@ class StreamAligner(object):
         return len(tup)
         
     def substCost(self, hashedItem1, hashedItem2):
-        # don't make this a float yet maybe make the quantization of costs bigger?
-        # i.e. 
         if hashedItem1 == hashedItem2:
             return 0 
         
@@ -324,7 +324,6 @@ class StreamAligner(object):
         
         changesCount = Counter(elem[2] for elem in self.changes)
         self.percentageSimilar = float(changesCount[ChangeOps.NoChange])/len(self.changes)
-        print(self.changes)
         
 class OMRmidiNoteFixer(object):
     '''
@@ -373,8 +372,7 @@ class OMRmidiNoteFixer(object):
         sa.h.hashMIDI = False
         sa.h.hashNoteNameOctave = True
         sa.align()
-        
-        print (sa.percentageSimilar)
+    
         if sa.percentageSimilar >= .8:
             self.bassDoublesCello = True
         
@@ -543,21 +541,21 @@ class Test(unittest.TestCase):
         self.assertEqual(midiNote.nameWithOctave, 'B-4')
         self.assertTrue(fixer.isPossiblyMisaligned)
         
-#     def testK525BassCelloDouble(self):
-#         '''
-#         K525's bass part doubles the cello part. don't hash the octave
-#         '''
-#         from music21 import converter
-#         from music21.alpha.analysis import hasher
-#         
-#         midiFP = K525midiShortPath
-#         omrFP = K525omrShortPath
-#         midiStream = converter.parse(midiFP)
-#         omrStream = converter.parse(omrFP)
-#     
-#         fixer = OMRmidiNoteFixer(omrStream, midiStream)
-#         celloBassAnalysis = fixer.checkBassDoublesCello()
-#         self.assertEqual(celloBassAnalysis, True)
+    def testK525BassCelloDouble(self):
+        '''
+        K525's bass part doubles the cello part. don't hash the octave
+        '''
+        from music21 import converter
+        from music21.alpha.analysis import hasher
+         
+        midiFP = K525midiShortPath
+        omrFP = K525omrShortPath
+        midiStream = converter.parse(midiFP)
+        omrStream = converter.parse(omrFP)
+     
+        fixer = OMRmidiNoteFixer(omrStream, midiStream)
+        celloBassAnalysis = fixer.checkBassDoublesCello()
+        self.assertEqual(celloBassAnalysis, True)
         
     def testSameSimpleStream(self):
         '''
