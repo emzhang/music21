@@ -14,6 +14,7 @@ requires numpy
 from music21 import base as base
 from music21 import exceptions21
 from music21 import interval
+from music21 import stream
 
 from music21.alpha.analysis import hasher
 from music21.common import numberTools
@@ -62,8 +63,32 @@ class StreamAligner(object):
         
         self.h = hasher.Hasher()
         
+        # True => match parts to parts, False => match entire stream to entire Stream
+        self.discretizeParts = True 
+        
         self.changes = []
-        self.percentageSimilar = 0
+        self.similarityScore = 0
+        
+        self.bassDoublesCello = False
+        
+    def checkPartAlignment(self, midiStream, omrStream):
+        numMidiParts = len(midiStream.getElementsByClass(stream.Part))
+        numOmrParts = len(omrStream.getElementsByClass(stream.Part))
+        if  numMidiParts == numOmrParts:
+            return True
+        
+        # check the case if bass doubles cello
+        elif numMidiParts - numOmrParts == 1:
+            sa = StreamAligner(midiStream[-1], midiStream[-2])
+            sa.discretizeParts = False
+            sa.align()
+            
+            if sa.similarityScore > .8:
+                self.bassDoublesCello = True
+                return True
+            return False
+        else: 
+            return False
         
     def align(self):
         '''
@@ -72,7 +97,15 @@ class StreamAligner(object):
         populateDistMatrix() enters in all the correct values in the distance matrix
         calculateChanges() does a backtrace of the distance matrix to find the best path
         '''
-        
+        if self.discretizeParts:
+            if self.checkPartAlignment(self.targetStream, self.sourceStream):
+                targetParts = self.targetStream.getElementsByClass(stream.Part)
+                sourceParts = self.sourceStream.getElementsByClass(stream.Part)
+                for targetPart, sourcePart in zip(targetParts, sourceParts):
+                    partStreamAligner = StreamAligner(targetPart.flat, sourcePart.flat)
+                    partStreamAligner.discretizeParts = False
+                    partStreamAligner.align()
+            
         self.setupDistMatrix()
         self.populateDistMatrix()
         self.calculateChanges()
@@ -80,6 +113,46 @@ class StreamAligner(object):
     def setupDistMatrix(self):
         '''
         creates the matrix of the right size after hashing
+        
+        >>> note1 = note.Note("C4")
+        >>> note2 = note.Note("D4")
+        >>> note3 = note.Note("C4")
+        >>> note4 = note.Note("E4")
+        
+        >>> # test for streams of length 3 and 4
+        >>> target0 = stream.Stream()
+        >>> source0 = stream.Stream()
+          
+        >>> target0.append([note1, note2, note3, note4])
+        >>> source0.append([note1, note2, note3])
+        
+        >>> sa0 = alpha.analysis.fixOmrMidi.StreamAligner(target0, source0)
+        >>> sa0.setupDistMatrix()
+        >>> sa0.distMatrix.size
+        20
+        >>> sa0.distMatrix.shape
+        (5, 4)
+        
+        >>> # test for empty target stream
+        >>> target1 = stream.Stream()
+        >>> source1 = stream.Stream()
+        >>> source1.append(note1)
+        >>> sa1 = alpha.analysis.fixOmrMidi.StreamAligner(target1, source1)
+        >>> sa1.setupDistMatrix()
+        Traceback (most recent call last):
+        music21.alpha.analysis.fixOmrMidi.OmrMidiException: 
+        Cannot perform alignment with empty target stream.
+        
+        >>> # test for empty source stream
+        >>> target2 = stream.Stream()
+        >>> source2 = stream.Stream()
+        >>> target2.append(note3)
+        >>> sa2 = alpha.analysis.fixOmrMidi.StreamAligner(target2, source2)
+        >>> sa2.setupDistMatrix()
+        Traceback (most recent call last):
+        music21.alpha.analysis.fixOmrMidi.OmrMidiException: 
+        Cannot perform alignment with empty source stream.
+        
         '''
         
         self.hashedTargetStream = self.h.hashStream(self.targetStream)
@@ -89,31 +162,39 @@ class StreamAligner(object):
         self.n = len(self.hashedTargetStream)
         self.m = len(self.hashedSourceStream)
         
+        if self.n == 0:
+            raise OmrMidiException("Cannot perform alignment with empty target stream.")
+        
+        if self.m == 0:
+            raise OmrMidiException("Cannot perform alignment with empty source stream.")
+        
         if ('numpy' in base._missingImport):
             raise OmrMidiException("Cannot run OmrMidiFix without numpy.")
         import numpy as np
-        self.distMatrix = np.zeros((self.n+1, self.m+1), dtype=int)
+        
+        
+        self.distMatrix = np.zeros((self.n + 1, self.m + 1), dtype=int)
         
         
     def populateDistMatrix(self):
         # setup all the entries in the first column
-        for i in range(1, self.n+1):
-            self.distMatrix[i][0] = self.distMatrix[i-1][0] + self.insertCost(self.hashedTargetStream[i-1])
+        for i in range(1, self.n + 1):
+            self.distMatrix[i][0] = self.distMatrix[i - 1][0] + self.insertCost(self.hashedTargetStream[i - 1])
             
         
         # setup all the entries in the first row
-        for j in range(1, self.m+1):
-            self.distMatrix[0][j] = self.distMatrix[0][j-1] + self.deleteCost(self.hashedSourceStream[j-1])
+        for j in range(1, self.m + 1):
+            self.distMatrix[0][j] = self.distMatrix[0][j - 1] + self.deleteCost(self.hashedSourceStream[j - 1])
         
         # fill in rest of matrix   
-        for i in range(1, self.n+1):
-            for j in range(1, self.m+1):
-                insertCost = self.insertCost(self.hashedTargetStream[i-1])
-                deleteCost = self.deleteCost(self.hashedSourceStream[j-1])
-                substCost = self.substCost(self.hashedTargetStream[i-1], self.hashedSourceStream[j-1])
-                previousValues = [self.distMatrix[i-1][j] + insertCost, 
-                                   self.distMatrix[i][j-1] + deleteCost, 
-                                   self.distMatrix[i-1][j-1] + substCost]  
+        for i in range(1, self.n + 1):
+            for j in range(1, self.m + 1):
+                insertCost = self.insertCost(self.hashedTargetStream[i - 1])
+                deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
+                substCost = self.substCost(self.hashedTargetStream[i - 1], self.hashedSourceStream[j - 1])
+                previousValues = [self.distMatrix[i - 1][j] + insertCost,
+                                   self.distMatrix[i][j - 1] + deleteCost,
+                                   self.distMatrix[i - 1][j - 1] + substCost]  
 
                 self.distMatrix[i][j] = min(previousValues)
                 
@@ -122,17 +203,158 @@ class StreamAligner(object):
         '''
         Cost of inserting an extra hashed item.
         For now, it's just the size of the tuple
+        
+        >>> target = stream.Stream()
+        >>> source = stream.Stream()
+          
+        >>> note1 = note.Note("C4")
+        >>> note2 = note.Note("D4")
+        >>> note3 = note.Note("C4")
+        >>> note4 = note.Note("E4")
+          
+        >>> target.append([note1, note2, note3, note4])
+        >>> source.append([note1, note2, note3])
+        
+        >>> # This is a StreamAligner with default hasher settings
+        >>> sa0 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        >>> sa0.align()
+        >>> tup0 = sa0.hashedTargetStream[0]
+        >>> sa0.insertCost(tup0)
+        3
+        
+        >>> # This is a StreamAligner with a modified hasher that doesn't hash pitch at all
+        >>> sa1 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        >>> sa1.h.hashPitch = False
+        >>> sa1.align()
+        >>> tup1 = sa1.hashedTargetStream[0]
+        >>> sa1.insertCost(tup1)
+        2
+        
+        >>> # This is a StreamAligner with a modified hasher that hashes 3 additional properties
+        >>>
+        >>> sa2 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        >>> sa2.h.hashOctave = True
+        >>> sa2.h.hashIntervalFromLastNote = True
+        >>> sa2.h.hashIsAccidental = True
+        >>> sa2.align()
+        >>> tup2 = sa2.hashedTargetStream[0]
+        >>> sa2.insertCost(tup2)
+        6
         '''
         return len(tup)
     
     def deleteCost(self, tup):
         '''
         Cost of deleting an extra hashed item.
-        For now, it's just the size of the tuple
+        For now, it's just the size of the hashed tuple
+        
+        >>> target = stream.Stream()
+        >>> source = stream.Stream()
+          
+        >>> note1 = note.Note("C4")
+        >>> note2 = note.Note("D4")
+        >>> note3 = note.Note("C4")
+        >>> note4 = note.Note("E4")
+          
+        >>> target.append([note1, note2, note3, note4])
+        >>> source.append([note1, note2, note3])
+        
+        >>> # This is a StreamAligner with default hasher settings
+        >>> sa0 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        >>> sa0.align()
+        >>> tup0 = sa0.hashedTargetStream[0]
+        >>> sa0.deleteCost(tup0)
+        3
+        
+        >>> # This is a StreamAligner with a modified hasher that doesn't hash pitch at all
+        >>> sa1 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        >>> sa1.h.hashPitch = False
+        >>> sa1.align()
+        >>> tup1 = sa1.hashedTargetStream[0]
+        >>> sa1.deleteCost(tup1)
+        2
+        
+        >>> # This is a StreamAligner with a modified hasher that hashes 3 additional properties
+        >>> sa2 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        >>> sa2.h.hashOctave = True
+        >>> sa2.h.hashIntervalFromLastNote = True
+        >>> sa2.h.hashIsAccidental = True
+        >>> sa2.align()
+        >>> tup2 = sa2.hashedTargetStream[0]
+        >>> sa2.deleteCost(tup2)
+        6
+        
         '''
         return len(tup)
         
     def substCost(self, hashedItem1, hashedItem2):
+        '''
+        >>> targetA = stream.Stream()
+        >>> sourceA = stream.Stream()
+        
+        >>> # equality testing, both streams made from same note
+        >>> # targetA will not have the same reference as sourceA
+        >>> # but their hashes will be equal, which makes for their hashed objects to be 
+        >>> # able to be equal.
+        
+        >>> note1 = note.Note("C4")
+        >>> targetA.append(note1)
+        >>> sourceA.append(note1)
+        >>> targetA == sourceA
+        False
+        
+        >>> saA = alpha.analysis.fixOmrMidi.StreamAligner(targetA, sourceA)
+        >>> saA.align()
+        >>> hashedItem1A = saA.hashedTargetStream[0]
+        >>> hashedItem2A = saA.hashedSourceStream[0]
+        >>> hashedItem1A == hashedItem2A
+        True
+
+        >>> saA.substCost(hashedItem1A, hashedItem2A)
+        0
+        
+        >>> note2 = note.Note("D4")
+        >>> targetB = stream.Stream()
+        >>> sourceB = stream.Stream()
+        >>> targetB.append(note1)
+        >>> sourceB.append(note2)
+        >>> saB = alpha.analysis.fixOmrMidi.StreamAligner(targetB, sourceB)
+        >>> saB.align()
+        >>> hashedItem1B = saB.hashedTargetStream[0]
+        >>> hashedItem2B = saB.hashedSourceStream[0]
+        
+        >>> # hashed items only differ in 1 spot
+        >>> print(hashedItem1B)
+        NoteHash(Pitch=60, Duration=1.0, Offset=0.0)
+        
+        >>> print(hashedItem2B)
+        NoteHash(Pitch=62, Duration=1.0, Offset=0.0)
+        
+        >>> saB.substCost(hashedItem1B, hashedItem2B)
+        1
+        
+        >>> note3 = note.Note("E4")
+        >>> note4 = note.Note("E#4")
+        >>> note4.duration = duration.Duration('half')
+        >>> targetC = stream.Stream()
+        >>> sourceC = stream.Stream()
+        >>> targetC.append(note3)
+        >>> sourceC.append(note4)
+        >>> saC = alpha.analysis.fixOmrMidi.StreamAligner(targetC, sourceC)
+        >>> saC.align()
+        >>> hashedItem1C = saC.hashedTargetStream[0]
+        >>> hashedItem2C = saC.hashedSourceStream[0]
+        
+         >>> # hashed items should differ in 2 spot
+        >>> print(hashedItem1C)
+        NoteHash(Pitch=64, Duration=1.0, Offset=0.0)
+        
+        >>> print(hashedItem2C)
+        NoteHash(Pitch=65, Duration=2.0, Offset=0.0)
+        
+        >>> saC.substCost(hashedItem1C, hashedItem2C)
+        2
+        '''
         if hashedItem1 == hashedItem2:
             return 0 
         
@@ -142,19 +364,20 @@ class StreamAligner(object):
                 total -= 1
             elif type(item1) == type(item2) and type(item1) is float:
                 if numberTools.almostEquals(item1, item2, grain=.01):
-                    total -=1
+                    total -= 1
             else:
                 # cost increases 
-                total +=1
-        for idx, item in enumerate(hashedItem1):
-            if hashedItem2[idx] == hashedItem1:
-                total += 2
-            elif type(item) is float or type(item) is int:
-                # check if this is necessary 
-                if numberTools.almostEquals(item, hashedItem2[idx], grain=.01):
-                    total +=1
-            else:
-                total -= 1
+                total += 0
+                
+#         for idx, item in enumerate(hashedItem1):
+#             if hashedItem2[idx] == hashedItem1[idx]:
+#                 total += 2
+#             elif type(item) is float or type(item) is int:
+#                 # check if this is necessary 
+#                 if numberTools.almostEquals(item, hashedItem2[idx], grain=.01):
+#                     total += 1
+#             else:
+#                 total -= 1
         return total
         
     def getPossibleMoves(self, i, j):
@@ -205,9 +428,9 @@ class StreamAligner(object):
         [0, None, None]
         
         '''
-        verticalCost = self.distMatrix[i-1][j] if i >= 1 else None
-        horizontalCost = self.distMatrix[i][j-1] if j >= 1 else None
-        diagonalCost = self.distMatrix[i-1][j-1] if (i >= 1 and j >= 1) else None
+        verticalCost = self.distMatrix[i - 1][j] if i >= 1 else None
+        horizontalCost = self.distMatrix[i][j - 1] if j >= 1 else None
+        diagonalCost = self.distMatrix[i - 1][j - 1] if (i >= 1 and j >= 1) else None
         
         possibleMoves = [verticalCost, horizontalCost, diagonalCost]
         return possibleMoves
@@ -289,20 +512,17 @@ class StreamAligner(object):
     
     def calculateChanges(self):
         '''
-        TODO: sanity check of manhattan distance
-        check if possible moves are in index
-        change n to i, m to j
         '''
         i = self.n
         j = self.m
         
-        #and?
+        # and?
         while (i != 0 or j != 0):
-            ## check if possible moves are indexable
+            # # check if possible moves are indexable
             bestOp = self.getOpFromLocation(i, j)
             
-            self.changes.insert(0, (self.hashedTargetStream[i-1], 
-                                        self.hashedSourceStream[j-1],
+            self.changes.insert(0, (self.hashedTargetStream[i - 1],
+                                        self.hashedSourceStream[j - 1],
                                         bestOp))
             # bestOp : 0: insertion, 1: deletion, 2: substitution; 3: nothing
             if bestOp == ChangeOps.Insertion:
@@ -315,15 +535,15 @@ class StreamAligner(object):
                 i -= 1
                 j -= 1
                 
-            else: # 3: ChangeOps.NoChange
+            else:  # 3: ChangeOps.NoChange
                 i -= 1
                 j -= 1
         
         if (i != 0 and j != 0):
             raise AlignmentTracebackException('Traceback of best alignment did not end properly')
         
-        changesCount = Counter(elem[2] for elem in self.changes)
-        self.percentageSimilar = float(changesCount[ChangeOps.NoChange])/len(self.changes)
+        self.changesCount = Counter(elem[2] for elem in self.changes)
+        self.similarityScore = float(self.changesCount[ChangeOps.NoChange]) / len(self.changes)
         
 class OMRmidiNoteFixer(object):
     '''
@@ -373,7 +593,7 @@ class OMRmidiNoteFixer(object):
         sa.h.hashNoteNameOctave = True
         sa.align()
     
-        if sa.percentageSimilar >= .8:
+        if sa.similarityScore >= .8:
             self.bassDoublesCello = True
         
         return self.bassDoublesCello
@@ -394,7 +614,7 @@ class OMRmidiNoteFixer(object):
         '''
         try a variety of mechanisms to get midiStream to align with omrStream
         '''
-        #if self.approxequal(self.omrStream.highestTime, self.midiStream.highestTime):
+        # if self.approxequal(self.omrStream.highestTime, self.midiStream.highestTime):
         #    pass
 
         # TODO: more ways of checking if stream is aligned
@@ -453,16 +673,16 @@ class OMRmidiNotePitchFixer(object):
 
         if self.hasNatAcc():
             if self.isEnharmonic():
-                self.omrNote.pitch.accidental= None
+                self.omrNote.pitch.accidental = None
             if len(self.measure_accidentals) == 0:
-                self.omrNote.pitch.accidental= self.midiNote.pitch.accidental         
+                self.omrNote.pitch.accidental = self.midiNote.pitch.accidental         
             else:
                 self.measure_accidentals.append(self.omrNote.pitch)
         elif self.hasSharpFlatAcc() and self.stepEq():
             if self.hasAcc():
-                self.omrNote.pitch.accidental= self.midiNote.pitch.accidental
+                self.omrNote.pitch.accidental = self.midiNote.pitch.accidental
             else: 
-                self.omrNote.pitch.accidental= None
+                self.omrNote.pitch.accidental = None
 
     def isEnharmonic(self):
         return self.omrNote.pitch.isEnharmonic(self.midiNote.pitch)
@@ -479,7 +699,7 @@ class OMRmidiNotePitchFixer(object):
     def stepEq(self):
         return self.omrNote.step == self.midiNote.step
     
-    def intervalTooBig(self, aNote, bNote, setint = 5):
+    def intervalTooBig(self, aNote, bNote, setint=5):
         if interval.notesToChromatic(aNote, bNote).intervalClass > setint:
             return True
         return False
@@ -509,7 +729,7 @@ class Test(unittest.TestCase):
         self.assertEqual(omrNote.nameWithOctave, 'B-4')
         self.assertEqual(midiNote.nameWithOctave, 'B-4')
        
-        midiNote.pitch.accidental= pitch.Accidental('sharp')
+        midiNote.pitch.accidental = pitch.Accidental('sharp')
 
         
         self.assertEqual(omrNote.nameWithOctave, 'B-4')
@@ -578,7 +798,7 @@ class Test(unittest.TestCase):
         sa = StreamAligner(target, source)
         sa.align()
         
-        self.assertEqual(sa.percentageSimilar, 1.0)
+        self.assertEqual(sa.similarityScore, 1.0)
          
     def testSameOneOffStream(self):
         '''
@@ -602,7 +822,7 @@ class Test(unittest.TestCase):
         sa = StreamAligner(target, source)
         sa.align()
         
-        self.assertEqual(sa.percentageSimilar, .75)
+        self.assertEqual(sa.similarityScore, .75)
         
     def testOneOffDeletionStream(self):
         '''
@@ -625,36 +845,64 @@ class Test(unittest.TestCase):
         sa = StreamAligner(target, source)
         sa.align()
         
-        self.assertEqual(sa.percentageSimilar, .75)
-        
-class OneTest(unittest.TestCase):     
-    def testK525Streams(self):
+        self.assertEqual(sa.similarityScore, .75)
+    
+    def testChordSimilarityStream(self):
         '''
-        two mini streams
+        two streams, one with explicit chord
         '''
-        from music21 import converter
-        from music21.alpha.analysis import hasher
+        from music21 import stream
+        from music21 import chord
+         
+        target = stream.Stream()
+        source = stream.Stream()
         
-        midiFP = K525midiShortPath
-        omrFP = K525omrShortPath
-        midiStream = converter.parse(midiFP)
-        omrStream = converter.parse(omrFP)
+        cMajor = chord.Chord(["E3", "C4", "G4"])
+        target.append(cMajor)
+        source.append(cMajor)
         
-        sa = StreamAligner(omrStream, midiStream)
+        sa = StreamAligner(target, source)
         sa.align()
+        self.assertEqual(sa.similarityScore, 1.)
         
-    def testPossibleMoves(self):
-        pass
-#         fixer = OMRmidiNoteFixer(omrStream, midiStream)
-#         celloBassAnalysis = fixer.checkBassDoublesCello()
-#         self.assertEqual(celloBassAnalysis, True)
-
-## this test is included in the quarterLengthDivisor PR in the converter.py tests
-# class ParseTestExternal(unittest.TestCase):
-#     def testParseMidi(self):
-#         from music21 import converter
-#         midiStream = converter.parse(K525midiShortPath, forceSource=True, quarterLengthDivisors=[4])
-#         midiStream.show()
+    
+    def testBWV137MultiStreams(self):
+        from music21 import stream, converter
+            
+        bwv137midifp = '/Users/Emily/Research/MEng/testfiles/bwv137.mid'
+        bwv137omrfp = '/Users/Emily/Research/MEng/testfiles/bwv137emily.xml'
+        bwv137midistream = converter.parse(bwv137midifp, forceSource=True, quarterLengthDivisors=[4])
+        bwv137omrstream = converter.parse(bwv137omrfp)
+        
+        sa1 = StreamAligner(bwv137midistream, bwv137omrstream)
+        sa1.discretizeParts = False
+        sa1.align()
+        print(sa1.similarityScore)
+        
+        sa2 = StreamAligner(bwv137midistream, bwv137omrstream)
+        sa2.discretizeParts = True
+        sa2.align()
+        
+        # self.assertGreater(sa1.similarityScore, )
+        
+        
+    '''
+    This test is failing
+    '''
+#     def testBWV137BassDoublesCello(self):
+#         from music21 import stream, converter
+#             
+#         bwv137midifp = '/Users/Emily/Research/MEng/testfiles/bwv137midibass.mid'
+#         bwv137omrfp = '/Users/Emily/Research/MEng/testfiles/bwv137emily.xml'
+#         bwv137midistream = converter.parse(bwv137midifp, forceSource=True, quarterLengthDivisors=[4])
+#         bwv137omrstream = converter.parse(bwv137omrfp)
+#         
+#         sa = StreamAligner(bwv137midistream, bwv137omrstream)
+#         sa.discretizeParts = True
+#         sa.align()
+#         
+#         self.assertTrue(sa.bassDoublesCello)
+        
 
 if __name__ == '__main__':
     import music21
