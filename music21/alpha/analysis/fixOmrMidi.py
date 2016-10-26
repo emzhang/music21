@@ -177,6 +177,56 @@ class StreamAligner(object):
         
         
     def populateDistMatrix(self):
+        '''
+        >>> # sets up the distance matrix for backtracing
+        
+        >>> note1 = note.Note("C#4")
+        >>> note2 = note.Note("C4")
+        
+        >>> # test 1: similar streams
+        >>> targetA = stream.Stream()
+        >>> sourceA = stream.Stream()
+        >>> targetA.append([note1, note2])
+        >>> sourceA.append([note1, note2])
+        >>> saA = alpha.analysis.fixOmrMidi.StreamAligner(targetA, sourceA)
+        >>> saA.setupDistMatrix()
+        >>> saA.populateDistMatrix()
+        >>> saA.distMatrix
+        array([[0, 3, 6],
+               [3, 0, 3],
+               [6, 3, 0]])
+        
+        >>> # test 2
+        >>> targetB = stream.Stream()
+        >>> sourceB = stream.Stream()
+        >>> targetB.append([note1, note2])
+        >>> sourceB.append(note1)
+        >>> saB = alpha.analysis.fixOmrMidi.StreamAligner(targetB, sourceB)
+        >>> saB.setupDistMatrix()
+        >>> saB.populateDistMatrix()
+        >>> saB.distMatrix
+        array([[0, 3],
+               [3, 0],
+               [6, 3]])
+               
+        >>> # test 3 
+        >>> note3 = note.Note("D5")
+        >>> note3.quarterLength = 3
+        >>> note4 = note.Note("E3")
+        >>> targetC = stream.Stream()
+        >>> sourceC = stream.Stream()
+        >>> targetC.append([note1, note2, note4])
+        >>> sourceC.append([note3, note1, note4])
+        >>> saC = alpha.analysis.fixOmrMidi.StreamAligner(targetC, sourceC)
+        >>> saC.setupDistMatrix()
+        >>> saC.populateDistMatrix()
+        >>> saC.distMatrix
+        array([[0, 3, 6, 9],
+               [3, 2, 4, 7],
+               [6, 5, 4, 6],
+               [9, 8, 7, 5]])
+               
+        '''
         # setup all the entries in the first column
         for i in range(1, self.n + 1):
             self.distMatrix[i][0] = self.distMatrix[i - 1][0] + self.insertCost(self.hashedTargetStream[i - 1])
@@ -289,15 +339,14 @@ class StreamAligner(object):
         
     def substCost(self, hashedItem1, hashedItem2):
         '''
-        >>> targetA = stream.Stream()
-        >>> sourceA = stream.Stream()
-        
         >>> # equality testing, both streams made from same note
         >>> # targetA will not have the same reference as sourceA
         >>> # but their hashes will be equal, which makes for their hashed objects to be 
         >>> # able to be equal.
         
         >>> note1 = note.Note("C4")
+        >>> targetA = stream.Stream()
+        >>> sourceA = stream.Stream()
         >>> targetA.append(note1)
         >>> sourceA.append(note1)
         >>> targetA == sourceA
@@ -512,8 +561,73 @@ class StreamAligner(object):
     
     def calculateChanges(self):
         '''
+        >>> note1 = note.Note("C#4")
+        >>> note2 = note.Note("C4")
+        
+        >>> # test 1: one insertion, one no change. Target stream has one more note than
+        >>> # source stream, so source stream needs an insertion to match target stream.
+        >>> # should be .5 similarity between the two
+        >>> targetA = stream.Stream()
+        >>> sourceA = stream.Stream()
+        >>> targetA.append([note1, note2])
+        >>> sourceA.append(note1)
+        >>> saA = alpha.analysis.fixOmrMidi.StreamAligner(targetA, sourceA)
+        >>> saA.setupDistMatrix()
+        >>> saA.populateDistMatrix()
+        >>> saA.calculateChanges()
+        >>> saA.changesCount
+        Counter({<ChangeOps.Insertion: 0>: 1, <ChangeOps.NoChange: 3>: 1})
+        >>> saA.similarityScore
+        0.5
+        
+        >>> # test 2: one deletion, one no change. Target stream has one fewer note than
+        >>> # source stream, so source stream needs a deletion to match target stream.
+        >>> # should be .5 similarity between the two
+        >>> targetB = stream.Stream()
+        >>> sourceB = stream.Stream()
+        >>> targetB.append(note1)
+        >>> sourceB.append([note1, note2])
+        >>> saB = alpha.analysis.fixOmrMidi.StreamAligner(targetB, sourceB)
+        >>> saB.setupDistMatrix()
+        >>> saB.populateDistMatrix()
+        >>> saB.calculateChanges()
+        >>> saB.changesCount
+        Counter({<ChangeOps.Deletion: 1>: 1, <ChangeOps.NoChange: 3>: 1})
+        >>> saB.similarityScore
+        0.5
+        
+        >>> # test 3: no changes
+        >>> targetC = stream.Stream()
+        >>> sourceC = stream.Stream()
+        >>> targetC.append([note1, note2])
+        >>> sourceC.append([note1, note2])
+        >>> saC = alpha.analysis.fixOmrMidi.StreamAligner(targetC, sourceC)
+        >>> saC.setupDistMatrix()
+        >>> saC.populateDistMatrix()
+        >>> saC.calculateChanges()
+        >>> saC.changesCount
+        Counter({<ChangeOps.NoChange: 3>: 2})
+        >>> saC.similarityScore
+        1.0
+        
+        >>> # test 4: 1 no change, 1 substitution
+        >>> targetD = stream.Stream()
+        >>> sourceD = stream.Stream()
+        >>> note3 = note.Note("C4") 
+        >>> note3.quarterLength = 2 # same pitch and offset as note2
+        >>> targetD.append([note1, note2])
+        >>> sourceD.append([note1, note3])
+        >>> saD = alpha.analysis.fixOmrMidi.StreamAligner(targetD, sourceD)
+        >>> saD.setupDistMatrix()
+        >>> saD.populateDistMatrix()
+        >>> saD.calculateChanges()
+        >>> saD.changesCount
+        Counter({<ChangeOps.Substitution: 2>: 1, <ChangeOps.NoChange: 3>: 1})
+        >>> saD.similarityScore
+        0.5
+        
         '''
-        i = self.n
+        i = self.n 
         j = self.m
         
         # and?
