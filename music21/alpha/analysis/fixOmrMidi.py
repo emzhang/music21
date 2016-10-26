@@ -62,6 +62,7 @@ class StreamAligner(object):
         self.distMatrix = None
         
         self.h = hasher.Hasher()
+        self.h.hashOffset = False
         
         # True => match parts to parts, False => match entire stream to entire Stream
         self.discretizeParts = True 
@@ -192,9 +193,9 @@ class StreamAligner(object):
         >>> saA.setupDistMatrix()
         >>> saA.populateDistMatrix()
         >>> saA.distMatrix
-        array([[0, 3, 6],
-               [3, 0, 3],
-               [6, 3, 0]])
+        array([[0, 2, 4],
+               [2, 0, 2],
+               [4, 2, 0]])
         
         >>> # test 2
         >>> targetB = stream.Stream()
@@ -205,9 +206,9 @@ class StreamAligner(object):
         >>> saB.setupDistMatrix()
         >>> saB.populateDistMatrix()
         >>> saB.distMatrix
-        array([[0, 3],
-               [3, 0],
-               [6, 3]])
+        array([[0, 2],
+               [2, 0],
+               [4, 2]])
                
         >>> # test 3 
         >>> note3 = note.Note("D5")
@@ -221,10 +222,10 @@ class StreamAligner(object):
         >>> saC.setupDistMatrix()
         >>> saC.populateDistMatrix()
         >>> saC.distMatrix
-        array([[0, 3, 6, 9],
-               [3, 2, 4, 7],
-               [6, 5, 4, 6],
-               [9, 8, 7, 5]])
+        array([[0, 2, 4, 6],
+           [2, 2, 2, 4],
+           [4, 4, 3, 3],
+           [6, 6, 5, 3]])
                
         '''
         # setup all the entries in the first column
@@ -270,7 +271,7 @@ class StreamAligner(object):
         >>> sa0.align()
         >>> tup0 = sa0.hashedTargetStream[0]
         >>> sa0.insertCost(tup0)
-        3
+        2
         
         >>> # This is a StreamAligner with a modified hasher that doesn't hash pitch at all
         >>> sa1 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
@@ -278,7 +279,7 @@ class StreamAligner(object):
         >>> sa1.align()
         >>> tup1 = sa1.hashedTargetStream[0]
         >>> sa1.insertCost(tup1)
-        2
+        1
         
         >>> # This is a StreamAligner with a modified hasher that hashes 3 additional properties
         >>>
@@ -289,7 +290,7 @@ class StreamAligner(object):
         >>> sa2.align()
         >>> tup2 = sa2.hashedTargetStream[0]
         >>> sa2.insertCost(tup2)
-        6
+        5
         '''
         return len(tup)
     
@@ -314,7 +315,7 @@ class StreamAligner(object):
         >>> sa0.align()
         >>> tup0 = sa0.hashedTargetStream[0]
         >>> sa0.deleteCost(tup0)
-        3
+        2
         
         >>> # This is a StreamAligner with a modified hasher that doesn't hash pitch at all
         >>> sa1 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
@@ -322,7 +323,7 @@ class StreamAligner(object):
         >>> sa1.align()
         >>> tup1 = sa1.hashedTargetStream[0]
         >>> sa1.deleteCost(tup1)
-        2
+        1
         
         >>> # This is a StreamAligner with a modified hasher that hashes 3 additional properties
         >>> sa2 = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
@@ -332,7 +333,7 @@ class StreamAligner(object):
         >>> sa2.align()
         >>> tup2 = sa2.hashedTargetStream[0]
         >>> sa2.deleteCost(tup2)
-        6
+        5
         
         '''
         return len(tup)
@@ -374,10 +375,10 @@ class StreamAligner(object):
         
         >>> # hashed items only differ in 1 spot
         >>> print(hashedItem1B)
-        NoteHash(Pitch=60, Duration=1.0, Offset=0.0)
+        NoteHash(Pitch=60, Duration=1.0)
         
         >>> print(hashedItem2B)
-        NoteHash(Pitch=62, Duration=1.0, Offset=0.0)
+        NoteHash(Pitch=62, Duration=1.0)
         
         >>> saB.substCost(hashedItem1B, hashedItem2B)
         1
@@ -396,10 +397,10 @@ class StreamAligner(object):
         
          >>> # hashed items should differ in 2 spot
         >>> print(hashedItem1C)
-        NoteHash(Pitch=64, Duration=1.0, Offset=0.0)
+        NoteHash(Pitch=64, Duration=1.0)
         
         >>> print(hashedItem2C)
-        NoteHash(Pitch=65, Duration=2.0, Offset=0.0)
+        NoteHash(Pitch=65, Duration=2.0)
         
         >>> saC.substCost(hashedItem1C, hashedItem2C)
         2
@@ -510,11 +511,11 @@ class StreamAligner(object):
         >>> sa.setupDistMatrix()
         >>> sa.populateDistMatrix()
         >>> sa.distMatrix
-        array([[ 0,  3,  6,  9],
-               [ 3,  0,  3,  6],
-               [ 6,  3,  0,  3],
-               [ 9,  6,  3,  0],
-               [12,  9,  6,  3]])     
+        array([[0, 2, 4, 6],
+               [2, 0, 2, 4],
+               [4, 2, 0, 2],
+               [6, 4, 2, 0],
+               [8, 6, 4, 2]])    
         
         
         >>> sa.getOpFromLocation(4, 3)
@@ -528,11 +529,11 @@ class StreamAligner(object):
         
         >>> sa.distMatrix[0][0] = 1
         >>> sa.distMatrix
-        array([[ 1,  3,  6,  9],
-               [ 3,  0,  3,  6],
-               [ 6,  3,  0,  3],
-               [ 9,  6,  3,  0],
-               [12,  9,  6,  3]])     
+        array([[1, 2, 4, 6],
+               [2, 0, 2, 4],
+               [4, 2, 0, 2],
+               [6, 4, 2, 0],
+               [8, 6, 4, 2]])    
         
         >>> sa.getOpFromLocation(1, 1)
         <ChangeOps.Substitution: 2>

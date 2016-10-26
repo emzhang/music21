@@ -31,6 +31,7 @@ from music21 import stream
 
 class Hasher(object):
     def __init__(self):
+        
         # --- begin general types of things to hash ---
         self.validTypes = [note.Note, note.Rest, chord.Chord]
         # --- end general types of things to hash ---
@@ -280,13 +281,13 @@ class Hasher(object):
                 if self.hashChordsAsNotes:
                     for n in elt:
                         single_note_hash = [self.hashingFunctions[prop](n, c=elt) for prop in self.tupleList]        
-                        finalHash.append(self.tupleClass._make(single_note_hash))
+                        finalHash.append((self.tupleClass._make(single_note_hash)))
                 elif self.hashChordsAsChords:
                     single_note_hash = [self.hashingFunctions[prop](None, c=elt) for prop in self.tupleList]
-                    finalHash.append(self.tupleClass._make(single_note_hash))
+                    finalHash.append((self.tupleClass._make(single_note_hash)))
             else: #type(elt) == note.Note or type(elt) == note.Rest
-                single_note_hash = [self.hashingFunctions[prop](elt) for prop in self.tupleList]
-                finalHash.append(self.tupleClass._make(single_note_hash))
+                single_note_hash = [self.hashingFunctions[prop](elt) for prop in self.tupleList] # + reference to original object
+                finalHash.append((self.tupleClass._make(single_note_hash)))
         return finalHash
 
     # --- Begin Rounding Helper Functions ---
