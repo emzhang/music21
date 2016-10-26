@@ -63,6 +63,7 @@ class StreamAligner(object):
         
         self.h = hasher.Hasher()
         self.h.hashOffset = False
+        self.h.includeReference = True
         
         # True => match parts to parts, False => match entire stream to entire Stream
         self.discretizeParts = True 
@@ -155,9 +156,10 @@ class StreamAligner(object):
         Cannot perform alignment with empty source stream.
         
         '''
-        
-        self.hashedTargetStream = self.h.hashStream(self.targetStream)
-        self.hashedSourceStream = self.h.hashStream(self.sourceStream)
+        self.hashedTargetStreamWithReferences = self.h.hashStream(self.targetStream)
+        self.hashedSourceStreamWithReferences = self.h.hashStream(self.sourceStream)
+        self.hashedTargetStream = [hashTup[0] for hashTup in self.hashedTargetStreamWithReferences]
+        self.hashedSourceStream = [hashTup[0] for hashTup in self.hashedSourceStreamWithReferences]
         
         # n and m will be the dimensions of the Distance Matrix we set up
         self.n = len(self.hashedTargetStream)
@@ -892,6 +894,49 @@ class Test(unittest.TestCase):
         celloBassAnalysis = fixer.checkBassDoublesCello()
         self.assertEqual(celloBassAnalysis, True)
         
+    def testSimpleStreamOneNote(self):
+        '''
+        two streams of the same note should have 1.0 similarity
+        '''
+        from music21 import stream
+        from music21 import note
+          
+        target = stream.Stream()
+        source = stream.Stream()
+          
+        note1 = note.Note("C4")
+        note2 = note.Note("C4")
+          
+        target.append(note1)
+        source.append(note2)
+          
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+        self.assertEqual(sa.similarityScore, 1.0)
+        
+    def testSimpleStreamOneNoteDifferent(self):
+        '''
+        two streams of two different notes should have 0.0 similarity
+        '''
+        from music21 import stream
+        from music21 import note
+          
+        target = stream.Stream()
+        source = stream.Stream()
+          
+        note1 = note.Note("C4")
+        note2 = note.Note("C#4")
+        note2.quarterLength = 4
+          
+        target.append(note1)
+        source.append(note2)
+          
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+        self.assertEqual(sa.similarityScore, 0.0)
+        
     def testSameSimpleStream(self):
         '''
         two streams of the same notes should have 1.0 percentage similarity
@@ -914,6 +959,29 @@ class Test(unittest.TestCase):
         sa.align()
         
         self.assertEqual(sa.similarityScore, 1.0)
+    
+    def testSameSimpleStream2(self):
+        '''
+        two streams of the 2/3 same notes should have 2/3 similarity
+        '''
+        from music21 import stream
+        from music21 import note
+          
+        target = stream.Stream()
+        source = stream.Stream()
+          
+        note1 = note.Note("C4")
+        note2 = note.Note("D#4")
+        note3 = note.Note("D-4")
+        note4 = note.Note("C4")
+          
+        target.append([note1, note2, note4])
+        source.append([note1, note3, note4])
+          
+        sa = StreamAligner(target, source)
+        sa.align()
+        
+        self.assertEqual(sa.similarityScore, 2/3)
          
     def testSameOneOffStream(self):
         '''

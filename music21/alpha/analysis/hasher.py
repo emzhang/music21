@@ -32,6 +32,7 @@ from music21 import stream
 class Hasher(object):
     def __init__(self):
         
+        self.includeReference = False
         # --- begin general types of things to hash ---
         self.validTypes = [note.Note, note.Rest, chord.Chord]
         # --- end general types of things to hash ---
@@ -280,14 +281,27 @@ class Hasher(object):
             elif type(elt) == chord.Chord:
                 if self.hashChordsAsNotes:
                     for n in elt:
-                        single_note_hash = [self.hashingFunctions[prop](n, c=elt) for prop in self.tupleList]        
-                        finalHash.append((self.tupleClass._make(single_note_hash)))
+                        single_note_hash = [self.hashingFunctions[prop](n, c=elt) for prop in self.tupleList]
+                        tupleHash = (self.tupleClass._make(single_note_hash))
+                        if self.includeReference:
+                            finalHash.append((tupleHash, n))
+                        else:
+                            finalHash.append(tupleHash)
                 elif self.hashChordsAsChords:
                     single_note_hash = [self.hashingFunctions[prop](None, c=elt) for prop in self.tupleList]
-                    finalHash.append((self.tupleClass._make(single_note_hash)))
+                    tupleHash = (self.tupleClass._make(single_note_hash))
+                    if self.includeReference:
+                        finalHash.append((tupleHash, elt))
+                    else:
+                        finalHash.append(tupleHash)
             else: #type(elt) == note.Note or type(elt) == note.Rest
-                single_note_hash = [self.hashingFunctions[prop](elt) for prop in self.tupleList] # + reference to original object
-                finalHash.append((self.tupleClass._make(single_note_hash)))
+                single_note_hash = [self.hashingFunctions[prop](elt) for prop in self.tupleList]
+                tupleHash = (self.tupleClass._make(single_note_hash))
+                if self.includeReference:
+                    finalHash.append((tupleHash, elt))
+                else:
+                    finalHash.append(tupleHash) # + reference to original object
+            
         return finalHash
 
     # --- Begin Rounding Helper Functions ---
