@@ -192,6 +192,7 @@ class Hasher(object):
         returns "<>" otherwise
         """
         if c:
+            # return c.normalOrderString
             return c.normalFormString
         return "<>"
 
@@ -251,7 +252,6 @@ class Hasher(object):
         self.tupleList = tupleList
         self.tupleClass = collections.namedtuple('NoteHash', tupleList)
 
-
     def preprocessStream(self, s):
         if self.stripTies:
             try:
@@ -282,28 +282,26 @@ class Hasher(object):
                 if self.hashChordsAsNotes:
                     for n in elt:
                         single_note_hash = [self.hashingFunctions[prop](n, c=elt) for prop in self.tupleList]
-                        tupleHash = (self.tupleClass._make(single_note_hash))
-                        if self.includeReference:
-                            finalHash.append((tupleHash, n))
-                        else:
-                            finalHash.append(tupleHash)
+                        self.addSingleNoteHashToFinalHash(single_note_hash, finalHash, n)
                 elif self.hashChordsAsChords:
                     single_note_hash = [self.hashingFunctions[prop](None, c=elt) for prop in self.tupleList]
-                    tupleHash = (self.tupleClass._make(single_note_hash))
-                    if self.includeReference:
-                        finalHash.append((tupleHash, elt))
-                    else:
-                        finalHash.append(tupleHash)
+                    self.addSingleNoteHashToFinalHash(single_note_hash, finalHash, elt)
             else: #type(elt) == note.Note or type(elt) == note.Rest
                 single_note_hash = [self.hashingFunctions[prop](elt) for prop in self.tupleList]
-                tupleHash = (self.tupleClass._make(single_note_hash))
-                if self.includeReference:
-                    finalHash.append((tupleHash, elt))
-                else:
-                    finalHash.append(tupleHash) # + reference to original object
+                self.addSingleNoteHashToFinalHash(single_note_hash, finalHash, elt)
+
             
         return finalHash
-
+    
+    def addSingleNoteHashToFinalHash(self, single_note_hash, finalHash, reference):
+        tupleHash = (self.tupleClass._make(single_note_hash))
+        nhwr = NoteHashWithReference(tupleHash)
+        if self.includeReference:
+            nhwr.reference = reference
+            finalHash.append(nhwr)
+        else:
+            nh = NoteHash(tupleHash)
+            finalHash.append(nh)
     # --- Begin Rounding Helper Functions ---
 
     def _getApproxDurOrOffset(self, durOrOffset):
@@ -318,6 +316,82 @@ class Hasher(object):
         return (a==b or int(a*10**sig_fig) == int(b*10**sig_fig))
 
     # --- End Rounding Helper Functions ---
+
+
+class NoteHashWithReference():
+    '''
+    >>> from collections import namedtuple
+    >>> NoteHash = namedtuple('NoteHash', ["Pitch", "Duration"])
+    >>> nh = NoteHash(60, 4)
+    >>> nhwr = alpha.analysis.hasher.NoteHashWithReference(nh)
+    >>> nhwr.reference = note.Note('C4')
+    >>> nhwr
+    NoteHash(Pitch=60, Duration=4)
+    
+    >>> nhwr.Pitch
+    60
+    >>> nhwr.Duration
+    4
+
+    >>> nhwr.hashItemsKeys
+    ('Pitch', 'Duration')
+    
+    >>> for val in nhwr:
+    ...     print(val)
+    60
+    4
+    
+    >>> nhwr.reference
+    <music21.note.Note C>
+    '''
+    def __init__(self, hashItemsNT):
+        self.reference = None
+        hashItemsDict = hashItemsNT._asdict()
+        for x in hashItemsDict:
+            setattr(self, x, hashItemsDict[x])
+        self.hashItemsKeys = tuple(hashItemsDict.keys())
+
+    def __iter__(self):
+        for keyName in self.hashItemsKeys:
+            yield(getattr(self, keyName))
+            
+    def __repr__(self):
+        nhStrAll = 'NoteHash('
+        
+        vals = []
+        for x in self.hashItemsKeys:
+            nhStr = x
+            nhStr += '='
+            nhStr += str(getattr(self, x))
+            vals.append(nhStr)
+        nhStrAll += ', '.join(vals)
+        nhStrAll += ')'
+        return nhStrAll
+
+class NoteHash(tuple):
+    '''
+    returns tuple with reference to original note or chord or rest 
+    
+    >>> note1 = note.Note("C4")
+    >>> nh = alpha.analysis.hasher.NoteHash((1, 2))
+    >>> nh.reference = note1
+    >>> nh
+    (1, 2)
+    >>> nh.reference
+    <music21.note.Note C>
+    >>> a, b = nh
+    >>> a
+    1
+    >>> b
+    2
+    >>> nh.__class__
+    <... 'music21.alpha.analysis.hasher.NoteHash'>
+    '''
+    def __new__(cls, tupEls):
+        return super(NoteHash, cls).__new__(cls, tuple(tupEls))
+
+    def __init__(self, tupEls): # pylint: disable=super-init-not-called
+        self.reference = None
 
 class Test(unittest.TestCase):
 
@@ -437,6 +511,7 @@ class Test(unittest.TestCase):
         s3.append(cMinor)
         h = Hasher()
         h.roundDurationAndOffset = True
+        ## EMILY WORK HERE 
         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "Duration", "Offset"])
         hashes_plain_numbers = [(60, 1.78125, 0.0), (67, .65625, 1.78125), (60, 2., 2.4375), (67, 2., 2.4375)]
         hashes_in_format = [NoteHash(Pitch=x, Duration = z, Offset=a) for (x, z, a) in hashes_plain_numbers]
