@@ -1318,11 +1318,7 @@ class TestExternal(unittest.TestCase):
         s.append(n)
         s.show('lily.png')
         print(s.write('lily.png'))
-<<<<<<< HEAD
-
-=======
-    
->>>>>>> 87e7ae8594a2e77e2fea3a014cd2f0c632476f4e
+        
     def testMultiPageXMlShow1(self):
         '''
         tests whether show() works for music that is 10-99 pages long
