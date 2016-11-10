@@ -1318,7 +1318,11 @@ class TestExternal(unittest.TestCase):
         s.append(n)
         s.show('lily.png')
         print(s.write('lily.png'))
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 87e7ae8594a2e77e2fea3a014cd2f0c632476f4e
     def testMultiPageXMlShow1(self):
         '''
         tests whether show() works for music that is 10-99 pages long
@@ -1329,6 +1333,7 @@ class TestExternal(unittest.TestCase):
         K525.show('musicxml.png')
         print(K525.write('musicxml.png'))
 
+<<<<<<< HEAD
     
 #     def testMultiPageXMlShow2(self):
 #         '''
@@ -1345,11 +1350,31 @@ class TestExternal(unittest.TestCase):
 #         biggerStream.show()
 #         print(biggerStream.write('musicxml.png'))
         
+=======
+#     def testMultiPageXMlShow2(self):
+#         '''
+#          tests whether show() works for music that is 100-999 pages long. 
+#          Currently takes way too long to run.
+#          '''
+#         from music21 import stream, note
+#         biggerStream = stream.Stream()
+#         note1 = note.Note("C4")
+#         note1.duration.type = 'whole'
+#         biggerStream.repeatAppend(note1, 10000)
+#         biggerStream.show('musicxml.png')
+#         biggerStream.show()
+#         print(biggerStream.write('musicxml.png'))
+
+>>>>>>> 87e7ae8594a2e77e2fea3a014cd2f0c632476f4e
 
 if __name__ == '__main__':
     import music21
     #import sys
     #sys.argv.append('SimpleTextShow')
     music21.mainTest(Test)
+<<<<<<< HEAD
     ## run command below to test commands that open musescore, etc. 
+=======
+    # run command below to test commands that open musescore, etc.
+>>>>>>> 87e7ae8594a2e77e2fea3a014cd2f0c632476f4e
 #     music21.mainTest(TestExternal)
