@@ -156,10 +156,13 @@ class StreamAligner(object):
         Cannot perform alignment with empty source stream.
         
         '''
-        self.hashedTargetStreamWithReferences = self.h.hashStream(self.targetStream)
-        self.hashedSourceStreamWithReferences = self.h.hashStream(self.sourceStream)
-        self.hashedTargetStream = [hashTup[0] for hashTup in self.hashedTargetStreamWithReferences]
-        self.hashedSourceStream = [hashTup[0] for hashTup in self.hashedSourceStreamWithReferences]
+        self.hashedTargetStream = self.h.hashStream(self.targetStream)
+        self.hashedSourceStream = self.h.hashStream(self.sourceStream)
+        
+#         self.hashedTargetStreamWithReferences = self.h.hashStream(self.targetStream)
+#         self.hashedSourceStreamWithReferences = self.h.hashStream(self.sourceStream)
+#         self.hashedTargetStream = [hashTup[0] for hashTup in self.hashedTargetStreamWithReferences]
+#         self.hashedSourceStream = [hashTup[0] for hashTup in self.hashedSourceStreamWithReferences]
         
         # n and m will be the dimensions of the Distance Matrix we set up
         self.n = len(self.hashedTargetStream)
@@ -255,7 +258,7 @@ class StreamAligner(object):
     def insertCost(self, tup):
         '''
         Cost of inserting an extra hashed item.
-        For now, it's just the size of the tuple
+        For now, it's just the size of the keys of the NoteHashWithReference
         
         >>> target = stream.Stream()
         >>> source = stream.Stream()
@@ -294,12 +297,13 @@ class StreamAligner(object):
         >>> sa2.insertCost(tup2)
         5
         '''
-        return len(tup)
+        keyDictSize = len(tup.hashItemsKeys)
+        return keyDictSize
     
     def deleteCost(self, tup):
         '''
         Cost of deleting an extra hashed item.
-        For now, it's just the size of the hashed tuple
+        For now, it's just the size of the keys of the NoteHashWithReference
         
         >>> target = stream.Stream()
         >>> source = stream.Stream()
@@ -338,7 +342,8 @@ class StreamAligner(object):
         5
         
         '''
-        return len(tup)
+        keyDictSize = len(tup.hashItemsKeys)
+        return keyDictSize
         
     def substCost(self, hashedItem1, hashedItem2):
         '''
@@ -359,7 +364,11 @@ class StreamAligner(object):
         >>> saA.align()
         >>> hashedItem1A = saA.hashedTargetStream[0]
         >>> hashedItem2A = saA.hashedSourceStream[0]
-        >>> hashedItem1A == hashedItem2A
+        >>> print(hashedItem1A)
+        NoteHash(Pitch=60, Duration=1.0)
+        >>> print(hashedItem2A)
+        NoteHash(Pitch=60, Duration=1.0)
+        >>> saA.equalsWithoutReference(hashedItem1A, hashedItem2A)
         True
 
         >>> saA.substCost(hashedItem1A, hashedItem2A)
@@ -407,30 +416,124 @@ class StreamAligner(object):
         >>> saC.substCost(hashedItem1C, hashedItem2C)
         2
         '''
-        if hashedItem1 == hashedItem2:
+        if self.equalsWithoutReference(hashedItem1, hashedItem2):
             return 0 
         
-        total = len(hashedItem1)
-        for (item1, item2) in zip(hashedItem1, hashedItem2):
-            if item1 == item2:
-                total -= 1
-            elif type(item1) == type(item2) and type(item1) is float:
-                if numberTools.almostEquals(item1, item2, grain=.01):
-                    total -= 1
-            else:
-                # cost increases 
-                total += 0
-                
-#         for idx, item in enumerate(hashedItem1):
-#             if hashedItem2[idx] == hashedItem1[idx]:
-#                 total += 2
-#             elif type(item) is float or type(item) is int:
-#                 # check if this is necessary 
-#                 if numberTools.almostEquals(item, hashedItem2[idx], grain=.01):
-#                     total += 1
-#             else:
+        totalPossibleDifferences = len(hashedItem1.hashItemsKeys)
+        
+        numSimilaritiesInTuple = self.calculateNumSimilarities(hashedItem1, hashedItem2)
+        
+        totalPossibleDifferences -= numSimilaritiesInTuple
+#         for (item1, item2) in zip(hashedItem1, hashedItem2):
+#             if item1 == item2:
 #                 total -= 1
-        return total
+#             elif type(item1) == type(item2) and type(item1) is float:
+#                 if numberTools.almostEquals(item1, item2, grain=.01):
+#                     total -= 1
+#             else:
+#                 # cost increases 
+#                 total += 0
+                
+        return totalPossibleDifferences
+    
+    def calculateNumSimilarities(self, hashItem1, hashItem2):
+        '''
+        returns the number of attributes that two tuples have that are the same
+        
+         >>> target = stream.Stream()
+        >>> source = stream.Stream()
+          
+        >>> note1 = note.Note("D1")
+        >>> target.append([note1])
+        >>> source.append([note1])
+        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        
+        >>> from collections import namedtuple
+        >>> NoteHash = namedtuple('NoteHash', ["Pitch", "Duration"])
+        >>> nh1 = NoteHash(60, 4)
+        >>> nhwr1 = alpha.analysis.hasher.NoteHashWithReference(nh1)
+        >>> nhwr1.reference = note.Note('C4')
+        >>> nhwr1
+        NoteHash(Pitch=60, Duration=4)
+        
+        >>> nh2 = NoteHash(60, 4)
+        >>> nhwr2 = alpha.analysis.hasher.NoteHashWithReference(nh2)
+        >>> nhwr2.reference = note.Note('C4')
+        >>> nhwr2
+        NoteHash(Pitch=60, Duration=4)
+        
+       
+        >>> sa.calculateNumSimilarities(nhwr1, nhwr2)
+        2
+        
+        >>> nh3 = NoteHash(61, 4)
+        >>> nhwr3 = alpha.analysis.hasher.NoteHashWithReference(nh3)
+        >>> nhwr3.reference = note.Note('C#4')
+        >>> nhwr3
+        NoteHash(Pitch=61, Duration=4)
+        
+        >>> sa.calculateNumSimilarities(nhwr1, nhwr3)
+        1
+        
+        >>> nh4 = NoteHash(59, 1)
+        >>> nhwr4 = alpha.analysis.hasher.NoteHashWithReference(nh4)
+        >>> nhwr4.reference = note.Note('B3')
+        >>> nhwr4
+        NoteHash(Pitch=59, Duration=1)
+        
+        >>> sa.calculateNumSimilarities(nhwr2, nhwr4)
+        0
+        '''
+        
+        count = 0
+        for val in hashItem1.hashItemsKeys:
+            if getattr(hashItem1, val) == getattr(hashItem2, val):
+                count += 1
+        return count
+    def equalsWithoutReference(self, hashItem1, hashItem2):
+        '''
+        returns whether two hashed items have the same attributes, 
+        
+        >>> target = stream.Stream()
+        >>> source = stream.Stream()
+          
+        >>> note1 = note.Note("D1")
+        >>> target.append([note1])
+        >>> source.append([note1])
+        >>> sa = alpha.analysis.fixOmrMidi.StreamAligner(target, source)
+        
+        >>> from collections import namedtuple
+        >>> NoteHash = namedtuple('NoteHash', ["Pitch", "Duration"])
+        >>> nh1 = NoteHash(60, 4)
+        >>> nhwr1 = alpha.analysis.hasher.NoteHashWithReference(nh1)
+        >>> nhwr1.reference = note.Note('C4')
+        >>> nhwr1
+        NoteHash(Pitch=60, Duration=4)
+        
+        >>> nh2 = NoteHash(60, 4)
+        >>> nhwr2 = alpha.analysis.hasher.NoteHashWithReference(nh2)
+        >>> nhwr2.reference = note.Note('C4')
+        >>> nhwr2
+        NoteHash(Pitch=60, Duration=4)
+        
+       
+        >>> sa.equalsWithoutReference(nhwr1, nhwr2)
+        True
+        
+        >>> nh3 = NoteHash(61, 4)
+        >>> nhwr3 = alpha.analysis.hasher.NoteHashWithReference(nh3)
+        >>> nhwr3.reference = note.Note('C#4')
+        >>> nhwr3
+        NoteHash(Pitch=61, Duration=4)
+        
+        >>> sa.equalsWithoutReference(nhwr1, nhwr3)
+        False
+        
+        '''
+        for val in hashItem1.hashItemsKeys:
+            if getattr(hashItem1, val) != getattr(hashItem2, val):
+                return False
+        return True
         
     def getPossibleMoves(self, i, j):
         '''

@@ -322,7 +322,7 @@ class NoteHashWithReference():
     '''
     >>> from collections import namedtuple
     >>> NoteHash = namedtuple('NoteHash', ["Pitch", "Duration"])
-    >>> nh = NoteHash(60, 4)
+    >>> nh = NoteHash(60, 4)    
     >>> nhwr = alpha.analysis.hasher.NoteHashWithReference(nh)
     >>> nhwr.reference = note.Note('C4')
     >>> nhwr
