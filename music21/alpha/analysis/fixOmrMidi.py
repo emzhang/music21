@@ -185,11 +185,6 @@ class StreamAligner(object):
         self.hashedTargetStream = self.h.hashStream(self.targetStream)
         self.hashedSourceStream = self.h.hashStream(self.sourceStream)
         
-#         self.hashedTargetStreamWithReferences = self.h.hashStream(self.targetStream)
-#         self.hashedSourceStreamWithReferences = self.h.hashStream(self.sourceStream)
-#         self.hashedTargetStream = [hashTup[0] for hashTup in self.hashedTargetStreamWithReferences]
-#         self.hashedSourceStream = [hashTup[0] for hashTup in self.hashedSourceStreamWithReferences]
-        
         # n and m will be the dimensions of the Distance Matrix we set up
         self.n = len(self.hashedTargetStream)
         self.m = len(self.hashedSourceStream)
@@ -261,19 +256,22 @@ class StreamAligner(object):
         '''
         # setup all the entries in the first column
         for i in range(1, self.n + 1):
-            self.distMatrix[i][0] = self.distMatrix[i - 1][0] + self.insertCost(self.hashedTargetStream[i - 1])
+            insertCost = self.insertCost(self.hashedTargetStream[i - 1])
+            self.distMatrix[i][0] = self.distMatrix[i - 1][0] + insertCost
             
         
         # setup all the entries in the first row
         for j in range(1, self.m + 1):
-            self.distMatrix[0][j] = self.distMatrix[0][j - 1] + self.deleteCost(self.hashedSourceStream[j - 1])
+            deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
+            self.distMatrix[0][j] = self.distMatrix[0][j - 1] + deleteCost
         
         # fill in rest of matrix   
         for i in range(1, self.n + 1):
             for j in range(1, self.m + 1):
                 insertCost = self.insertCost(self.hashedTargetStream[i - 1])
                 deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
-                substCost = self.substCost(self.hashedTargetStream[i - 1], self.hashedSourceStream[j - 1])
+                substCost = self.substCost(self.hashedTargetStream[i - 1], 
+                                           self.hashedSourceStream[j - 1])
                 previousValues = [self.distMatrix[i - 1][j] + insertCost,
                                    self.distMatrix[i][j - 1] + deleteCost,
                                    self.distMatrix[i - 1][j - 1] + substCost]  
@@ -1169,7 +1167,7 @@ class Test(unittest.TestCase):
          
         sa = StreamAligner(target, source)
         sa.align()
-        sa.showChanges()
+        sa.showChanges(show=False)
         
         self.assertEqual(sa.similarityScore, .75)
     
@@ -1208,6 +1206,7 @@ class Test(unittest.TestCase):
         sa2 = StreamAligner(bwv137midistream, bwv137omrstream)
         sa2.discretizeParts = True
         sa2.align()
+        sa2.showChanges()
         
         # self.assertGreater(sa1.similarityScore, )
         
@@ -1220,7 +1219,8 @@ class Test(unittest.TestCase):
 #             
 #         bwv137midifp = '/Users/Emily/Research/MEng/testfiles/bwv137midibass.mid'
 #         bwv137omrfp = '/Users/Emily/Research/MEng/testfiles/bwv137emily.xml'
-#         bwv137midistream = converter.parse(bwv137midifp, forceSource=True, quarterLengthDivisors=[4])
+#         bwv137midistream = converter.parse(bwv137midifp, forceSource=True, 
+#                                            quarterLengthDivisors=[4])
 #         bwv137omrstream = converter.parse(bwv137omrfp)
 #         
 #         sa = StreamAligner(bwv137midistream, bwv137omrstream)

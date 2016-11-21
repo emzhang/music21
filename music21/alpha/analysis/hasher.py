@@ -416,6 +416,7 @@ class Hasher(object):
         to be used on each element and passing off the element to the method 
         self.addSingleNoteHashToFinalHash, which creates the appropriate hash for that element 
         and adds it to self.finalHash
+        
         """
         finalHash = []
         self.setupValidTypesAndStateVars()
@@ -431,35 +432,88 @@ class Hasher(object):
             elif isinstance(elt, chord.Chord):
                 if self.hashChordsAsNotes:
                     for n in elt:
-                        single_note_hash = [self.hashingFunctions[hashProperty](n, chrd=elt) 
+                        singleNoteHash = [self.hashingFunctions[hashProperty](n, chrd=elt) 
                                             for hashProperty in self.tupleList]
-                        self.addSingleNoteHashToFinalHash(single_note_hash, finalHash, n)
+                        
+                        self.addHashToFinalHash(singleNoteHash, finalHash, n)
                 elif self.hashChordsAsChords:
-                    single_note_hash = [self.hashingFunctions[hashProperty](None, chrd=elt) 
+                    singleNoteHash = [self.hashingFunctions[hashProperty](None, chrd=elt) 
                                         for hashProperty in self.tupleList]
-                    self.addSingleNoteHashToFinalHash(single_note_hash, finalHash, elt)
+                    self.addHashToFinalHash(singleNoteHash, finalHash, elt)
             else: 
-                single_note_hash = [self.hashingFunctions[hashProperty](elt) 
+                singleNoteHash = [self.hashingFunctions[hashProperty](elt) 
                                     for hashProperty in self.tupleList]
-                self.addSingleNoteHashToFinalHash(single_note_hash, finalHash, elt)
-
+                self.addHashToFinalHash(singleNoteHash, finalHash, elt)
             
         return finalHash
     
-    def addSingleNoteHashToFinalHash(self, single_note_hash, finalHash, reference=None):
-        # TODO: use the linter, reference DOESN"T have to be passed in
-        # what is reference? it's a hashable musci21 elt, write documentation
-        tupleHash = (self.tupleClass._make(single_note_hash))
+    def addHashToFinalHash(self, singleNoteHash, finalHash, reference):
+        tupleHash = (self.tupleClass._make(singleNoteHash))
         if self.includeReference:
-            nhwr = NoteHashWithReference(tupleHash)
-            if reference.derivation.rootDerivation is not None:
-                nhwr.reference = reference.derivation.rootDerivation
-            else:
-                nhwr.reference = reference
-            finalHash.append(nhwr)
+            self.addNoteHashWithReferenceToFinalHash(finalHash, tupleHash, reference)
         else:
-            nh = NoteHash(tupleHash)
-            finalHash.append(nh)
+            self.addNoteHashToFinalHash(finalHash, tupleHash)
+            
+    def addNoteHashWithReferenceToFinalHash(self, finalHash, tupleHash, reference):
+        '''
+        creates a NoteHashWithReference object from tupleHash and with the reference pass in 
+        and adds the NoteHashWithReference object to the end of finalHash
+        
+        If there is no rootDerivation of the reference, then just use the top level derivation
+        
+        >>> from collections import namedtuple
+        >>> n = note.Note('C4')
+        >>> NoteHash = namedtuple('NoteHash', ["Pitch", "Duration"])
+        >>> nh = NoteHash(n.pitch, n.duration)
+        >>> finalHash = []
+        >>> h = alpha.analysis.hasher.Hasher()
+        >>> h.addNoteHashWithReferenceToFinalHash(finalHash, nh, n)
+        >>> finalHash
+        [NoteHash(Pitch=C4, Duration=<music21.duration.Duration 1.0>)]
+        
+        >>> finalHash[0].reference.id == n.id
+        True
+        '''
+        nhwr = NoteHashWithReference(tupleHash)
+        if reference.derivation.rootDerivation is not None:
+            nhwr.reference = reference.derivation.rootDerivation
+        else:
+            nhwr.reference = reference
+        finalHash.append(nhwr)
+        
+    def addNoteHashToFinalHash(self, finalHash, tupleHash):
+        '''
+        creates a NoteHash object from tupleHash and adds the NoteHash
+        object to the end of finalHash
+        
+        >>> from collections import namedtuple
+        >>> n = note.Note('C4')
+        >>> NoteHash = namedtuple('NoteHash', ["Pitch", "Duration"])
+        >>> nh = NoteHash(n.pitch, n.duration)
+        >>> finalHash = []
+        >>> h = alpha.analysis.hasher.Hasher()
+        >>> h.addNoteHashToFinalHash(finalHash, nh)
+        >>> finalHash
+        [(<music21.pitch.Pitch C4>, <music21.duration.Duration 1.0>)]
+        '''
+        nh = NoteHash(tupleHash)
+        finalHash.append(nh)
+            
+#     def addSingleNoteHashToFinalHash(self, singleNoteHash, finalHash, reference=None):
+#         # TODO: use the linter, reference DOESN"T have to be passed in
+#         # what is reference? it's a hashable musci21 elt, write documentation
+#         tupleHash = (self.tupleClass._make(singleNoteHash))
+#         if self.includeReference:
+#             nhwr = NoteHashWithReference(tupleHash)
+#             if reference.derivation.rootDerivation is not None:
+#                 nhwr.reference = reference.derivation.rootDerivation
+#             else:
+#                 nhwr.reference = reference
+#             finalHash.append(nhwr)
+#         else:
+#             nh = NoteHash(tupleHash)
+#             finalHash.append(nh)
+
     # --- Begin Rounding Helper Functions ---
 
     def _getApproxDurOrOffset(self, durOrOffset):
@@ -478,6 +532,8 @@ class Hasher(object):
 
 class NoteHashWithReference():
     '''
+    returns tuple with reference to original note or chord or rest 
+    
     >>> from collections import namedtuple
     >>> NoteHash = namedtuple('NoteHash', ["Pitch", "Duration"])
     >>> nh = NoteHash(60, 4)    
@@ -528,15 +584,10 @@ class NoteHashWithReference():
 
 class NoteHash(tuple):
     '''
-    returns tuple with reference to original note or chord or rest 
-    
     >>> note1 = note.Note("C4")
     >>> nh = alpha.analysis.hasher.NoteHash((1, 2))
-    >>> nh.reference = note1
     >>> nh
     (1, 2)
-    >>> nh.reference
-    <music21.note.Note C>
     >>> a, b = nh
     >>> a
     1
@@ -547,9 +598,6 @@ class NoteHash(tuple):
     '''
     def __new__(cls, tupEls):
         return super(NoteHash, cls).__new__(cls, tuple(tupEls))
-
-    def __init__(self, tupEls): # pylint: disable=super-init-not-called
-        self.reference = None
 
 class Test(unittest.TestCase):
 
