@@ -14,6 +14,7 @@ requires numpy
 from music21 import base as base
 from music21 import exceptions21
 from music21 import interval
+from music21 import metadata
 from music21 import stream
 
 from music21.alpha.analysis import hasher
@@ -29,7 +30,7 @@ import unittest
 try:
     import enum
 except ImportError:
-    from music21.ext import enum34 as enum
+    from music21.ext import enum
 
 pathName = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 
@@ -44,11 +45,36 @@ class AlignmentTracebackException(OmrMidiException):
     pass
 
 class ChangeOps(enum.IntEnum):
+    '''
+    >>> ins = alpha.analysis.fixOmrMidi.ChangeOps.Insertion
+    >>> ins.color
+    'green'
+    
+    >>> dele = alpha.analysis.fixOmrMidi.ChangeOps.Deletion
+    >>> dele.color
+    'red'
+    
+    >>> subs = alpha.analysis.fixOmrMidi.ChangeOps.Substitution
+    >>> subs.color
+    'purple'
+    
+    >>> noC = alpha.analysis.fixOmrMidi.ChangeOps.NoChange
+    >>> noC.color
+    
+    '''
     Insertion = 0
     Deletion = 1
     Substitution = 2
     NoChange = 3
-
+    
+    def __init__(self, changeOpNum):
+        self.changeOpNum = changeOpNum
+        self.colorDict = {0:"green", 1:"red", 2:"purple", 3:None}
+        
+    @property
+    def color(self):
+        return self.colorDict[self.changeOpNum]
+    
 class StreamAligner(object):
     """
     Stream Aligner object for two streams
@@ -424,15 +450,6 @@ class StreamAligner(object):
         numSimilaritiesInTuple = self.calculateNumSimilarities(hashedItem1, hashedItem2)
         
         totalPossibleDifferences -= numSimilaritiesInTuple
-#         for (item1, item2) in zip(hashedItem1, hashedItem2):
-#             if item1 == item2:
-#                 total -= 1
-#             elif type(item1) == type(item2) and type(item1) is float:
-#                 if numberTools.almostEquals(item1, item2, grain=.01):
-#                     total -= 1
-#             else:
-#                 # cost increases 
-#                 total += 0
                 
         return totalPossibleDifferences
     
@@ -741,8 +758,8 @@ class StreamAligner(object):
             # # check if possible moves are indexable
             bestOp = self.getOpFromLocation(i, j)
             
-            self.changes.insert(0, (self.hashedTargetStream[i - 1],
-                                        self.hashedSourceStream[j - 1],
+            self.changes.insert(0, (self.hashedTargetStream[i - 1].reference,
+                                        self.hashedSourceStream[j - 1].reference,
                                         bestOp))
             # bestOp : 0: insertion, 1: deletion, 2: substitution; 3: nothing
             if bestOp == ChangeOps.Insertion:
@@ -764,6 +781,28 @@ class StreamAligner(object):
         
         self.changesCount = Counter(elem[2] for elem in self.changes)
         self.similarityScore = float(self.changesCount[ChangeOps.NoChange]) / len(self.changes)
+        
+    def showChanges(self, show=True):
+        for (idx, (omrNoteRef, midiNoteRef, change)) in enumerate(self.changes):
+            if change == ChangeOps.NoChange:
+                pass
+            else: # change is Insertion, Deletion, Substitution
+                omrNoteRef.color = change.color
+                omrNoteRef.lyric = idx
+                midiNoteRef.color = change.color
+                midiNoteRef.lyric = idx
+                print(omrNoteRef.activeSite)
+                print(omrNoteRef.activeSite)
+         
+        self.targetStream.metadata = metadata.Metadata() 
+        self.sourceStream.metadata = metadata.Metadata()  
+        self.targetStream.metadata.title = "Target " + str(self.targetStream.id)
+        self.sourceStream.metadata.title = "Source " + str(self.targetStream.id)
+        
+        if show:
+            self.targetStream.show()
+            self.sourceStream.show()
+        
         
 class OMRmidiNoteFixer(object):
     '''
@@ -1130,6 +1169,7 @@ class Test(unittest.TestCase):
          
         sa = StreamAligner(target, source)
         sa.align()
+        sa.showChanges()
         
         self.assertEqual(sa.similarityScore, .75)
     
