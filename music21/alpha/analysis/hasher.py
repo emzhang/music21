@@ -393,6 +393,7 @@ class Hasher(object):
     def preprocessStream(self, s):
         '''
         strips ties from stream is self.stripTies is True
+        TODO: show that the s returned is different from the s passed in
         '''
         if self.stripTies:
             try:
@@ -415,8 +416,7 @@ class Hasher(object):
         to be hashed and individually hashes them by looking up which hashing functions ought
         to be used on each element and passing off the element to the method 
         self.addSingleNoteHashToFinalHash, which creates the appropriate hash for that element 
-        and adds it to self.finalHash
-        
+        and adds it to self.finalHash        
         """
         finalHash = []
         self.setupValidTypesAndStateVars()
@@ -426,7 +426,9 @@ class Hasher(object):
         finalEltsToBeHashed = [elt for elt in ss if isinstance(elt, tupValidTypes)]
         self.setupTupleList()
         
+        # TODO: see if can break for loop up into separate functions
         for elt in finalEltsToBeHashed:
+            
             if self.hashIsAccidental and isinstance(elt, key.KeySignature):
                 self.stateVars["currKeySig"] = elt
             elif isinstance(elt, chord.Chord):
@@ -444,7 +446,7 @@ class Hasher(object):
                 singleNoteHash = [self.hashingFunctions[hashProperty](elt) 
                                     for hashProperty in self.tupleList]
                 self.addHashToFinalHash(singleNoteHash, finalHash, elt)
-            
+        # TODO: don't finalHash back and forth, return it in the smaller functions
         return finalHash
     
     def addHashToFinalHash(self, singleNoteHash, finalHash, reference):

@@ -78,7 +78,8 @@ class ChangeOps(enum.IntEnum):
 class StreamAligner(object):
     """
     Stream Aligner object for two streams
-    
+    Target is the string being aligned against, usually the MIDI stream
+    Source is the string that is being corrected, usually the OMR stream
     """
     
     def __init__(self, targetStream, sourceStream):
@@ -786,16 +787,18 @@ class StreamAligner(object):
                 pass
             else: # change is Insertion, Deletion, Substitution
                 omrNoteRef.color = change.color
-                omrNoteRef.lyric = idx
+                omrNoteRef.addLyric(idx)
                 midiNoteRef.color = change.color
-                midiNoteRef.lyric = idx
-                print(omrNoteRef.activeSite)
-                print(omrNoteRef.activeSite)
+                midiNoteRef.addLyric(idx)
          
         self.targetStream.metadata = metadata.Metadata() 
         self.sourceStream.metadata = metadata.Metadata()  
+        
         self.targetStream.metadata.title = "Target " + str(self.targetStream.id)
         self.sourceStream.metadata.title = "Source " + str(self.targetStream.id)
+        
+        self.targetStream.metadata.movementName = self.targetStream.metadata.title
+        self.sourceStream.metadata.movementName = self.sourceStream.metadata.title
         
         if show:
             self.targetStream.show()
@@ -1210,7 +1213,18 @@ class Test(unittest.TestCase):
         
         # self.assertGreater(sa1.similarityScore, )
         
+    def testBWV137MultiStreamsBassPart(self):
+        from music21 import stream, converter
+            
+        bwv137midifp = '/Users/Emily/Research/MEng/testfiles/bwv137.mid'
+        bwv137omrfp = '/Users/Emily/Research/MEng/testfiles/bwv137emily.xml'
+        bwv137midistream = converter.parse(bwv137midifp, forceSource=True, quarterLengthDivisors=[4])
+        bwv137omrstream = converter.parse(bwv137omrfp)
         
+        sa2 = StreamAligner(bwv137midistream.parts[-1], bwv137omrstream.parts[-1])
+        sa2.discretizeParts = True
+        sa2.align()
+        sa2.showChanges(show=False)    
     '''
     This test is failing
     '''
@@ -1232,4 +1246,4 @@ class Test(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(Test)
+    music21.mainTest(Test) #, runTest='testBWV137MultiStreams')
