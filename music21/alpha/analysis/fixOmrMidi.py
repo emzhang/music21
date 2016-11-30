@@ -80,6 +80,18 @@ class StreamAligner(object):
     Stream Aligner object for two streams
     Target is the string being aligned against, usually the MIDI stream
     Source is the string that is being corrected, usually the OMR stream
+    
+    These terms are associated with the MIDI stream are:
+    - target
+    - n, the number of rows in the distance matrix, the left-most column of the matrix
+    - i, the index into rows in the distance matrix
+    - the first element of tuple
+    
+    These terms are associated with the OMR stream are:
+    - source
+    - m, the number of columns in the distance matrix, the top-most row of the matrix
+    - j, the index into columns in the distance matrix
+    - the second element of tuple
     """
     
     def __init__(self, targetStream, sourceStream):
@@ -255,13 +267,13 @@ class StreamAligner(object):
            [6, 6, 5, 3]])
                
         '''
-        # setup all the entries in the first column
+        # setup all the entries in the first column, target, midi stream
         for i in range(1, self.n + 1):
             insertCost = self.insertCost(self.hashedTargetStream[i - 1])
             self.distMatrix[i][0] = self.distMatrix[i - 1][0] + insertCost
             
         
-        # setup all the entries in the first row
+        # setup all the entries in the first row, source, omr stream
         for j in range(1, self.m + 1):
             deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
             self.distMatrix[0][j] = self.distMatrix[0][j - 1] + deleteCost
@@ -372,6 +384,9 @@ class StreamAligner(object):
         
     def substCost(self, hashedItem1, hashedItem2):
         '''
+        - hashedItem1 is a midi note
+        - hashedItem2 is an omr note
+        
         >>> # equality testing, both streams made from same note
         >>> # targetA will not have the same reference as sourceA
         >>> # but their hashes will be equal, which makes for their hashed objects to be 
@@ -452,11 +467,14 @@ class StreamAligner(object):
                 
         return totalPossibleDifferences
     
-    def calculateNumSimilarities(self, hashItem1, hashItem2):
+    def calculateNumSimilarities(self, hashedItem1, hashedItem2):
         '''
+        - hashedItem1 is a midi note
+        - hashedItem2 is an omr note
+        
         returns the number of attributes that two tuples have that are the same
         
-         >>> target = stream.Stream()
+        >>> target = stream.Stream()
         >>> source = stream.Stream()
           
         >>> note1 = note.Note("D1")
@@ -502,11 +520,12 @@ class StreamAligner(object):
         '''
         
         count = 0
-        for val in hashItem1.hashItemsKeys:
-            if getattr(hashItem1, val) == getattr(hashItem2, val):
+        for val in hashedItem1.hashItemsKeys:
+            if getattr(hashedItem1, val) == getattr(hashedItem2, val):
                 count += 1
         return count
-    def equalsWithoutReference(self, hashItem1, hashItem2):
+    
+    def equalsWithoutReference(self, hashedItem1, hashedItem2):
         '''
         returns whether two hashed items have the same attributes, 
         
@@ -546,8 +565,8 @@ class StreamAligner(object):
         False
         
         '''
-        for val in hashItem1.hashItemsKeys:
-            if getattr(hashItem1, val) != getattr(hashItem2, val):
+        for val in hashedItem1.hashItemsKeys:
+            if getattr(hashedItem1, val) != getattr(hashedItem2, val):
                 return False
         return True
         
@@ -676,8 +695,7 @@ class StreamAligner(object):
         currentCost = self.distMatrix[i][j]
         minIndex, minNewCost = min(enumerate(possibleMoves), key=operator.itemgetter(1))
         if currentCost == minNewCost:
-            return ChangeOps.NoChange
-        
+            return ChangeOps.NoChange 
         else:
             return ChangeOps(minIndex)
     
@@ -782,20 +800,21 @@ class StreamAligner(object):
         self.similarityScore = float(self.changesCount[ChangeOps.NoChange]) / len(self.changes)
         
     def showChanges(self, show=True):
-        for (idx, (omrNoteRef, midiNoteRef, change)) in enumerate(self.changes):
+        for (idx, (midiNoteRef, omrNoteRef, change)) in enumerate(self.changes):
             if change == ChangeOps.NoChange:
                 pass
             else: # change is Insertion, Deletion, Substitution
-                omrNoteRef.color = change.color
-                omrNoteRef.addLyric(idx)
                 midiNoteRef.color = change.color
                 midiNoteRef.addLyric(idx)
+                omrNoteRef.color = change.color
+                omrNoteRef.addLyric(idx)
+                
          
         self.targetStream.metadata = metadata.Metadata() 
         self.sourceStream.metadata = metadata.Metadata()  
         
-        self.targetStream.metadata.title = "Target " + str(self.targetStream.id)
-        self.sourceStream.metadata.title = "Source " + str(self.targetStream.id)
+        self.targetStream.metadata.title = "Target/MIDI " + str(self.targetStream.id)
+        self.sourceStream.metadata.title = "Source/OMR " + str(self.targetStream.id)
         
         self.targetStream.metadata.movementName = self.targetStream.metadata.title
         self.sourceStream.metadata.movementName = self.sourceStream.metadata.title
@@ -1201,17 +1220,49 @@ class Test(unittest.TestCase):
         bwv137midistream = converter.parse(bwv137midifp, forceSource=True, quarterLengthDivisors=[4])
         bwv137omrstream = converter.parse(bwv137omrfp)
         
-        sa1 = StreamAligner(bwv137midistream, bwv137omrstream)
-        sa1.discretizeParts = False
-        sa1.align()
-        print(sa1.similarityScore)
-        
+#         sa1 = StreamAligner(bwv137midistream, bwv137omrstream)
+#         sa1.discretizeParts = False
+#         sa1.align()
+#         print(sa1.similarityScore)
+#         sa1.showChanges(show=True)
+        bwv137midistream
+        bwv137omrstream
         sa2 = StreamAligner(bwv137midistream, bwv137omrstream)
         sa2.discretizeParts = True
         sa2.align()
-        sa2.showChanges()
+        sa2.showChanges(show=False)
         
         # self.assertGreater(sa1.similarityScore, )
+        
+    def testBWV137twoparts(self):
+        '''
+        this test shows that even with just the tenor and bass part the
+        first note of the bass part is still marked as aligning with the last note
+        of the tenor part
+        '''
+        from music21 import stream, converter
+            
+        bwv137midifp = '/Users/Emily/Research/MEng/testfiles/bwv137.mid'
+        bwv137omrfp = '/Users/Emily/Research/MEng/testfiles/bwv137emily.xml'
+        bwv137midistream = converter.parse(bwv137midifp, forceSource=True, quarterLengthDivisors=[4])
+        bwv137omrstream = converter.parse(bwv137omrfp)
+        
+        midipart3 = bwv137midistream.parts[2]
+        midipart4 = bwv137midistream.parts[3]
+        
+        omrpart3 = bwv137omrstream.parts[2]
+        omrpart4 = bwv137omrstream.parts[3]
+        
+        bwv137midiparts34 = stream.Stream()
+        bwv137midiparts34.append([midipart3, midipart4])
+        
+        bwv137omrparts34 = stream.Stream()
+        bwv137omrparts34.append([omrpart3, omrpart4]) 
+        
+        sa2 = StreamAligner(bwv137midiparts34, bwv137omrparts34)
+        sa2.discretizeParts = True
+        sa2.align()
+        sa2.showChanges(show=False)
         
     def testBWV137MultiStreamsBassPart(self):
         from music21 import stream, converter
@@ -1224,7 +1275,184 @@ class Test(unittest.TestCase):
         sa2 = StreamAligner(bwv137midistream.parts[-1], bwv137omrstream.parts[-1])
         sa2.discretizeParts = True
         sa2.align()
-        sa2.showChanges(show=False)    
+        sa2.showChanges(show=False) 
+    
+    def testStreamsWithRestAtEnd(self):
+        '''
+        part of debugging process for figuring out why discretize parts isn't
+        behaving as expected
+        '''
+        from music21 import stream, note, meter
+        s = stream.Stream()
+        p1 = stream.Part()
+        p2 = stream.Part()
+        m1 = stream.Measure()
+        m2 = stream.Measure()
+        m1.timeSignature = meter.TimeSignature('4/4')
+        m1.repeatAppend(note.Note("C4"), 4)
+        m2.repeatAppend(note.Note("C4"), 2)
+        m2.append(note.Note("B3"))
+        p1.append([m1, m2])
+        s.append(p1)
+        m3 = stream.Measure()
+        m4 = stream.Measure()
+        m3.timeSignature = meter.TimeSignature('4/4')
+        m3.repeatAppend(note.Note("A4"), 4)
+        m4.repeatAppend(note.Note("A4"), 2)
+        m4.append(note.Note("E4"))
+        p2.append([m3, m4])
+        s.append(p2)
+
+        s2 = stream.Stream()
+        p2_1 = stream.Part()
+        p2_2 = stream.Part()
+        m2_1 = stream.Measure()
+        m2_2 = stream.Measure()
+        m2_1.repeatAppend(note.Note("C4"), 4)
+        m2_2.repeatAppend(note.Note("C4"), 2)
+        m2_2.append(note.Note("B3"))
+        m2_2.append(note.Rest())
+        p2_1.append([m2_1, m2_2])
+        s2.append(p2_1)
+        
+        m2_3 = stream.Measure()
+        m2_4 = stream.Measure()
+        m2_3.repeatAppend(note.Note("A4"), 4)
+        m2_4.repeatAppend(note.Note("A4"), 2)
+        m2_4.append(note.Note("E4"))
+        m2_4.append(note.Rest())
+        p2_2.append([m2_3, m2_4])
+        s2.append(p2_2)
+        
+        saDiscretizedWithRest = StreamAligner(s, s2)
+        saDiscretizedWithRest.align()
+        saDiscretizedWithRest.showChanges()
+        
+    def testShowNoChanges(self):
+        '''
+        two exact streams, makes sure that the show functions behaves predictably
+        '''
+        from music21 import stream
+        from music21 import note
+         
+        target = stream.Stream()
+        source = stream.Stream()
+         
+        note1 = note.Note("C4")
+        note2 = note.Note("D4")
+        note3 = note.Note("E4")
+        
+        note4 = note.Note("C4")
+        note5 = note.Note("D4")
+        note6 = note.Note("E4")
+         
+        target.append([note1, note2, note3])
+        source.append([note4, note5, note6])
+         
+        sa = StreamAligner(target, source)
+        sa.align()
+        sa.showChanges(show=False)
+        
+    def testShowInsertion(self):
+        '''
+        two streams:
+        MIDI is CCCB
+        OMR is CCC
+        
+        Therefore there needs to be an insertion to get from OMR to MIDI
+        '''
+        from music21 import stream
+        from music21 import note
+         
+        target = stream.Stream()
+        source = stream.Stream()
+         
+        noteC1 = note.Note("C4")
+        noteC2 = note.Note("C4")
+        noteC3 = note.Note("C4")
+        noteC4 = note.Note("C4")
+        noteC5 = note.Note("C4")
+        noteC6 = note.Note("C4")
+        noteB = note.Note("B3")
+         
+        target.append([noteC1, noteC2, noteC3, noteB])
+        source.append([noteC4, noteC5, noteC6])
+         
+        sa = StreamAligner(target, source)
+        sa.align()
+        sa.showChanges(show=True)
+        
+        self.assertEqual(target.getElementById(sa.changes[3][0].id).color, 'green')
+        self.assertEqual(target.getElementById(sa.changes[3][0].id).lyric, '3')
+        self.assertEqual(source.getElementById(sa.changes[3][1].id).color, 'green')
+        self.assertEqual(source.getElementById(sa.changes[3][1].id).lyric, '3')
+    
+    def testShowDeletion(self):
+        '''
+        two streams:
+        MIDI is CCC
+        OMR is CCCB
+        
+        Therefore there needs to be an deletion to get from OMR to MIDI
+        '''
+        from music21 import stream
+        from music21 import note
+         
+        target = stream.Stream()
+        source = stream.Stream()
+         
+        noteC1 = note.Note("C4")
+        noteC2 = note.Note("C4")
+        noteC3 = note.Note("C4")
+        noteC4 = note.Note("C4")
+        noteC5 = note.Note("C4")
+        noteC6 = note.Note("C4")
+        noteB = note.Note("B3")
+         
+        target.append([noteC1, noteC2, noteC3])
+        source.append([noteC4, noteC5, noteC6, noteB])
+         
+        sa = StreamAligner(target, source)
+        sa.align()
+        sa.showChanges(show=False)
+        
+        self.assertEqual(target.getElementById(sa.changes[3][0].id).color, 'red')
+        self.assertEqual(target.getElementById(sa.changes[3][0].id).lyric, '3')
+        self.assertEqual(source.getElementById(sa.changes[3][1].id).color, 'red')
+        self.assertEqual(source.getElementById(sa.changes[3][1].id).lyric, '3')
+        
+    def testShowSubstitution(self):
+        '''
+        two streams:
+        MIDI is CCC
+        OMR is CCB
+        
+        Therefore there needs to be an substitution to get from OMR to MIDI
+        '''
+        from music21 import stream
+        from music21 import note
+         
+        target = stream.Stream()
+        source = stream.Stream()
+         
+        noteC1 = note.Note("C4")
+        noteC2 = note.Note("C4")
+        noteC3 = note.Note("C4")
+        noteC4 = note.Note("C4")
+        noteC5 = note.Note("C4")
+        noteB = note.Note("B3")
+         
+        target.append([noteC1, noteC2, noteC3])
+        source.append([noteC4, noteC5, noteB])
+         
+        sa = StreamAligner(target, source)
+        sa.align()
+        sa.showChanges(show=False)
+        
+        self.assertEqual(target.getElementById(sa.changes[2][0].id).color, 'purple')
+        self.assertEqual(target.getElementById(sa.changes[2][0].id).lyric, '2')
+        self.assertEqual(source.getElementById(sa.changes[2][1].id).color, 'purple')
+        self.assertEqual(source.getElementById(sa.changes[2][1].id).lyric, '2')
     '''
     This test is failing
     '''
@@ -1246,4 +1474,4 @@ class Test(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(Test) #, runTest='testBWV137MultiStreams')
+    music21.mainTest(Test)# runTest='testShowInsertion')
