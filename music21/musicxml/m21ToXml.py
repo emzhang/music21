@@ -16,8 +16,10 @@ from __future__ import print_function, division
 
 from collections import OrderedDict
 import copy
-import unittest
+import fractions
 import datetime
+import unittest
+
 from music21.ext import webcolors, six
 
 if six.PY3:
@@ -42,6 +44,7 @@ from music21 import exceptions21
 
 from music21 import bar
 from music21 import clef
+from music21 import duration
 from music21 import metadata
 from music21 import note
 from music21 import meter
@@ -82,7 +85,8 @@ def typeToMusicXMLType(value):
 
 def accidentalToMx(a):
     '''
-
+    Convert a pitch.Accidental object to a Element of tag accidental
+    
     >>> a = pitch.Accidental()
     >>> a.set('half-sharp')
     >>> a.alter == .5
@@ -1972,8 +1976,6 @@ class PartExporter(XMLExporterBase):
         if measureStream.streamStatus.haveTupletBracketsBeenMade() is False:
             measureStream.makeTupletBrackets(inPlace=True)
             
-        # TODO: make tuplet brackets once haveTupletBracketsBeenMade is done...
-            
         if len(self.spannerBundle) == 0:
             self.spannerBundle = spanner.SpannerBundle(measureStream.flat)
     
@@ -2186,6 +2188,15 @@ class MeasureExporter(XMLExporterBase):
         classes = obj.classes
         if 'GeneralNote' in classes:
             self.offsetInMeasure += obj.duration.quarterLength
+
+        # turn inexpressible durations into complex durations (unless unlinked)
+        if obj.duration.type == 'inexpressible':
+            obj.duration.quarterLength = obj.duration.quarterLength
+
+        # make dotGroups into normal notes
+        if len(obj.duration.dotGroups) > 1:
+            obj.duration.splitDotGroups(inPlace=True)
+
 
         # split at durations...
         if 'GeneralNote' in classes and obj.duration.type == 'complex':
@@ -2441,7 +2452,16 @@ class MeasureExporter(XMLExporterBase):
             <normal-type>eighth</normal-type>
           </time-modification>
           <notations>
-            <tuplet bracket="yes" placement="above" type="start" />
+            <tuplet bracket="yes" number="1" placement="above" type="start">
+              <tuplet-actual>
+                <tuplet-number>3</tuplet-number>
+                <tuplet-type>eighth</tuplet-type>
+              </tuplet-actual>
+              <tuplet-normal>
+                <tuplet-number>2</tuplet-number>
+                <tuplet-type>eighth</tuplet-type>
+              </tuplet-normal>
+            </tuplet>
           </notations>
         </note>
         >>> len(MEX.xmlRoot)
@@ -2578,10 +2598,20 @@ class MeasureExporter(XMLExporterBase):
             mxAccidental = accidentalToMx(n.pitch.accidental)
             mxNote.append(mxAccidental)
             
-        if len(d.tuplets) > 0:
-            for tup in d.tuplets:
-                mxTimeModification = self.tupletToTimeModification(tup)
-                mxNote.append(mxTimeModification)
+        if len(d.tuplets) == 1:
+            mxTimeModification = self.tupletToTimeModification(d.tuplets[0])
+            mxNote.append(mxTimeModification)
+        elif len(d.tuplets) > 1:
+            # create a composite tuplet to use as a timeModification guide
+            tupletFraction = fractions.Fraction(d.aggregateTupletMultiplier()
+                                                ).limit_denominator(1000)
+            tempTuplet = duration.Tuplet(tupletFraction.denominator,
+                                         tupletFraction.numerator)
+            # don't set durationType until this can be done properly.
+#             tempTuplet.setDurationType(d.tuplets[0].durationNormal.type,
+#                                        d.tuplets[0].durationNormal.dots)
+            mxTimeModification = self.tupletToTimeModification(tempTuplet)
+            mxNote.append(mxTimeModification)
         
         # stem...        
         stemDirection = None
@@ -2624,8 +2654,8 @@ class MeasureExporter(XMLExporterBase):
             
         # add tuplets if it's a note or the first <note> of a chord.
         if addChordTag is False:
-            for tup in d.tuplets:
-                tupTagList = self.tupletToXmlTuplet(tup)
+            for i, tup in enumerate(d.tuplets):
+                tupTagList = self.tupletToXmlTuplet(tup, i+1)
                 mxNotationsList.extend(tupTagList)
     
             
@@ -3168,17 +3198,31 @@ class MeasureExporter(XMLExporterBase):
             mxTiedList.append(mxTied)
         
         # TODO: attr: number (distinguishing ties on enharmonics)
-        # TODO: attrGroup: line-type
+        if t.style != 'normal' and t.type != 'stop':
+            mxTied.set('line-type', t.style)
+            # wavy is not supported as a tie type.
+        
         # TODO: attrGroup: dashed-formatting
         # TODO: attrGroup: position
-        # TODO: attrGroup: placement
-        # TODO: attrGroup: orientation
+
+        if t.placement is not None:
+            mxTied.set('placement', t.placement)
+            orientation = None
+            if t.placement == 'above':
+                orientation = 'over'
+            elif t.placement == 'below':
+                orientation = 'under'
+            # MuseScore requires 'orientation' not placement
+            # should be no need for separate orientation
+            # http://forums.makemusic.com/viewtopic.php?f=12&t=2179&start=0
+            mxTied.set('orientation', orientation)
+        
         # TODO: attrGroup: bezier
         # TODO: attrGroup: color
         
         return mxTiedList
 
-    def tupletToXmlTuplet(self, tuplet):
+    def tupletToXmlTuplet(self, tuplet, tupletIndex=1):
         '''
         In musicxml, a tuplet is represented by
         a timeModification and visually by the
@@ -3199,9 +3243,23 @@ class MeasureExporter(XMLExporterBase):
         >>> len(mxTup)
         1
         >>> MEX.dump(mxTup[0])
-        <tuplet bracket="yes" placement="above" type="start" />
+        <tuplet bracket="yes" number="1" placement="above" type="start">
+          <tuplet-actual>
+            <tuplet-number>11</tuplet-number>
+          </tuplet-actual>
+          <tuplet-normal>
+            <tuplet-number>8</tuplet-number>
+          </tuplet-normal>
+        </tuplet>
+  
+        >>> t.tupletActualShow = 'both'
+        >>> t.tupletNormalShow = 'type'
+        >>> mxTup = MEX.tupletToXmlTuplet(t)
+        >>> MEX.dump(mxTup[0])
+        <tuplet bracket="yes" number="1" placement="above" 
+            show-number="actual" show-type="both" type="start">...</tuplet>
         '''
-        if tuplet.type in (None, ''):
+        if tuplet.type in (None, False, ''):
             return []
         
         if tuplet.type not in ('start', 'stop', 'startStop'):
@@ -3215,22 +3273,62 @@ class MeasureExporter(XMLExporterBase):
 
         retList = []
         
-        # TODO: tuplet-actual different from time-modification
-        # TODO: tuplet-normal
-        # TODO: attr: show-type
-        # TODO: attrGroup: position
         
         for tupletType in localType:
+            # might be multiple in case of startStop
             mxTuplet = Element('tuplet')
             mxTuplet.set('type', tupletType)
+            mxTuplet.set('number', str(tupletIndex))            
             # only provide other parameters if this tuplet is a start
             if tupletType == 'start':
+                tbracket = tuplet.bracket
+                if tbracket == 'slur':
+                    tbracket = True
                 mxTuplet.set('bracket', 
-                             xmlObjects.booleanToYesNo(tuplet.bracket))
+                             xmlObjects.booleanToYesNo(tbracket))
                 if tuplet.placement is not None:
                     mxTuplet.set('placement', tuplet.placement)
-                if tuplet.tupletActualShow == 'none':
+                tas = tuplet.tupletActualShow
+                tns = tuplet.tupletNormalShow
+                if tas == None:
                     mxTuplet.set('show-number', 'none')
+                    # cannot show normal without actual
+                elif tas in ('both', 'number') and tns in ('both', 'number'):
+                    mxTuplet.set('show-number', 'both')
+                elif tas in ('both', 'actual'):
+                    mxTuplet.set('show-number', 'actual')
+                
+                if tas in ('both', 'type') and tns in ('both', 'type'):
+                    mxTuplet.set('show-type', 'both')
+                elif tas in ('both', 'type'):
+                    mxTuplet.set('show-type', 'actual')
+                    
+                if tuplet.bracket == 'slur':
+                    mxTuplet.set('line-shape', 'curved')
+                # TODO: attrGroup: position
+                    
+                mxTupletActual = SubElement(mxTuplet, 'tuplet-actual')
+                mxTupletNumber = SubElement(mxTupletActual, 'tuplet-number')
+                mxTupletNumber.text = str(tuplet.numberNotesActual)
+                if tuplet.durationActual is not None:
+                    actualType = typeToMusicXMLType(tuplet.durationActual.type)
+                    if actualType:
+                        mxTupletType = SubElement(mxTupletActual, 'tuplet-type')
+                        mxTupletType.text = actualType
+                    for unused_counter in range(tuplet.durationActual.dots):
+                        SubElement(mxTupletActual, 'tuplet-dot')
+                
+                mxTupletNormal = SubElement(mxTuplet, 'tuplet-normal')
+                mxTupletNumber = SubElement(mxTupletNormal, 'tuplet-number')
+                mxTupletNumber.text = str(tuplet.numberNotesNormal)
+                if tuplet.durationNormal is not None:
+                    normalType = typeToMusicXMLType(tuplet.durationNormal.type)
+                    if normalType:
+                        mxTupletType = SubElement(mxTupletNormal, 'tuplet-type')
+                        mxTupletType.text = normalType
+                    for unused_counter in range(tuplet.durationNormal.dots):
+                        SubElement(mxTupletNormal, 'tuplet-dot')
+            
             retList.append(mxTuplet)
         return retList
 
@@ -3481,8 +3579,6 @@ class MeasureExporter(XMLExporterBase):
         </harmony>
     
         Test altered chords:
-        
-        Is this correct?
     
         >>> f = harmony.ChordSymbol('F sus add 9')
         >>> f
@@ -3491,10 +3587,9 @@ class MeasureExporter(XMLExporterBase):
         >>> MEX.dump(mxHarmony)
         <harmony>
           <root>
-            <root-step>G</root-step>
+            <root-step>F</root-step>
           </root>
           <kind>suspended-fourth</kind>
-          <inversion>3</inversion>
           <degree>
             <degree-value>9</degree-value>
             <degree-alter />
