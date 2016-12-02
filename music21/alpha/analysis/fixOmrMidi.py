@@ -8,6 +8,7 @@
 # Copyright:    Copyright © 2013-16 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
+import itertools
 '''
 requires numpy
 '''
@@ -137,19 +138,40 @@ class StreamAligner(object):
         setupDistMatrix() hashes the two streams and creates a matrix of the right size 
         populateDistMatrix() enters in all the correct values in the distance matrix
         calculateChanges() does a backtrace of the distance matrix to find the best path
+        
+        >>> target0 = stream.Stream()
+        >>> source0 = stream.Stream()
+        >>> p1 = stream.Part()
+        >>> p2 = stream.Part()
+        >>> p3 = stream.Part()
+        >>> p4 = stream.Part()
+        >>> target0.append([p1, p2])
+        >>> source0.append([p3, p4])
+        >>> sa0 = alpha.analysis.fixOmrMidi.StreamAligner(target0, source0)
         '''
         if self.discretizeParts:
             if self.checkPartAlignment(self.targetStream, self.sourceStream):
+                listOfSimilarityScores = []
+                listOfPartChanges = []
+                
                 targetParts = self.targetStream.getElementsByClass(stream.Part)
                 sourceParts = self.sourceStream.getElementsByClass(stream.Part)
                 for targetPart, sourcePart in zip(targetParts, sourceParts):
                     partStreamAligner = StreamAligner(targetPart.flat, sourcePart.flat)
                     partStreamAligner.discretizeParts = False
                     partStreamAligner.align()
-            
-        self.setupDistMatrix()
-        self.populateDistMatrix()
-        self.calculateChanges()
+                    listOfSimilarityScores.append(partStreamAligner.similarityScore)
+                    listOfPartChanges.append(partStreamAligner.changes)
+                self.similarityScore = sum(listOfSimilarityScores) / len(listOfSimilarityScores)
+                self.changes = [change for subPartList in listOfPartChanges for change in subPartList]
+#                 self.changes = list(itertools.chain(listOfPartChanges))
+            else:
+                pass # what now?
+            # TODO: partStreamAligner never gets added back into original context
+        else:          
+            self.setupDistMatrix()
+            self.populateDistMatrix()
+            self.calculateChanges()
         
     def setupDistMatrix(self):
         '''
@@ -1220,17 +1242,19 @@ class Test(unittest.TestCase):
         bwv137midistream = converter.parse(bwv137midifp, forceSource=True, quarterLengthDivisors=[4])
         bwv137omrstream = converter.parse(bwv137omrfp)
         
-#         sa1 = StreamAligner(bwv137midistream, bwv137omrstream)
-#         sa1.discretizeParts = False
-#         sa1.align()
-#         print(sa1.similarityScore)
+        sa1 = StreamAligner(bwv137midistream, bwv137omrstream)
+        sa1.discretizeParts = False
+        sa1.align()
+        print("sa1 sim score: ", sa1.similarityScore)
 #         sa1.showChanges(show=True)
+        
         bwv137midistream
         bwv137omrstream
         sa2 = StreamAligner(bwv137midistream, bwv137omrstream)
         sa2.discretizeParts = True
         sa2.align()
-        sa2.showChanges(show=False)
+        print("sa2 sim score: ", sa2.similarityScore)
+        sa2.showChanges(show=True)
         
         # self.assertGreater(sa1.similarityScore, )
         
@@ -1253,16 +1277,16 @@ class Test(unittest.TestCase):
         omrpart3 = bwv137omrstream.parts[2]
         omrpart4 = bwv137omrstream.parts[3]
         
-        bwv137midiparts34 = stream.Stream()
+        bwv137midiparts34 = stream.Score()
         bwv137midiparts34.append([midipart3, midipart4])
         
-        bwv137omrparts34 = stream.Stream()
+        bwv137omrparts34 = stream.Score()
         bwv137omrparts34.append([omrpart3, omrpart4]) 
         
         sa2 = StreamAligner(bwv137midiparts34, bwv137omrparts34)
         sa2.discretizeParts = True
         sa2.align()
-        sa2.showChanges(show=False)
+        sa2.showChanges(show=True)
         
     def testBWV137MultiStreamsBassPart(self):
         from music21 import stream, converter
@@ -1453,6 +1477,7 @@ class Test(unittest.TestCase):
         self.assertEqual(target.getElementById(sa.changes[2][0].id).lyric, '2')
         self.assertEqual(source.getElementById(sa.changes[2][1].id).color, 'purple')
         self.assertEqual(source.getElementById(sa.changes[2][1].id).lyric, '2')
+        
     '''
     This test is failing
     '''
@@ -1474,4 +1499,4 @@ class Test(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(Test)# runTest='testShowInsertion')
+    music21.mainTest(Test, runTest='testBWV137MultiStreams')
