@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # Name:         alpha/analysis/fixOmrMidi.py
-# Purpose:      use MIDI score data to fix OMR scores
+# Purpose:      To be deprecated; use MIDI score data to fix OMR scores 
 #
 # Authors:      Emily Zhang
 #

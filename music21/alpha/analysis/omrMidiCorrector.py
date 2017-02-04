@@ -28,8 +28,8 @@ class OMRMIDICorrector(object):
     4) fixes the OMR stream based on changes and best alignment output from aligner
     """
     def __init__(self, midiStream, omrStream, hasher=None):
-        self.midiStream = midiStream  # an alias to be less confusing 
-        self.omrStream = omrStream  # an alias to be less confusing 
+        self.midiStream = midiStream 
+        self.omrStream = omrStream
         self.hasher = hasher
         self.discretizeParts = True
         self.midiParts = []
@@ -40,7 +40,7 @@ class OMRMIDICorrector(object):
     def processRunner(self):
         '''
         TODO: change this function to a better name?
-        main function that all other functions (hashing, preprocessing, aligning are called from)
+        main method that all other method (hashing, preprocessing, aligning are called from)
         '''
         self.preprocessStreams()
         self.setupHasher()
@@ -75,9 +75,6 @@ class OMRMIDICorrector(object):
             else:
                 raise OMRMIDICorrectorException("Streams have uneven number of parts.")
         
-        
-            
-        
     def checkBassDoublesCello(self, bassPart, celloPart):
         '''
         Creates a StreamAligner that checks if bassPart and celloPart are similar enough to be 
@@ -98,12 +95,18 @@ class OMRMIDICorrector(object):
         Sets up the hasher that is to be used to hashed the streams. If one is passed in, 
         uses that one, otherwise uses a default one with settings we have found to be generally
         effective
-        
-        TODO: test that self.hasher should never be None after calling this function
-        
+    
+        >>> midistream = stream.Stream()
+        >>> omrstream = stream.Stream()
+        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midistream, omrstream)
+        >>> omc.hasher
+        >>> None
+        >>> omc.setupHasher()
+        >>> omc.hasher
+        <music21.alpha.analysis.hasher.Hasher object...>
         '''
         if self.hasher is None:
-            return self.setDefaultHasher()
+            self.setDefaultHasher()
     
     def setDefaultHasher(self):
         '''
@@ -112,13 +115,15 @@ class OMRMIDICorrector(object):
         
         called by __init__ if no hasher is passed in.
         
-        >>> sa = alpha.analysis.aligner.StreamAligner()
-        >>> h = sa.getDefaultHasher()
-        >>> h
+        >>> midistream = stream.Stream()
+        >>> omrstream = stream.Stream()
+        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midistream, omrstream)
+        >>> omc.setDefaultHasher()
+        >>> omc.hasher
         <music21.alpha.analysis.hasher.Hasher object at 0x1068cf6a0>
-        >>> h.hashOffset
+        >>> omc.hasher.hashOffset
         False
-        >>> h.includeReference
+        >>> omc.hasher.includeReference
         True
         '''
         h = hasher.Hasher()
