@@ -56,16 +56,74 @@ class OMRMIDICorrector(object):
         Checks that if lengths are off by one, if bass doubles cello in the MIDI score
         
         TODO: match each part in to the most likely matching part in other stream, no repeats
+        
+        >>> midiStream0 = stream.Stream()
+        >>> omrStream0 = stream.Stream()
+        >>> p01 = stream.Part()
+        >>> p02 = stream.Part()
+        >>> p03 = stream.Part()
+        >>> p04 = stream.Part()
+        >>> midiStream0.append([p01, p02])
+        >>> omrStream0.append([p03, p04])
+        >>> omc0 = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream0, omrStream0)
+        >>> omc0.discretizeParts = True
+        >>> omc0.preprocessStreams()
+        >>> len(omc0.midiParts)
+        2
+        >>> len(omc0.omrParts)
+        2
+
+        >>> midiStream1 = stream.Stream()
+        >>> omrStream1 = stream.Stream()
+        >>> p11 = stream.Part()
+        >>> p12 = stream.Part()
+        >>> p13 = stream.Part()
+        >>> p14 = stream.Part()
+        >>> midiStream1.append([p11, p12])
+        >>> omrStream1.append([p13, p14])
+        >>> omc1 = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream1, omrStream1)
+        >>> omc1.discretizeParts = False
+        >>> omc1.preprocessStreams()
+        >>> len(omc1.midiParts)
+        1
+        >>> len(omc1.omrParts)
+        1
+        
+        >>> midiStream2 = stream.Stream()
+        >>> omrStream2 = stream.Stream()
+        >>> omc2 = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream2, omrStream2)
+        >>> omc2.preprocessStreams()
+        Traceback (most recent call last):
+        music21.alpha.analysis.omrMidiCorrector.OMRMIDICorrectorException: 
+        Streams must contain at least one part.
+        
+        >>> midiStream3 = stream.Stream()
+        >>> omrStream3 = stream.Stream()
+        >>> p31 = stream.Part()
+        >>> p32 = stream.Part()
+        >>> p33 = stream.Part()
+        >>> p34 = stream.Part()
+        >>> midiStream3.append([p31])
+        >>> omrStream3.append([p32, p33, p34])
+        >>> omc3 = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream3, omrStream3)
+        >>> omc3.preprocessStreams()
+        Traceback (most recent call last):
+        music21.alpha.analysis.omrMidiCorrector.OMRMIDICorrectorException: 
+        Streams have uneven number of parts.
         '''
         if self.discretizeParts == True:
-            self.midiParts = self.midiStream.getElementsByClass(stream.Part).flat
-            self.omrParts = self.omrStream.getElementsByClass(stream.Part).flat
+            self.midiParts = [p.flat for p in self.midiStream.getElementsByClass(stream.Part)]
+            self.omrParts = [p.flat for p in self.omrStream.getElementsByClass(stream.Part)]
         else:
             self.midiParts = [self.midiStream.flat]
             self.omrParts = [self.omrStream.flat]
             
         numMidiParts = len(self.midiParts)
         numOmrParts = len(self.omrParts)
+        
+        if numMidiParts == 0 or numOmrParts == 0:
+            raise OMRMIDICorrectorException("Streams must contain at least one part.")
+        
         if numMidiParts == numOmrParts:
             pass
             #TODO: something smarter?
@@ -74,6 +132,8 @@ class OMRMIDICorrector(object):
                 pass
             else:
                 raise OMRMIDICorrectorException("Streams have uneven number of parts.")
+        else:
+            raise OMRMIDICorrectorException("Streams have uneven number of parts.")
         
     def checkBassDoublesCello(self, bassPart, celloPart):
         '''
@@ -96,9 +156,9 @@ class OMRMIDICorrector(object):
         uses that one, otherwise uses a default one with settings we have found to be generally
         effective
     
-        >>> midistream = stream.Stream()
-        >>> omrstream = stream.Stream()
-        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midistream, omrstream)
+        >>> midiStream = stream.Stream()
+        >>> omrStream = stream.Stream()
+        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
         >>> omc.hasher
         >>> None
         >>> omc.setupHasher()
@@ -115,9 +175,9 @@ class OMRMIDICorrector(object):
         
         called by __init__ if no hasher is passed in.
         
-        >>> midistream = stream.Stream()
-        >>> omrstream = stream.Stream()
-        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midistream, omrstream)
+        >>> midiStream = stream.Stream()
+        >>> omrStream = stream.Stream()
+        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
         >>> omc.setDefaultHasher()
         >>> omc.hasher
         <music21.alpha.analysis.hasher.Hasher object at 0x1068cf6a0>
@@ -226,7 +286,20 @@ class OMRMIDICorrector(object):
 
 
 class Test(unittest.TestCase):
-    pass
+    def testDiscretization(self):
+        from music21 import stream
+        
+        midiStream = stream.Stream()
+        omrStream = stream.Stream()
+        p1 = stream.Part()
+        p2 = stream.Part()
+        p3 = stream.Part()
+        p4 = stream.Part()
+        midiStream.append([p1, p2])
+        omrStream.append([p3, p4])
+        omc = OMRMIDICorrector(midiStream, omrStream)
+        omc.discretizeParts = True
+        omc.preprocessStreams()
 
 if __name__ == '__main__':
     import music21
