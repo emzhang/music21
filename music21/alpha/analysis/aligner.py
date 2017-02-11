@@ -74,7 +74,7 @@ class StreamAligner(object):
     - the second element of tuple
     """
     
-    def __init__(self, targetStream=None, sourceStream=None, hasher=None, alreadyHashed=False):
+    def __init__(self, targetStream=None, sourceStream=None, hasher=None, preHashed=False):
         self.targetStream = targetStream
         self.sourceStream = sourceStream
         
@@ -84,7 +84,7 @@ class StreamAligner(object):
             hasher = self.getDefaultHasher() 
 
         self.hasher = hasher    
-        self.alreadyHashed = alreadyHashed
+        self.preHashed = preHashed
         
         self.changes = []
         self.similarityScore = 0
@@ -99,7 +99,7 @@ class StreamAligner(object):
     def getDefaultHasher(self):
         '''
         returns a default hasher.Hasher object
-        which does not hashOffset or include the reference.
+        that does not hashOffset or include the reference.
         
         called by __init__ if no hasher is passed in.
         
@@ -125,9 +125,52 @@ class StreamAligner(object):
         
     def makeHashedStreams(self):
         '''
-        Hashes streams if not already hashed
+        Hashes streams if not pre hashed
+        
+        >>> tStream = stream.Stream()
+        >>> sStream = stream.Stream()
+        
+        >>> note1 = note.Note("C4")
+        >>> note2 = note.Note("D4")
+        >>> note3 = note.Note("C4")
+        >>> note4 = note.Note("E4")
+        
+        >>> tStream.append([note1, note2])
+        >>> sStream.append([note3, note4])
+        >>> sa1 = alpha.analysis.aligner.StreamAligner(tStream, sStream)
+        
+        >>> h = alpha.analysis.hasher.Hasher()
+        >>> h.includeReference = True
+        
+        >>> toBeHashedTarStream = stream.Stream()
+        >>> toBeHashedSouStream = stream.Stream()
+        
+        >>> note5 = note.Note("A4")
+        >>> note6 = note.Note("B4")
+        >>> note7 = note.Note("A4")
+        >>> note8 = note.Note("G4")
+        
+        >>> toBeHashedTarStream.append([note5, note6])
+        >>> toBeHashedSouStream.append([note7, note8])
+        >>> hashedTarStr = h.hashStream(toBeHashedTarStream)
+        >>> hashedSouStr = h.hashStream(toBeHashedSouStream)
+        >>> sa2 = alpha.analysis.aligner.StreamAligner(hashedTarStr, hashedSouStr, preHashed = True)
+        
+        >>> sa2.makeHashedStreams()
+        >>> sa1.makeHashedStreams()
+        
+        >>> sa1.hashedTargetStream
+        [NoteHash(Pitch=60, Duration=1.0), NoteHash(Pitch=62, Duration=1.0)]
+        >>> sa1.hashedSourceStream
+        [NoteHash(Pitch=60, Duration=1.0), NoteHash(Pitch=64, Duration=1.0)]
+        
+        >>> sa2.hashedTargetStream
+        [NoteHash(Pitch=69, Duration=1.0, Offset=0.0), NoteHash(Pitch=71, Duration=1.0, Offset=1.0)]
+        >>> sa2.hashedSourceStream
+        [NoteHash(Pitch=69, Duration=1.0, Offset=0.0), NoteHash(Pitch=67, Duration=1.0, Offset=1.0)]
+        
         '''
-        if not self.alreadyHashed:
+        if not self.preHashed:
             self.hashedTargetStream = self.hasher.hashStream(self.targetStream)
             self.hashedSourceStream = self.hasher.hashStream(self.sourceStream)
         
