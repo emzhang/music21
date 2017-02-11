@@ -194,6 +194,33 @@ class OMRMIDICorrector(object):
     def hashOmrMidiStreams(self):
         '''
         takes MIDI and OMR streams and hashes them with the hasher 
+        
+        >>> midiStream = stream.Stream()
+        >>> omrStream = stream.Stream()
+        >>> p1 = stream.Part()
+        >>> p2 = stream.Part()
+        >>> p3 = stream.Part()
+        >>> p4 = stream.Part()
+        >>> note1 = note.Note("C4")
+        >>> note2 = note.Note("D4")
+        >>> note3 = note.Note("C4")
+        >>> note4 = note.Note("E4")
+        >>> p1.append(note1)
+        >>> p2.append(note2)
+        >>> p3.append(note3)
+        >>> p4.append(note4)
+        >>> midiStream.append([p1, p2])
+        >>> omrStream.append([p3, p4])
+        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
+       
+        >>> omc.preprocessStreams()
+        >>> omc.setupHasher()
+        >>> omc.hashOmrMidiStreams()
+        >>> len(omc.hashedMidiParts)
+        2
+        
+        >>> len(omc.hashedOmrParts)
+        2
         '''
         for midiPart in self.midiParts:
             self.hashedMidiParts.append(self.hasher.hashStream(midiPart))
@@ -202,7 +229,7 @@ class OMRMIDICorrector(object):
             self.hashedOmrParts.append(self.hasher.hashStream(omrPart))  
     
     def alignStreams(self):
-        pass
+        omrMidiAligner = aligner.StreamAligner()
     
     def fixStreams(self):
         pass      

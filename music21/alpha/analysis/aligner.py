@@ -74,7 +74,7 @@ class StreamAligner(object):
     - the second element of tuple
     """
     
-    def __init__(self, targetStream=None, sourceStream=None, hasher=None):
+    def __init__(self, targetStream=None, sourceStream=None, hasher=None, alreadyHashed=False):
         self.targetStream = targetStream
         self.sourceStream = sourceStream
         
@@ -84,10 +84,18 @@ class StreamAligner(object):
             hasher = self.getDefaultHasher() 
 
         self.hasher = hasher    
+        self.alreadyHashed = alreadyHashed
         
         self.changes = []
         self.similarityScore = 0
-    
+        
+        # self.n and self.m will be the size of the distance matrix, set later
+        self.n = 0
+        self.m = 0
+        
+        self.hashedTargetStream = None
+        self.hashedSourceStream = None
+        
     def getDefaultHasher(self):
         '''
         returns a default hasher.Hasher object
@@ -110,10 +118,23 @@ class StreamAligner(object):
         return h
         
     def align(self):
+        self.makeHashedStreams()
         self.setupDistanceMatrix()
         self.populateDistanceMatrix()
         self.calculateChangesList()
-    
+        
+    def makeHashedStreams(self):
+        '''
+        Hashes streams if not already hashed
+        '''
+        if not self.alreadyHashed:
+            self.hashedTargetStream = self.hasher.hashStream(self.targetStream)
+            self.hashedSourceStream = self.hasher.hashStream(self.sourceStream)
+        
+        else:
+            self.hashedTargetStream = self.targetStream
+            self.hashedSourceStream = self.sourceStream
+        
     def setupDistanceMatrix(self):
         '''
         Creates a distance matrix of the right size after hashing
@@ -131,6 +152,7 @@ class StreamAligner(object):
         >>> source0.append([note1, note2, note3])
         
         >>> sa0 = alpha.analysis.aligner.StreamAligner(target0, source0)
+        >>> sa0.makeHashedStreams()
         >>> sa0.setupDistanceMatrix()
         >>> sa0.distanceMatrix.size
         20
@@ -142,6 +164,7 @@ class StreamAligner(object):
         >>> source1 = stream.Stream()
         >>> source1.append(note1)
         >>> sa1 = alpha.analysis.aligner.StreamAligner(target1, source1)
+        >>> sa1.makeHashedStreams()
         >>> sa1.setupDistanceMatrix()
         Traceback (most recent call last):
         music21.alpha.analysis.aligner.AlignerException: 
@@ -152,14 +175,13 @@ class StreamAligner(object):
         >>> source2 = stream.Stream()
         >>> target2.append(note3)
         >>> sa2 = alpha.analysis.aligner.StreamAligner(target2, source2)
+        >>> sa2.makeHashedStreams()
         >>> sa2.setupDistanceMatrix()
         Traceback (most recent call last):
         music21.alpha.analysis.aligner.AlignerException: 
         Cannot perform alignment with empty source stream.
         
         '''
-        self.hashedTargetStream = self.hasher.hashStream(self.targetStream)
-        self.hashedSourceStream = self.hasher.hashStream(self.sourceStream)
         
         # n and m will be the dimensions of the Distance Matrix we set up
         self.n = len(self.hashedTargetStream)
@@ -190,6 +212,7 @@ class StreamAligner(object):
         >>> targetA.append([note1, note2])
         >>> sourceA.append([note1, note2])
         >>> saA = alpha.analysis.aligner.StreamAligner(targetA, sourceA)
+        >>> saA.makeHashedStreams()
         >>> saA.setupDistanceMatrix()
         >>> saA.populateDistanceMatrix()
         >>> saA.distanceMatrix
@@ -203,6 +226,7 @@ class StreamAligner(object):
         >>> targetB.append([note1, note2])
         >>> sourceB.append(note1)
         >>> saB = alpha.analysis.aligner.StreamAligner(targetB, sourceB)
+        >>> saB.makeHashedStreams()
         >>> saB.setupDistanceMatrix()
         >>> saB.populateDistanceMatrix()
         >>> saB.distanceMatrix
@@ -219,6 +243,7 @@ class StreamAligner(object):
         >>> targetC.append([note1, note2, note4])
         >>> sourceC.append([note3, note1, note4])
         >>> saC = alpha.analysis.aligner.StreamAligner(targetC, sourceC)
+        >>> saC.makeHashedStreams()
         >>> saC.setupDistanceMatrix()
         >>> saC.populateDistanceMatrix()
         >>> saC.distanceMatrix
@@ -272,6 +297,7 @@ class StreamAligner(object):
         >>> target.append([note1, note2, note3, note4])
         >>> source.append([note1, note2, note3])
         >>> sa = alpha.analysis.aligner.StreamAligner(target, source)
+        >>> sa.makeHashedStreams()
         >>> sa.setupDistanceMatrix()
         >>> for i in range(4+1):
         ...     for j in range(3+1):
@@ -333,6 +359,7 @@ class StreamAligner(object):
         >>> source.append([note1, note2, note3])
         
         >>> sa = alpha.analysis.aligner.StreamAligner(target, source)
+        >>> sa.makeHashedStreams()
         >>> sa.setupDistanceMatrix()
         >>> sa.populateDistanceMatrix()
         >>> sa.distanceMatrix
@@ -674,6 +701,7 @@ class StreamAligner(object):
         >>> targetA.append([note1, note2])
         >>> sourceA.append(note1)
         >>> saA = alpha.analysis.aligner.StreamAligner(targetA, sourceA)
+        >>> saA.makeHashedStreams()
         >>> saA.setupDistanceMatrix()
         >>> saA.populateDistanceMatrix()
         >>> saA.calculateChangesList()
@@ -690,6 +718,7 @@ class StreamAligner(object):
         >>> targetB.append(note1)
         >>> sourceB.append([note1, note2])
         >>> saB = alpha.analysis.aligner.StreamAligner(targetB, sourceB)
+        >>> saB.makeHashedStreams()
         >>> saB.setupDistanceMatrix()
         >>> saB.populateDistanceMatrix()
         >>> saB.calculateChangesList()
@@ -704,6 +733,7 @@ class StreamAligner(object):
         >>> targetC.append([note1, note2])
         >>> sourceC.append([note1, note2])
         >>> saC = alpha.analysis.aligner.StreamAligner(targetC, sourceC)
+        >>> saC.makeHashedStreams()
         >>> saC.setupDistanceMatrix()
         >>> saC.populateDistanceMatrix()
         >>> saC.calculateChangesList()
@@ -720,6 +750,7 @@ class StreamAligner(object):
         >>> targetD.append([note1, note2])
         >>> sourceD.append([note1, note3])
         >>> saD = alpha.analysis.aligner.StreamAligner(targetD, sourceD)
+        >>> saD.makeHashedStreams()
         >>> saD.setupDistanceMatrix()
         >>> saD.populateDistanceMatrix()
         >>> saD.calculateChangesList()
