@@ -229,9 +229,15 @@ class OMRMIDICorrector(object):
             self.hashedOmrParts.append(self.hasher.hashStream(omrPart))  
     
     def alignStreams(self):
+        '''
+        
+        '''
         omrMidiAligner = aligner.StreamAligner()
     
     def fixStreams(self):
+        '''
+        Creates a fixer object for each of the pairwise aligned omr/midi streams
+        '''
         pass      
 #     def checkPartAlignment(self):
 #         """
