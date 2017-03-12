@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ['aligner', 'fixer', 'fixOmrMidi', 'hasher', 'omrMidiCorrecot', 'scoreDiff', 'search', 
+__all__ = ['aligner', 'fixer', 'fixOmrMidi', 'hasher', 'omrMidiCorrector', 'scoreDiff', 'search', 
            'testFiles']
 
 from music21.alpha.analysis import aligner

@@ -188,14 +188,15 @@ class StreamAligner(object):
         >>> note4 = note.Note("E4")
         
         >>> # test for streams of length 3 and 4
-        >>> target0 = stream.Stream()
-        >>> source0 = stream.Stream()
-          
-        >>> target0.append([note1, note2, note3, note4])
-        >>> source0.append([note1, note2, note3])
+        
+        TODO: Emily use converter.parse to write streams instead of appending
+        
+        >>> target0 = converter.parse('tinyNotation: C4 D C E')
+        >>> source0 = converter.parse('tinyNotation: C4 D C')
+        
         
         >>> sa0 = alpha.analysis.aligner.StreamAligner(target0, source0)
-        >>> sa0.makeHashedStreams()
+        >>> # sa0.makeHashedStreams()
         >>> sa0.setupDistanceMatrix()
         >>> sa0.distanceMatrix.size
         20
@@ -225,7 +226,8 @@ class StreamAligner(object):
         Cannot perform alignment with empty source stream.
         
         '''
-        
+        if not self.hashedTargetStream:
+            self.makeHashedStreams()
         # n and m will be the dimensions of the Distance Matrix we set up
         self.n = len(self.hashedTargetStream)
         self.m = len(self.hashedSourceStream)

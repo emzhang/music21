@@ -22,8 +22,8 @@ class OMRMIDICorrector(object):
     """
     Takes two streams, one MIDI, one OMR and 
     1) preprocesses them and checks that they are fit to be aligned
-    2) hashes the streams
-    3) aligns them
+    2) creates the hasher object to be used
+    3) aligns them using the hasher object
         - caveat, should only align matching parts with each other
     4) fixes the OMR stream based on changes and best alignment output from aligner
     """
@@ -34,8 +34,10 @@ class OMRMIDICorrector(object):
         self.discretizeParts = True
         self.midiParts = []
         self.omrParts = []
-        self.hashedMidiParts = []
-        self.hashedOmrParts = []
+        self.changes = []
+        self.similarityScores = []
+        
+        self.debugShow = False
         
     def processRunner(self):
         '''
@@ -44,7 +46,6 @@ class OMRMIDICorrector(object):
         '''
         self.preprocessStreams()
         self.setupHasher()
-        self.hashOmrMidiStreams()
         self.alignStreams()
         self.fixStreams()
     
@@ -222,6 +223,7 @@ class OMRMIDICorrector(object):
         >>> len(omc.hashedOmrParts)
         2
         '''
+        pass
         for midiPart in self.midiParts:
             self.hashedMidiParts.append(self.hasher.hashStream(midiPart))
         
@@ -230,92 +232,23 @@ class OMRMIDICorrector(object):
     
     def alignStreams(self):
         '''
-        
+        Creates and aligner object for each of the pairwise aligned midi/omr streams
+        If self.debugShow is set, then pairwise algined streams should show up in MuseScore
         '''
-        omrMidiAligner = aligner.StreamAligner()
-    
+        for (midiPart, omrPart) in zip(self.midiParts, self.omrParts):
+            partAligner = aligner.StreamAligner(midiPart, omrPart, hasher=self.hasher)
+            partAligner.align()
+            self.changes.append(partAligner.changes)
+            self.similarityScores.append(partAligner.similarityScore)
+            
+            if self.debugShow:
+                partAligner.showChanges(show=True)
+                
     def fixStreams(self):
         '''
         Creates a fixer object for each of the pairwise aligned omr/midi streams
         '''
         pass      
-#     def checkPartAlignment(self):
-#         """
-#         First checks if there are the same number of parts, if not, 
-#         then checks if bass line in source score doubles what would be a cello line
-#         
-#         TODO:
-#         add in checks for measure repeats
-#         
-#         >>> score1 =  stream.Score()
-#         >>> score2 = stream.Score()
-#         >>> part1_1 = stream.Part()
-#         >>> part1_2 = stream.Part()
-#         >>> part1_3 = stream.Part()
-#         >>> part2_1 = stream.Part()
-#         >>> part2_2 = stream.Part()
-#         
-#         """
-#         numTargetParts = len(self.targetScore.getElementsByClass(stream.Part))
-#         numSourceParts = len(self.sourceScore.getElementsByClass(stream.Part))
-#         
-#         if  numTargetParts == numSourceParts:
-#             return True
-#         # checks the case if bass doubles cello
-#         elif numTargetParts - numSourceParts == 1:
-#             celloPart = self.targetScore.getElementsByClass(stream.Part)[-2]
-#             bassPart = self.targetScore.getElementsByClass(stream.Part)[-1]
-#             celloBassAligner = StreamAligner(celloPart, bassPart)
-#             celloBassAligner.align()
-#             
-#             if celloBassAligner.similarityScore > .8:
-#                 return True
-#         else:
-#             return False
-#     
-#     def align(self):
-#         """
-#         Main function here. Checks if parts can be aligned and aligns them if possible.
-#         
-#         Returns Nothing.
-#         
-#         >>> midiToAlign = converter.parse(alpha.analysis.fixOmrMidi.K525midiShortPath)
-#         >>> omrToAlign = converter.parse(alpha.analysis.fixOmrMidi.K525omrShortPath)
-#         
-#         >>> scA = alpha.analysis.aligner.ScoreAligner(midiToAlign, omrToAlign)
-#         
-#         When discretizeParts is False then the .changes should be the same as for a 
-#         StreamAligner
-#         
-#         >>> scA.discretizeParts = False
-#         >>> scA.align()
-#         >>> stA = alpha.analysis.aligner.StreamAligner(midiToAlign, omrToAlign)
-#         >>> stA.align()
-#         >>> scA.changes == stA.changes
-#         True
-#         
-#         """
-#         if not self.checkPartAlignment():
-#             raise ValueError('Scores not similar enough to perform alignment.')
-#         
-#         if self.discretizeParts:
-#             self.alignDiscreteParts()
-#         else:
-#             super().align()
-#             
-#     def alignDiscreteParts(self):
-#         listOfSimilarityScores = []
-#         listOfPartChanges = []
-#         
-#         targetParts = self.targetScore.getElementsByClass(stream.Part)
-#         sourceParts = self.sourceScore.getElementsByClass(stream.Part)
-#         for targetPart, sourcePart in zip(targetParts, sourceParts):
-#             partStreamAligner = StreamAligner(targetPart.flat, sourcePart.flat, hasher=self.hasher)
-#             partStreamAligner.align()
-#             listOfSimilarityScores.append(partStreamAligner.similarityScore)
-#             listOfPartChanges.append(partStreamAligner.changes)
-#             self.similarityScore = sum(listOfSimilarityScores) / len(listOfSimilarityScores)
-#             self.changes = [change for subPartList in listOfPartChanges for change in subPartList]
 
 
 class Test(unittest.TestCase):
@@ -333,6 +266,33 @@ class Test(unittest.TestCase):
         omc = OMRMIDICorrector(midiStream, omrStream)
         omc.discretizeParts = True
         omc.preprocessStreams()
+    
+    def testSimpleOmrMidi(self):
+        from pprint import pprint
+        from music21 import converter
+        from music21.alpha.analysis import testFiles
+        
+        K190iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
+        K190iOmrFP = testFiles.K160_mvmt_i_omr_path
+        
+        midiStream = converter.parse(K190iMidiFP)
+        omrStream = converter.parse(K190iOmrFP)
+        
+#         print(len(midiStream.flat.notes))
+#         print(len(omrStream.flat.notes))
+#         midiPart = midiStream
+#         omrPart = omrStream
+#         
+#         midiStream = stream.Score()
+#         omrStream = stream.Score()
+#         midiStream.append(midiPart)
+#         omrStream.append(omrPart)
+        
+        K160omc = OMRMIDICorrector(midiStream, omrStream)
+        K160omc.processRunner()
+        pprint(K160omc.changes)
+        pprint(K160omc.similarityScores)
+        
 
 if __name__ == '__main__':
     import music21

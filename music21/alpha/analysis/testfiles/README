@@ -1,0 +1,8 @@
+filenames should be saved as
+
+opus/catalog number + “_” +
+movement number + “_” +
+original source (omr or midi) + “_” +
+processing program abbreviation (ss or ms) + “_” +
+other notes (e.g. cropped, 40ms, etc.) + “_” +
+finality (final or empty)
