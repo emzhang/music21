@@ -23,9 +23,7 @@ class OMRMIDICorrector(object):
     Takes two streams, one MIDI, one OMR and 
     1) preprocesses them and checks that they are fit to be aligned
     2) creates the hasher object to be used
-    3) aligns them using the hasher object
-        - caveat, should only align matching parts with each other
-    4) fixes the OMR stream based on changes and best alignment output from aligner
+    3) fixes the OMR stream based on changes and best alignment output from aligner
     """
     def __init__(self, midiStream, omrStream, hasher=None):
         self.midiStream = midiStream 
@@ -42,7 +40,7 @@ class OMRMIDICorrector(object):
     def processRunner(self):
         '''
         TODO: change this function to a better name?
-        main method that all other method (hashing, preprocessing, aligning are called from)
+        main method that all other method (preprocessing, setting up hasher, aligning are called from)
         '''
         self.preprocessStreams()
         self.setupHasher()
@@ -192,43 +190,43 @@ class OMRMIDICorrector(object):
         h.includeReference = True
         self.hasher = h
     
-    def hashOmrMidiStreams(self):
-        '''
-        takes MIDI and OMR streams and hashes them with the hasher 
-        
-        >>> midiStream = stream.Stream()
-        >>> omrStream = stream.Stream()
-        >>> p1 = stream.Part()
-        >>> p2 = stream.Part()
-        >>> p3 = stream.Part()
-        >>> p4 = stream.Part()
-        >>> note1 = note.Note("C4")
-        >>> note2 = note.Note("D4")
-        >>> note3 = note.Note("C4")
-        >>> note4 = note.Note("E4")
-        >>> p1.append(note1)
-        >>> p2.append(note2)
-        >>> p3.append(note3)
-        >>> p4.append(note4)
-        >>> midiStream.append([p1, p2])
-        >>> omrStream.append([p3, p4])
-        >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
-       
-        >>> omc.preprocessStreams()
-        >>> omc.setupHasher()
-        >>> omc.hashOmrMidiStreams()
-        >>> len(omc.hashedMidiParts)
-        2
-        
-        >>> len(omc.hashedOmrParts)
-        2
-        '''
-        pass
-        for midiPart in self.midiParts:
-            self.hashedMidiParts.append(self.hasher.hashStream(midiPart))
-        
-        for omrPart in self.omrParts:
-            self.hashedOmrParts.append(self.hasher.hashStream(omrPart))  
+#     def hashOmrMidiStreams(self):
+#         '''
+#         takes MIDI and OMR streams and hashes them with the hasher 
+#         
+#         >>> midiStream = stream.Stream()
+#         >>> omrStream = stream.Stream()
+#         >>> p1 = stream.Part()
+#         >>> p2 = stream.Part()
+#         >>> p3 = stream.Part()
+#         >>> p4 = stream.Part()
+#         >>> note1 = note.Note("C4")
+#         >>> note2 = note.Note("D4")
+#         >>> note3 = note.Note("C4")
+#         >>> note4 = note.Note("E4")
+#         >>> p1.append(note1)
+#         >>> p2.append(note2)
+#         >>> p3.append(note3)
+#         >>> p4.append(note4)
+#         >>> midiStream.append([p1, p2])
+#         >>> omrStream.append([p3, p4])
+#         >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
+#        
+#         >>> omc.preprocessStreams()
+#         >>> omc.setupHasher()
+#         >>> omc.hashOmrMidiStreams()
+#         >>> len(omc.hashedMidiParts)
+#         2
+#         
+#         >>> len(omc.hashedOmrParts)
+#         2
+#         '''
+#         pass
+#         for midiPart in self.midiParts:
+#             self.hashedMidiParts.append(self.hasher.hashStream(midiPart))
+#         
+#         for omrPart in self.omrParts:
+#             self.hashedOmrParts.append(self.hasher.hashStream(omrPart))  
     
     def alignStreams(self):
         '''
@@ -248,7 +246,7 @@ class OMRMIDICorrector(object):
         '''
         Creates a fixer object for each of the pairwise aligned omr/midi streams
         '''
-        pass      
+        pass
 
 
 class Test(unittest.TestCase):
@@ -267,31 +265,52 @@ class Test(unittest.TestCase):
         omc.discretizeParts = True
         omc.preprocessStreams()
     
-    def testSimpleOmrMidi(self):
+    def testSimpleOmrMidik160(self):
+        pass
         from pprint import pprint
         from music21 import converter
         from music21.alpha.analysis import testFiles
         
-        K190iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
-        K190iOmrFP = testFiles.K160_mvmt_i_omr_path
+        K160iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
+        K160iOmrFP = testFiles.K160_mvmt_i_omr_path
         
-        midiStream = converter.parse(K190iMidiFP)
-        omrStream = converter.parse(K190iOmrFP)
+        midiStream = converter.parse(K160iMidiFP)
+        omrStream = converter.parse(K160iOmrFP)
         
-#         print(len(midiStream.flat.notes))
-#         print(len(omrStream.flat.notes))
-#         midiPart = midiStream
-#         omrPart = omrStream
-#         
+#         midiStreamParts = [p for p in midiStream.getElementsByClass(stream.Part)]
+#         omrStreamParts = [p for p in omrStream.getElementsByClass(stream.Part)]
 #         midiStream = stream.Score()
 #         omrStream = stream.Score()
-#         midiStream.append(midiPart)
-#         omrStream.append(omrPart)
-        
+#         midiStream.append(midiStreamParts[0])
+#         omrStream.append(omrStreamParts[0])
         K160omc = OMRMIDICorrector(midiStream, omrStream)
+        K160omc.debugShow = True
         K160omc.processRunner()
         pprint(K160omc.changes)
         pprint(K160omc.similarityScores)
+        
+    def testSimpleOmrMidik160V2(self):
+        from pprint import pprint
+        from music21 import converter
+        from music21.alpha.analysis import testFiles
+        
+        K160iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
+        K160iOmrFP = testFiles.K160_mvmt_i_omr_path
+        
+        midiStream = converter.parse(K160iMidiFP)
+        omrStream = converter.parse(K160iOmrFP)
+        
+        midiStreamParts = [p for p in midiStream.getElementsByClass(stream.Part)]
+        omrStreamParts = [p for p in omrStream.getElementsByClass(stream.Part)]
+        midiStream = stream.Score()
+        omrStream = stream.Score()
+        midiStream.append(midiStreamParts[2])
+        omrStream.append(omrStreamParts[2])
+        K160omcV2 = OMRMIDICorrector(midiStream, omrStream)
+        K160omcV2.debugShow = True
+        K160omcV2.processRunner()
+        pprint(K160omcV2.changes)
+        pprint(K160omcV2.similarityScores)
         
 
 if __name__ == '__main__':
