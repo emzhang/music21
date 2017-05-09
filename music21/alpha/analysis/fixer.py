@@ -24,6 +24,8 @@ class OMRMidiFixer(object):
         '''
         Method for identifying "chunks" of streams to work with.
         Identifies and splits up chunks in the stream that are flanked by No Change Change Tuples
+        
+        TODO: figure out if this should be children-specific methods?
         '''
         pass
         
@@ -43,6 +45,7 @@ class StaccatoFixer(OMRMidiFixer):
         '''
         populates self.staccatoChunks with pairs of stream excerpts that have staccato mismatch
         
+        TODO: finish writing test
         >>> midiPart = converter.parse("tinyNotation: b- trip{a4 r8} trip{a4 r8} trip{a4 r8} c'4 trip{b-4 r8} trip{a4 r8} trip{b-4 r8}")
         >>> omrPart = converter.parse("tinyNotation: b-4 a a a c' b- a b-")
         >>> midiStream = stream.Part()
@@ -52,13 +55,14 @@ class StaccatoFixer(OMRMidiFixer):
         >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
         >>> omc.processRunner()
         >>> changes = omc.changes
-        >>> changes
         >>> omsf = alpha.analysis.fixer.StaccatoFixer(omrStream, midiStream, changes)
         >>> omsf.getStaccatoChunks()
         []
         '''
         for (midiNoteRef, omrNoteRef, changeOp) in self.changes:
             if changeOp == aligner.ChangeOps.NoChange:
+                
+               # while currChangeOp != 
                 pass
         pass
                 
@@ -78,6 +82,9 @@ class StaccatoFixer(OMRMidiFixer):
         >>> omsf = alpha.analysis.fixer.StaccatoFixer(omrStream, midiStream, changes)
         '''
         pass
+
+class KeyFixer(OMRMidiFixer):
+    pass
 
 class Test(unittest.TestCase):
     pass

@@ -189,8 +189,6 @@ class StreamAligner(object):
         
         >>> # test for streams of length 3 and 4
         
-        TODO: Emily use converter.parse to write streams instead of appending
-        
         >>> target0 = converter.parse('tinyNotation: C4 D C E')
         >>> source0 = converter.parse('tinyNotation: C4 D C')
         
@@ -298,22 +296,27 @@ class StreamAligner(object):
            [6, 6, 5, 3]])
                
         '''
+        
+        # calculate insert and delete costs based on the first tuple in the Source S
+        insertCost = self.insertCost(self.hashedSourceStream[0])
+        deleteCost = self.deleteCost(self.hashedSourceStream[0])
+        
         # setup all the entries in the first column, the target stream
         for i in range(1, self.n + 1):
-            insertCost = self.insertCost(self.hashedTargetStream[i - 1])
+#             insertCost = self.insertCost(self.hashedTargetStream[i - 1])
             self.distanceMatrix[i][0] = self.distanceMatrix[i - 1][0] + insertCost
             
         
         # setup all the entries in the first row, the source stream
         for j in range(1, self.m + 1):
-            deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
+#             deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
             self.distanceMatrix[0][j] = self.distanceMatrix[0][j - 1] + deleteCost
         
         # fill in rest of matrix   
         for i in range(1, self.n + 1):
             for j in range(1, self.m + 1):
-                insertCost = self.insertCost(self.hashedTargetStream[i - 1])
-                deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
+#                 insertCost = self.insertCost(self.hashedTargetStream[i - 1])
+#                 deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
                 substCost = self.substitutionCost(self.hashedTargetStream[i - 1], 
                                            self.hashedSourceStream[j - 1])
                 
@@ -519,7 +522,7 @@ class StreamAligner(object):
         >>> # This is a StreamAligner with default hasher settings
         >>> sa0 = alpha.analysis.aligner.StreamAligner(target, source)
         >>> sa0.align()
-        >>> tup0 = sa0.hashedTargetStream[0]
+        >>> tup0 = sa0.hashedSourceStream[0]
         >>> sa0.deleteCost(tup0)
         2
         
@@ -527,7 +530,7 @@ class StreamAligner(object):
         >>> sa1 = alpha.analysis.aligner.StreamAligner(target, source)
         >>> sa1.hasher.hashPitch = False
         >>> sa1.align()
-        >>> tup1 = sa1.hashedTargetStream[0]
+        >>> tup1 = sa1.hashedSourceStream[0]
         >>> sa1.deleteCost(tup1)
         1
         
@@ -537,7 +540,7 @@ class StreamAligner(object):
         >>> sa2.hasher.hashIntervalFromLastNote = True
         >>> sa2.hasher.hashIsAccidental = True
         >>> sa2.align()
-        >>> tup2 = sa2.hashedTargetStream[0]
+        >>> tup2 = sa2.hashedSourceStream[0]
         >>> sa2.deleteCost(tup2)
         5
         '''
