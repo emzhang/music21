@@ -393,7 +393,7 @@ class Hasher(object):
     def preprocessStream(self, s):
         '''
         strips ties from stream is self.stripTies is True
-        TODO: show that the s returned is different from the s passed in
+        
         '''
         if self.stripTies:
             try:
@@ -758,24 +758,19 @@ class Test(unittest.TestCase):
         self.assertEqual(note1.id, note1ref.id)
         self.assertEqual(note2.id, note2ref.id) 
         
-    # this test doesn't work
-#     def testHashRoundedOffset(self):
-#         s3 = stream.Stream()
-#         for i in range(6):
-#             s3.append(note.Note('A-', quarterLength=1.5))
-#             s3.append(note.Note('C4', quarterLength=2))
-#             s3.append(note.Note('A-', quarterLength=1.4))
-#             s3.append(note.Note('B4', quarterLength=.7))
-#         h = Hasher()
-#         h.roundDurationAndOffset = True
-#         NoteHash = collections.namedtuple('NoteHash', ["Pitch", "Duration", "Offset"])
-#         h3 = h.hashStream(s3)
-#         final_offset = 6*1.5 + 6*2. + 6*1.4 + 5*.7
-#         assert self._approximatelyEqual(h3[-1][2], final_offset)
-#         h.granularity = 4 # smallest length note is now 16th note
-#         h4 = h.hashStream(s3)
-#         new_final_offset = 6*1.5 + 6*2. + 6*1.5 + 5 *.75
-#         assert self._approximatelyEqual(h4[-1][2], new_final_offset)  
+    def testIntervals(self):
+        s = stream.Stream()
+        note1 = note.Note("E5")
+        note2 = note.Note("D5")
+        note3 = note.Note("A5")
+        s.append([note1, note2, note3])
+        h = Hasher()
+        h.hashPitch = True
+        h.hashDuration = False
+        h.hashOffset = False
+        h.hashIntervalFromLastNote = True 
+        hashes = h.hashStream(s)
+        
     
 class TestExternal(unittest.TestCase):
 

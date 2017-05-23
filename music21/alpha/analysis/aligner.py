@@ -303,20 +303,16 @@ class StreamAligner(object):
         
         # setup all the entries in the first column, the target stream
         for i in range(1, self.n + 1):
-#             insertCost = self.insertCost(self.hashedTargetStream[i - 1])
             self.distanceMatrix[i][0] = self.distanceMatrix[i - 1][0] + insertCost
             
         
         # setup all the entries in the first row, the source stream
         for j in range(1, self.m + 1):
-#             deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
             self.distanceMatrix[0][j] = self.distanceMatrix[0][j - 1] + deleteCost
         
         # fill in rest of matrix   
         for i in range(1, self.n + 1):
             for j in range(1, self.m + 1):
-#                 insertCost = self.insertCost(self.hashedTargetStream[i - 1])
-#                 deleteCost = self.deleteCost(self.hashedSourceStream[j - 1])
                 substCost = self.substitutionCost(self.hashedTargetStream[i - 1], 
                                            self.hashedSourceStream[j - 1])
                 
@@ -1084,7 +1080,7 @@ class Test(unittest.TestCase):
          
         sa = StreamAligner(target, source)
         sa.align()
-        sa.showChanges()
+        sa.showChanges(show=True)
         
         self.assertEqual(target.getElementById(sa.changes[3][0].id).color, 'red')
         self.assertEqual(target.getElementById(sa.changes[3][0].id).lyric, '3')
@@ -1117,7 +1113,7 @@ class Test(unittest.TestCase):
          
         sa = StreamAligner(target, source)
         sa.align()
-        sa.showChanges()
+        sa.showChanges(show=True)
         
         self.assertEqual(target.getElementById(sa.changes[2][0].id).color, 'purple')
         self.assertEqual(target.getElementById(sa.changes[2][0].id).lyric, '2')

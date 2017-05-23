@@ -231,7 +231,7 @@ class OMRMIDICorrector(object):
     def alignStreams(self):
         '''
         Creates and aligner object for each of the pairwise aligned midi/omr streams
-        If self.debugShow is set, then pairwise algined streams should show up in MuseScore
+        If self.debugShow is set, then pairwise aligned streams should show up in MuseScore
         '''
         for (midiPart, omrPart) in zip(self.midiParts, self.omrParts):
             partAligner = aligner.StreamAligner(midiPart, omrPart, hasher=self.hasher)
@@ -266,7 +266,7 @@ class Test(unittest.TestCase):
         omc.preprocessStreams()
     
     def testSimpleOmrMidik160(self):
-        pass
+            
         from pprint import pprint
         from music21 import converter
         from music21.alpha.analysis import testFiles
@@ -289,28 +289,28 @@ class Test(unittest.TestCase):
         pprint(K160omc.changes)
         pprint(K160omc.similarityScores)
         
-    def testSimpleOmrMidik160V2(self):
-        from pprint import pprint
-        from music21 import converter
-        from music21.alpha.analysis import testFiles
-        
-        K160iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
-        K160iOmrFP = testFiles.K160_mvmt_i_omr_path
-        
-        midiStream = converter.parse(K160iMidiFP)
-        omrStream = converter.parse(K160iOmrFP)
-        
-        midiStreamParts = [p for p in midiStream.getElementsByClass(stream.Part)]
-        omrStreamParts = [p for p in omrStream.getElementsByClass(stream.Part)]
-        midiStream = stream.Score()
-        omrStream = stream.Score()
-        midiStream.append(midiStreamParts[2])
-        omrStream.append(omrStreamParts[2])
-        K160omcV2 = OMRMIDICorrector(midiStream, omrStream)
-        K160omcV2.debugShow = True
-        K160omcV2.processRunner()
-        pprint(K160omcV2.changes)
-        pprint(K160omcV2.similarityScores)
+#     def testSimpleOmrMidik160V2(self):
+#         from pprint import pprint
+#         from music21 import converter
+#         from music21.alpha.analysis import testFiles
+#         
+#         K160iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
+#         K160iOmrFP = testFiles.K160_mvmt_i_omr_path
+#         
+#         midiStream = converter.parse(K160iMidiFP)
+#         omrStream = converter.parse(K160iOmrFP)
+#         
+#         midiStreamParts = [p for p in midiStream.getElementsByClass(stream.Part)]
+#         omrStreamParts = [p for p in omrStream.getElementsByClass(stream.Part)]
+#         midiStream = stream.Score()
+#         omrStream = stream.Score()
+#         midiStream.append(midiStreamParts[2])
+#         omrStream.append(omrStreamParts[2])
+#         K160omcV2 = OMRMIDICorrector(midiStream, omrStream)
+#         K160omcV2.debugShow = True
+#         K160omcV2.processRunner()
+#         pprint(K160omcV2.changes)
+#         pprint(K160omcV2.similarityScores)
         
 
 if __name__ == '__main__':
