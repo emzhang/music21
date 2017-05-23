@@ -1093,7 +1093,8 @@ class Test(unittest.TestCase):
           
         target.append(note1)
         source.append(note2)
-          
+    
+        
         sa = StreamAligner(target, source)
         sa.align()
         
@@ -1312,10 +1313,11 @@ class Test(unittest.TestCase):
         p2 = stream.Part()
         m1 = stream.Measure()
         m2 = stream.Measure()
+        bnote = note.Note("B3")
         m1.timeSignature = meter.TimeSignature('4/4')
         m1.repeatAppend(note.Note("C4"), 4)
         m2.repeatAppend(note.Note("C4"), 2)
-        m2.append(note.Note("B3"))
+        m2.append(bnote)
         p1.append([m1, m2])
         s.append(p1)
         m3 = stream.Measure()

@@ -12,14 +12,22 @@ from music21.alpha.analysis import aligner
 from music21 import interval
 from music21 import note
 from music21 import pitch
+from music21 import stream
 import unittest
 
 class OMRMidiFixer(object):
     '''
     Base class for future fixers
     '''
-    def __init__(self, changes):
+    def __init__(self, changes, midiScore, omrScore):
         self.changes = changes
+        self.midiScore = midiScore
+        self.omrScore = omrScore
+    
+    def checkIfNoteInstance(self, midiRef, omrRef):
+        if isinstance(midiRef, note.Note) and isinstance(omrRef, note.Note):
+            return True
+        return False
         
     def getChunks(self):
         '''
@@ -29,6 +37,24 @@ class OMRMidiFixer(object):
         TODO: figure out if this should be children-specific methods?
         '''
         pass
+    
+class DeleteFixer(OMRMidiFixer):
+    '''
+    Deletes measure that have wrong things in them a la OpenScore specs
+    '''
+    def __init__(self, changes, midiScore, omrScore):
+        super().__init__(changes, midiScore, omrScore)
+         
+    def fix(self):
+        for (_, omrRef, op) in self.changes:
+            # if the are the same, don't bother to try changing it
+            # 3 is the number of noChange Ops
+            if isinstance(op, aligner.ChangeOps) and op.changeOpNum == 3:
+                continue
+             
+            m = omrRef.activeSite
+            if isinstance(m, stream.Measure):
+                self.omrScore.remove(m, recurse=True)
     
 class EnharmonicFixer(OMRMidiFixer):
     '''
@@ -57,7 +83,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> ct2 = (midiNote2, omrNote2, subOp)
     >>> changes1 = [ct1, ct2]
      
-    >>> fixer1 = alpha.analysis.fixer.EnharmonicFixer(changes1)
+    >>> fixer1 = alpha.analysis.fixer.EnharmonicFixer(changes1, None, None)
     >>> fixer1.fix()
     >>> omrStream1[0]
     <music21.note.Note A#>
@@ -83,7 +109,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> ct2_2 = (midi2Note2, omr2Note2, ncOp)
     >>> changes2 = [ct2_1, ct2_2]
      
-    >>> fixer2 = alpha.analysis.fixer.EnharmonicFixer(changes2)
+    >>> fixer2 = alpha.analysis.fixer.EnharmonicFixer(changes2, None, None)
     >>> fixer2.fix()
     >>> omrStream2[0]
     <music21.note.Note A#>
@@ -102,7 +128,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> changes3 = [ct3]
     >>> omrNote3.pitch.accidental
     <accidental natural>
-    >>> fixer3 = alpha.analysis.fixer.EnharmonicFixer(changes3)
+    >>> fixer3 = alpha.analysis.fixer.EnharmonicFixer(changes3, None, None)
     >>> fixer3.fix()
     >>> omrNote3.pitch.accidental
      
@@ -118,7 +144,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> changes4 = [ct4]
     >>> omrNote4.pitch.accidental
     <accidental natural>
-    >>> fixer4 = alpha.analysis.fixer.EnharmonicFixer(changes4)
+    >>> fixer4 = alpha.analysis.fixer.EnharmonicFixer(changes4, None, None)
     >>> fixer4.fix()
     >>> omrNote4.pitch.accidental
     <accidental flat>
@@ -135,7 +161,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> changes5 = [ct5]
     >>> omrNote5.pitch.accidental
     <accidental natural>
-    >>> fixer5 = alpha.analysis.fixer.EnharmonicFixer(changes5)
+    >>> fixer5 = alpha.analysis.fixer.EnharmonicFixer(changes5, None, None)
     >>> fixer5.fix()
     >>> omrNote5.pitch.accidental
     <accidental sharp>
@@ -158,7 +184,7 @@ class EnharmonicFixer(OMRMidiFixer):
     <accidental natural>
     >>> omrNote6_2.pitch.accidental
     <accidental flat>
-    >>> fixer6 = alpha.analysis.fixer.EnharmonicFixer(changes6)
+    >>> fixer6 = alpha.analysis.fixer.EnharmonicFixer(changes6, None, None)
     >>> fixer6.fix()
     >>> omrNote6_1.pitch.accidental
     <accidental sharp>
@@ -186,7 +212,7 @@ class EnharmonicFixer(OMRMidiFixer):
     <accidental sharp>
     >>> omrNote7_2.pitch.accidental
     <accidental flat>
-    >>> fixer7 = alpha.analysis.fixer.EnharmonicFixer(changes7)
+    >>> fixer7 = alpha.analysis.fixer.EnharmonicFixer(changes7, None, None)
     >>> fixer7.fix()
     
     >>> omrNote7_1.pitch.step
@@ -199,8 +225,8 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> omrNote7_2.pitch.accidental
     <accidental sharp>
     '''
-    def __init__(self, changes):
-        super().__init__(changes)
+    def __init__(self, changes, midiScore, omrScore):
+        super().__init__(changes, midiScore, omrScore)
     
     def fix(self):
         for (midiRef, omrRef, op) in self.changes:
@@ -255,12 +281,6 @@ class EnharmonicFixer(OMRMidiFixer):
                     if omrRef.pitch.accidental == pitch.Accidental('flat'):
                         if omrRef.pitch.transpose(interval.Interval(2)).isEnharmonic(midiRef.pitch):
                             omrRef.pitch.accidental = pitch.Accidental('sharp')
-                            
-    
-    def checkIfNoteInstance(self, midiRef, omrRef):
-        if isinstance(midiRef, note.Note) and isinstance(omrRef, note.Note):
-            return True
-        return False
 
     def isEnharmonic(self, midiRef, omrRef):
         return midiRef.pitch.isEnharmonic(omrRef.pitch)
