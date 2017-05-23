@@ -1349,7 +1349,7 @@ class Test(unittest.TestCase):
         m2_4.append(note.Rest())
         p2_2.append([m2_3, m2_4])
         s2.append(p2_2)
-        
+        bnote.con
         saDiscretizedWithRest = StreamAligner(s, s2)
         saDiscretizedWithRest.align()
         saDiscretizedWithRest.showChanges()
