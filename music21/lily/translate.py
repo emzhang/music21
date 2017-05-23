@@ -992,14 +992,14 @@ class LilypondConverter(object):
                         el.activeSite = streamObject
                         otherList.append(el)
 
-                if len(variantList) > 0:
+                if variantList:
                     for v in variantList:
                         v.activeSite = streamObject
                     self.appendContextFromVariant(variantList, 
                                                   activeSite=streamObject, 
                                                   coloredVariants=self.coloredVariants)
 
-                if len(voiceList) > 0:
+                if voiceList:
                     musicList2 = []
                     lp2GroupedMusicList = lyo.LyGroupedMusicList()
                     lp2SimultaneousMusic = lyo.LySimultaneousMusic()
@@ -1019,7 +1019,7 @@ class LilypondConverter(object):
                     currentMusicList.append(lp2GroupedMusicList)
                     lp2GroupedMusicList.setParent(self.context)
 
-                if len(otherList) > 0:
+                if otherList:
                     for el in otherList:
                         self.appendM21ObjectToContext(el)
 
@@ -1255,7 +1255,7 @@ class LilypondConverter(object):
         >>> n0 = note.Note("D#5")
         >>> n0.pitch.accidental.displayType = 'always'
         >>> n0.pitch.accidental.displayStyle = 'parentheses'
-        >>> n0.editorial.color = 'blue'
+        >>> n0.style.color = 'blue'
         >>> sm = conv.lySimpleMusicFromNoteOrRest(n0)
         >>> print(sm)
         \color "blue" dis'' ! ? 4
@@ -1270,9 +1270,10 @@ class LilypondConverter(object):
         c = noteOrRest.classes
 
         simpleElementParts = []
-        if noteOrRest._editorial is not None:
-            if noteOrRest.editorial.color and noteOrRest.hideObjectOnPrint is not True:
-                simpleElementParts.append(noteOrRest.editorial.colorLilyStart())
+        if noteOrRest.hasStyleInformation is not None:
+            if noteOrRest.style.color and noteOrRest.hideObjectOnPrint is not True:
+                colorLily = r'\color "' + noteOrRest.style.color + '" '
+                simpleElementParts.append(colorLily)
 
         if 'Note' in c:
             if noteOrRest.hideObjectOnPrint is not True:
@@ -1297,7 +1298,7 @@ class LilypondConverter(object):
         lpMultipliedDuration = self.lyMultipliedDurationFromDuration(noteOrRest.duration)
         simpleElementParts.append(lpMultipliedDuration)
 
-        if 'NotRest' in c and noteOrRest.beams is not None and len(noteOrRest.beams) > 0:
+        if 'NotRest' in c and noteOrRest.beams is not None and noteOrRest.beams:
             if noteOrRest.beams.beamsList[0].type == 'start':
                 simpleElementParts.append("[ ")
             elif noteOrRest.beams.beamsList[0].type == 'stop':
@@ -1682,7 +1683,7 @@ class LilypondConverter(object):
         easy extension, but there's too much
         else missing to do it now...
         '''
-        if inObj.duration.tuplets is None or len(inObj.duration.tuplets) == 0:
+        if not inObj.duration.tuplets:
             return None
         elif inObj.duration.tuplets[0].type == 'start':
             numerator = str(int(inObj.duration.tuplets[0].tupletNormal[0]))
@@ -1754,7 +1755,7 @@ class LilypondConverter(object):
         '''
         Reverse of setContextForTupletStart
         '''
-        if len(inObj.duration.tuplets) == 0:
+        if not inObj.duration.tuplets:
             return
         elif inObj.duration.tuplets[0].type == 'stop':
             self.restoreContext()
@@ -1992,7 +1993,7 @@ class LilypondConverter(object):
 
             if coloredVariants is True:
                 for n in v._stream.recurse().notesAndRests:
-                    n.editorial.color = color# make thing (with or without fraction)
+                    n.style.color = color# make thing (with or without fraction)
 
             # Strip off spacer
             endOffset = v.containedHighestTime
@@ -2116,7 +2117,7 @@ class LilypondConverter(object):
         if coloredVariants is True:
             color = self.variantColors[self.addedVariants.index(variantName) % 6]
             for n in variantObject._stream.recurse().notesAndRests:
-                n.editorial.color = color
+                n.style.color = color
 
 
 
@@ -2362,7 +2363,7 @@ class LilypondConverter(object):
         if pL == 0:
             return None
         tses = measureObject.getTimeSignatures()
-        if len(tses) == 0:
+        if not tses:
             barLength = 4.0
         else:
             ts = tses[0]

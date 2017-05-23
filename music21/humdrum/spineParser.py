@@ -45,11 +45,6 @@ SpineParsing consists of several steps.
 '''
 # pylint: disable=redefined-builtin
 #python3
-try:
-    basestring # @UndefinedVariable
-except NameError:
-    basestring = str # @ReservedAssignment
-
 import math
 import os
 import re
@@ -58,21 +53,23 @@ import unittest
 from music21.ext import six
 
 from music21 import articulations
-from music21 import chord
-from music21 import dynamics
-from music21 import base
-from music21 import duration
 from music21 import bar
+from music21 import base
+from music21 import chord
+from music21 import clef
+from music21 import common
+from music21 import dynamics
+from music21 import duration
+from music21 import exceptions21
+from music21 import expressions
 from music21 import key
 from music21 import note
-from music21 import expressions
+from music21 import meter
+from music21 import metadata
+from music21 import stream
 from music21 import tempo
 from music21 import tie
-from music21 import meter
-from music21 import clef
-from music21 import stream
-from music21 import common
-from music21 import exceptions21
+
 from music21.humdrum import testFiles
 from music21.humdrum import instruments
 
@@ -133,8 +130,6 @@ class HumdrumDataCollection(object):
     parsedLines = False
 
     def __init__(self, dataStream=None, parseLines=True):
-        if dataStream is None:
-            dataStream = []
         # attributes
         self.eventList = None
         self.maxSpines = None
@@ -145,10 +140,14 @@ class HumdrumDataCollection(object):
         
         
         self.globalEventsInserted = None
-        if dataStream is []:
-            raise HumdrumException("dataStream is not optional, specify some lines")
-        elif isinstance(dataStream, basestring):
+        if dataStream is not None and not dataStream:
+            raise HumdrumException("dataStream is not optional, specify some lines: \n" +
+                                   "DataStream was: " + repr(dataStream))
+        elif dataStream is None:
+            dataStream = []
+        elif isinstance(dataStream, six.string_types):
             dataStream = dataStream.splitlines()
+
         self.dataStream = dataStream
         self._storedStream = None
         if parseLines is True:
@@ -157,7 +156,7 @@ class HumdrumDataCollection(object):
             except IOError:
                 raise
 
-    def parseLines(self, dataStream = None):
+    def parseLines(self, dataStream=None):
         '''
         Parse a list (dataStream) of lines into a HumdrumSpineCollection
         (which contains HumdrumSpines)
@@ -325,7 +324,7 @@ class HumdrumDataCollection(object):
         self._storedStream = opus
         return opus
 
-    def parseEventListFromDataStream(self, dataStream = None):
+    def parseEventListFromDataStream(self, dataStream=None):
         r'''
         Sets self.eventList from a dataStream (that is, a
         list of lines).  It sets self.maxSpines to the
@@ -739,7 +738,26 @@ class HumdrumDataCollection(object):
                 if thisSpine.parentSpine is None and thisSpine.spineType == 'kern':
                     masterStream.insert(thisSpine.stream)
             self._storedStream = masterStream
+            self.parseMetadata()
             return masterStream
+
+    def parseMetadata(self):
+        '''
+        Create a metadata object for the file
+        '''
+        s = self._storedStream
+        md = metadata.Metadata()
+        s.metadata = md
+        grToRemove = []
+
+        for gr in s.recurse().getElementsByClass('GlobalReference'):
+            wasParsed = gr.updateMetadata(md)
+            if wasParsed:
+                grToRemove.append(gr)
+
+        if grToRemove:
+            s.remove(grToRemove, recurse=True)
+
 
 
 class HumdrumFile(HumdrumDataCollection):
@@ -747,7 +765,7 @@ class HumdrumFile(HumdrumDataCollection):
     A HumdrumFile is a HumdrumDataCollection which takes
     as a mandatory argument a filename to be opened and read.
     '''
-    def __init__(self, filename = None):
+    def __init__(self, filename=None):
         super(HumdrumFile, self).__init__()
         self.dataStream = None
         self._storedStream = None
@@ -868,9 +886,9 @@ class GlobalReferenceLine(HumdrumLine):
     isSpineLine = False
     numSpines = 0
 
-    def __init__(self, position = 0, contents = "!!! NUL: None"):
+    def __init__(self, position=0, contents="!!! NUL: None"):
         self.position = position
-        noExclaim = re.sub(r'^\!\!\!+','',contents)
+        noExclaim = re.sub(r'^\!\!\!+', '', contents)
         try:
             (code, value) = noExclaim.split(":", 1)
             value = value.strip()
@@ -918,11 +936,11 @@ class GlobalCommentLine(HumdrumLine):
     isSpineLine = False
     numSpines = 0
 
-    def __init__(self, position = 0, contents = ""):
+    def __init__(self, position=0, contents=""):
         self.position = position
-        value = re.sub(r'^\!\!+\s?','',contents)
+        value = re.sub(r'^\!\!+\s?', '', contents)
         self.contents = contents
-        self.value    = value
+        self.value = value
 
 class ProtoSpine(object):
     '''
@@ -936,7 +954,7 @@ class ProtoSpine(object):
     See :meth:`~music21.humdrum.spineParser.parseProtoSpinesAndEventCollections`
     for more details on how ProtoSpine objects are created.
     '''
-    def __init__(self, eventList = None):
+    def __init__(self, eventList=None):
         if eventList is None:
             eventList = []
         self.eventList = eventList
@@ -956,13 +974,13 @@ class HumdrumSpine(object):
 
 
     >>> SE = humdrum.spineParser.SpineEvent
-    >>> spineEvents = [SE('**kern'),SE('c,4'), SE('d#8')]
+    >>> spineEvents = [SE('**kern'), SE('c,4'), SE('d#8')]
     >>> spine1Id = 5
     >>> spine1 = humdrum.spineParser.HumdrumSpine(spine1Id, spineEvents)
     >>> spine1.insertPoint = 5
     >>> spine1.endingPosition = 6
     >>> spine1.parentSpine = 3  # spine 3 is the previous spine leading to this one
-    >>> spine1.childSpines = [7,8] # the spine ends by being split into spines 7 and 8
+    >>> spine1.childSpines = [7, 8] # the spine ends by being split into spines 7 and 8
 
     we keep weak references to the spineCollection so that we
     don't have circular references
@@ -988,8 +1006,7 @@ class HumdrumSpine(object):
     other than :class:`~music21.stream.Stream`, pass its classname in
     as the streamClass argument:
 
-    >>> spine2 = humdrum.spineParser.HumdrumSpine(
-    ...              streamClass = stream.Part)
+    >>> spine2 = humdrum.spineParser.HumdrumSpine(streamClass=stream.Part)
     >>> spine2.stream
     <music21.stream.Part ...>
     '''
@@ -1061,7 +1078,7 @@ class HumdrumSpine(object):
     def _getSpineCollection(self):
         return common.unwrapWeakref(self._spineCollection)
 
-    def _setSpineCollection(self, sc = None):
+    def _setSpineCollection(self, sc=None):
         self._spineCollection = common.wrapWeakref(sc)
 
     spineCollection = property(_getSpineCollection, _setSpineCollection)
@@ -1107,7 +1124,7 @@ class HumdrumSpine(object):
                     raise HumdrumException("Could not determine spineType " +
                                            "for spine with id " + str(self.id))
 
-    def _setSpineType(self, newSpineType = None):
+    def _setSpineType(self, newSpineType=None):
         self._spineType = newSpineType
 
     spineType = property(_getSpineType, _setSpineType)
@@ -1349,7 +1366,7 @@ class KernSpine(HumdrumSpine):
         if not hasattr(n, 'beams'):
             return None
 
-        if self.currentBeamNumbers != 0 and len(n.beams.beamsList) == 0:
+        if self.currentBeamNumbers != 0 and not n.beams.beamsList:
             for unused_counter in range(self.currentBeamNumbers):
                 n.beams.append('continue')
         elif n.beams.beamsList:
@@ -1469,7 +1486,7 @@ class SpineEvent(object):
     protoSpineId = 0
     spineId = None
 
-    def __init__(self, contents = None, position = 0):
+    def __init__(self, contents=None, position=0):
         self.contents = contents
         self.position = position
 
@@ -1479,7 +1496,7 @@ class SpineEvent(object):
     def __str__(self):
         return self.contents
 
-    def toNote(self, convertString = None):
+    def toNote(self, convertString=None):
         r'''
         parse the object as a \*\*kern note and return the a
         :class:`~music21.note.Note` object (or Rest, or Chord)
@@ -1533,7 +1550,7 @@ class SpineCollection(object):
 
     next = __next__ # py2
 
-    def addSpine(self, streamClass = stream.Part):
+    def addSpine(self, streamClass=stream.Part):
         '''
         creates a new spine in the collection and returns it.
 
@@ -1558,7 +1575,7 @@ class SpineCollection(object):
         >>> newSpine2.stream
         <music21.stream.Stream ...>
         '''
-        self.newSpine = HumdrumSpine(self.nextFreeId, streamClass = streamClass)
+        self.newSpine = HumdrumSpine(self.nextFreeId, streamClass=streamClass)
         self.newSpine.spineCollection = self
         self.spines.append(self.newSpine)
         self.nextFreeId += 1
@@ -1659,10 +1676,11 @@ class SpineCollection(object):
         for thisSpine in self.spines:
             spineStream = thisSpine.stream
             instrumentsStream = spineStream.getElementsByClass('Instrument')
-            if len(instrumentsStream) == 0:
+            if not instrumentsStream:
                 spineInstrument = None
             else:
                 spineInstrument = instrumentsStream[0].instrumentName
+                
             if spineInstrument not in usedIds:
                 firstStreamForEachInstrument[spineInstrument] = spineStream
                 usedIds[spineInstrument] = 1
@@ -1686,7 +1704,7 @@ class SpineCollection(object):
             #removeSpines = []
             if thisSpine.parentSpine is not None:
                 continue
-            if len(thisSpine.childSpines) == 0:
+            if not thisSpine.childSpines:
                 continue
 
             # only spines with children spines and parent spines continue
@@ -1893,7 +1911,7 @@ class SpineCollection(object):
                 for mEl in measureElements:
                     mElGroups = mEl.groups
                     #print mEl, mElGroups
-                    if len(mElGroups) == 0 or not mElGroups[0].startswith('voice'):
+                    if not mElGroups or not mElGroups[0].startswith('voice'):
                         continue
 
                     voiceName = mElGroups[0]
@@ -2105,11 +2123,11 @@ def hdStringToNote(contents):
     matchedFlat  = re.search(r"(\-+)", contents)
 
     if matchedSharp:
-        thisObject.accidental = matchedSharp.group(0)
+        thisObject.pitch.accidental = matchedSharp.group(0)
     elif matchedFlat:
-        thisObject.accidental = matchedFlat.group(0)
+        thisObject.pitch.accidental = matchedFlat.group(0)
     elif contents.count("n"):
-        thisObject.accidental = "n"
+        thisObject.pitch.accidental = "n"
 
     # 3.2.2 -- Slurs, Ties, Phrases
     # TODO: add music21 phrase information
@@ -2281,7 +2299,7 @@ def hdStringToNote(contents):
 
     return thisObject
 
-def hdStringToMeasure(contents, previousMeasure = None):
+def hdStringToMeasure(contents, previousMeasure=None):
     '''
     kern uses an equals sign followed by processing instructions to
     create new measures.  Here is how...
@@ -2420,8 +2438,8 @@ def kernTandemToObject(tandem):
             return MM
         except ValueError:
             # assuming that metronomeMark here is text now
-            metronomeMark = re.sub(r'^\[','', metronomeMark)
-            metronomeMark = re.sub(r']\s*$','', metronomeMark)
+            metronomeMark = re.sub(r'^\[', '', metronomeMark)
+            metronomeMark = re.sub(r']\s*$', '', metronomeMark)
             MS = tempo.MetronomeMark(text=metronomeMark)
             return MS
     elif tandem.startswith("*M"):
@@ -2494,9 +2512,10 @@ def kernTandemToObject(tandem):
 
 
 class MiscTandem(base.Music21Object):
-    def __init__(self, tandem = ""):
-        base.Music21Object.__init__(self)
+    def __init__(self, tandem=""):
+        super(MiscTandem, self).__init__()        
         self.tandem = tandem
+
     def __repr__(self):
         return "<music21.humdrum.spineParser.MiscTandem %s humdrum control>" % self.tandem
 
@@ -2512,9 +2531,9 @@ class SpineComment(base.Music21Object):
     'this is a spine comment'
     '''
 
-    def __init__(self, comment = ""):
-        base.Music21Object.__init__(self)
-        commentPart = re.sub(r'^\!+\s?','', comment)
+    def __init__(self, comment=""):
+        super(SpineComment, self).__init__()        
+        commentPart = re.sub(r'^\!+\s?', '', comment)
         self.comment = commentPart
 
     def __repr__(self):
@@ -2532,9 +2551,9 @@ class GlobalComment(base.Music21Object):
     'this is a global comment'
     '''
 
-    def __init__(self, comment = ""):
-        base.Music21Object.__init__(self)
-        commentPart = re.sub(r'^\!\!+\s?','', comment)
+    def __init__(self, comment=""):
+        super(GlobalComment, self).__init__()
+        commentPart = re.sub(r'^\!\!+\s?', '', comment)
         commentPart = commentPart.strip()
         self.comment = commentPart
 
@@ -2543,7 +2562,8 @@ class GlobalComment(base.Music21Object):
 
 class GlobalReference(base.Music21Object):
     '''
-    A Music21Object that represents a reference in the score
+    A Music21Object that represents a reference in the score, called a "reference record"
+    in Humdrum.  See Humdrum User's Guide Chapter 2.
 
 
     >>> sc = humdrum.spineParser.GlobalReference('!!!REF:this is a global reference')
@@ -2564,24 +2584,94 @@ class GlobalReference(base.Music21Object):
     >>> sc.value
     'this is a global reference'
 
+    Language codes are parsed:
+    
+    >>> sc = humdrum.spineParser.GlobalReference('!!!OPT@@RUS: Vesna svyashchennaya')
+    >>> sc.code
+    'OPT'
+    >>> sc.language
+    'RUS'
+    >>> sc.isPrimary
+    True
+    
+    >>> sc = humdrum.spineParser.GlobalReference('!!!OPT@FRE: Le sacre du printemps')
+    >>> sc.code
+    'OPT'
+    >>> sc.language
+    'FRE'
+    >>> sc.isPrimary
+    False
+    
     '''
 
-    def __init__(self, codeOrAll = "", valueOrNone = None):
-        base.Music21Object.__init__(self)
-        codeOrAll = re.sub(r'^\!\!\!+','', codeOrAll)
+    def __init__(self, codeOrAll="", valueOrNone=None):
+        super(GlobalReference, self).__init__()
+        codeOrAll = re.sub(r'^\!\!\!+', '', codeOrAll)
         codeOrAll = codeOrAll.strip()
         if valueOrNone is None and ':' in codeOrAll:
-            valueOrNone = re.sub(r'^.*?\:','', codeOrAll)
+            valueOrNone = re.sub(r'^.*?\:', '', codeOrAll)
             codeOrAll = re.sub(r'\:.*$', '', codeOrAll)
         self.code = codeOrAll
         self.value = valueOrNone
+        self.language = None  # does it have a language code?
+        self.isPrimary = False # is this language marked as primary?
+        if '@@' in self.code:
+            self.isPrimary = True
+            self.code = self.code.replace('@@', '@')
+        if '@' in self.code:
+            self.code, self.language = self.code.split('@')
+            
+    def updateMetadata(self, md):
+        '''
+        update a metadata object according to information in this GlobalReference
+        
+        See humdrum guide Appendix I for information
+        '''
+        c = self.code
+        v = self.value
+        wasParsed = True
+        
+        contributorNames = {
+            'COM': 'composer',
+            'COA': 'attributed composer',
+            'COS': 'suspected composer',
+            'COL': 'composer alias',
+            'COC': 'corporate composer',
+            'LYR': 'lyricist',
+            'LIB': 'librettist',
+            'LAR': 'arranger',
+            'LOR': 'orchestrator',
+            'TRN': 'translator',
+            'YOO': 'original document owner',
+            'YOE': 'original editor',
+            'EED': 'electronic editor',
+            'ENC': 'electronic encoder'
+        }
+        
+        
+        if c in contributorNames:
+            contrib = metadata.Contributor()
+            contrib.role = contributorNames[c]
+            contrib.name = v
+            md.addContributor(contrib)
 
+        elif c.lower() in md.workIdAbbreviationDict:
+            md.setWorkId(c, v)
+        
+        elif c == 'YEC': # electronic edition copyright.
+            md.copyright = v
+        
+        else:
+            wasParsed = False
+        
+        return wasParsed
+        
+        
     def __repr__(self):
         return '<music21.humdrum.spineParser.GlobalReference %s "%s">' % (self.code, self.value)
 
 
 class Test(unittest.TestCase):
-
     def runTest(self):
         pass
 
@@ -2763,7 +2853,7 @@ class TestExternal(unittest.TestCase):
         hf1.stream.show()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":        
     import music21
     music21.mainTest(Test) #, runTest='testSplitSpines2') #, TestExternal)
 

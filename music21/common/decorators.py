@@ -32,7 +32,7 @@ def optional_arg_decorator(fn):
             args = args[1:]
 
         # If no arguments were passed...
-        if len(args) == 1 and len(kwargs) == 0 and callable(args[0]):
+        if len(args) == 1 and not kwargs and callable(args[0]):
             if is_bound_method:
                 return fn(klass, args[0])
             else:
@@ -96,6 +96,8 @@ def deprecated(method, startDate=None, removeDate=None, message=None):
             and will disappear at or after September 2099. You should be okay...
       # -*- coding: utf-8 -*-
     world
+    
+    Restore stderr at the end.
     
     >>> sys.stderr = saveStdErr
     

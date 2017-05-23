@@ -374,12 +374,12 @@ class StreamForms(object):
                     'isHalfDiminishedSeventh']
 
             for c in self.__getitem__('chordify.getElementsByClass.Chord'):
-                for key in keys:
-                    if key not in histo:
-                        histo[key] = 0
+                for thisKey in keys:
+                    if thisKey not in histo:
+                        histo[thisKey] = 0
                     # get the function attr, call it, check bool
-                    if getattr(c, key)():
-                        histo[key] += 1
+                    if getattr(c, thisKey)():
+                        histo[thisKey] += 1
                         # not breaking here means that we may get multiple 
                         # hits for the same chord
             self._forms['chordifyTypesHistogram'] = histo
@@ -660,9 +660,12 @@ class OutputFormat(object):
 
 
 class OutputTabOrange(OutputFormat):
-    '''Tab delimited file format used with Orange.
+    '''
+    Tab delimited file format used with Orange.
 
-    http://orange.biolab.si/doc/reference/Orange.data.formats/
+    For more information, see:
+    
+    http://docs.orange.biolab.si/3/data-mining-library/tutorial/data.html#saving-the-data
     '''
     def __init__(self, dataSet=None):
         OutputFormat.__init__(self, dataSet=dataSet)
@@ -738,8 +741,8 @@ class OutputTabOrange(OutputFormat):
 
 
 class OutputCSV(OutputFormat):
-    '''Comma-separated value list. 
-
+    '''
+    Comma-separated value list. 
     '''
     def __init__(self, dataSet=None):
         OutputFormat.__init__(self, dataSet=dataSet)
@@ -1236,7 +1239,7 @@ def extractorsById(idOrList, library=('jSymbolic', 'native')):
         flatIds.append(featureId)
 
     post = []
-    if len(flatIds) == 0:
+    if not flatIds:
         return post
     
     for fe in featureExtractors:
@@ -1291,9 +1294,9 @@ def getIndex(featureString, extractorType=None):
     >>> features.getIndex('Ends With Landini Melodic Contour')
     (19, 'native')
     >>> features.getIndex('abrandnewfeature!')
-    >>> features.getIndex('Fifths Pitch Histogram','jsymbolic')
+    >>> features.getIndex('Fifths Pitch Histogram', 'jsymbolic')
     (68, 'jsymbolic')
-    >>> features.getIndex('Tonal Certainty','native')
+    >>> features.getIndex('Tonal Certainty', 'native')
     (1, 'native')
     '''
     from music21.features import jSymbolic, native

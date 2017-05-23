@@ -109,7 +109,23 @@ class IntervalException(exceptions21.Music21Exception):
 #-------------------------------------------------------------------------------
 # some utility functions
 
-
+def _extractPitch(nOrP):
+    '''
+    utility function to return either the object itself
+    or the `.pitch` if it's a Note.
+    
+    >>> p = pitch.Pitch('D#4')
+    >>> interval._extractPitch(p) is p
+    True
+    >>> n = note.Note('E-4')
+    >>> interval._extractPitch(n) is n.pitch
+    True
+    
+    '''
+    if 'Pitch' in nOrP.classes:
+        return nOrP
+    else:
+        return nOrP.pitch
 
 def convertStaffDistanceToInterval(staffDist):
     '''
@@ -1579,7 +1595,9 @@ def notesToGeneric(n1, n2):
     <music21.interval.GenericInterval 11>
 
     '''
-    staffDist = n2.diatonicNoteNum - n1.diatonicNoteNum
+    (p1, p2) = (_extractPitch(n1), _extractPitch(n2))
+    
+    staffDist = p2.diatonicNoteNum - p1.diatonicNoteNum
     genDist = convertStaffDistanceToInterval(staffDist)
     return GenericInterval(genDist)
 
@@ -2447,9 +2465,10 @@ def getWrittenHigherNote(note1, note2):
     >>> interval.getWrittenHigherNote(aNote, bNote)
     <music21.note.Note D-->
     '''
-    
-    num1 = note1.diatonicNoteNum
-    num2 = note2.diatonicNoteNum
+    (p1, p2) = (_extractPitch(note1), _extractPitch(note2))
+
+    num1 = p1.diatonicNoteNum
+    num2 = p2.diatonicNoteNum
     if num1 > num2: 
         return note1
     elif num1 < num2: 
@@ -2496,8 +2515,10 @@ def getWrittenLowerNote(note1, note2):
     >>> interval.getWrittenLowerNote(aNote, bNote)
     <music21.note.Note C#>
     '''
-    num1 = note1.diatonicNoteNum
-    num2 = note2.diatonicNoteNum
+    (p1, p2) = (_extractPitch(note1), _extractPitch(note2))
+
+    num1 = p1.diatonicNoteNum
+    num2 = p2.diatonicNoteNum
     if num1 < num2: 
         return note1
     elif num1 > num2: 
@@ -2553,7 +2574,7 @@ def transposePitch(pitch1, interval1):
 
     # check if interval1 is a string,
     # then convert it to interval object if necessary
-    if isinstance(interval1, six.string_types) or isinstance(interval1, int):
+    if isinstance(interval1, (six.string_types, int)):
         interval1 = Interval(interval1) 
     else:
         if not hasattr(interval1, 'transposePitch'):
@@ -2678,7 +2699,7 @@ def add(intervalList):
     <music21.interval.Interval M2>
     '''
     from music21 import pitch
-    if len(intervalList) == 0:
+    if not intervalList:
         raise IntervalException("Cannot add an empty set of intervals")
     
     n1 = pitch.Pitch("C4") # need octave to not be implicit...
@@ -2693,30 +2714,30 @@ def subtract(intervalList):
     Starts with the first interval and subtracts the 
     following intervals from it:
     
-    >>> interval.subtract(["P5","M3"])
+    >>> interval.subtract(["P5", "M3"])
     <music21.interval.Interval m3>
-    >>> interval.subtract(["P4","d3"])
+    >>> interval.subtract(["P4", "d3"])
     <music21.interval.Interval A2>
     
     >>> m2Object = interval.Interval("m2")
-    >>> interval.subtract(["M6","m2",m2Object])
+    >>> interval.subtract(["M6", "m2", m2Object])
     <music21.interval.Interval AA4>
     >>> interval.subtract(["P4", "M-2"])
     <music21.interval.Interval P5>
-    >>> interval.subtract(["A2","A2"])
+    >>> interval.subtract(["A2", "A2"])
     <music21.interval.Interval P1>
-    >>> interval.subtract(["A1","P1"])
+    >>> interval.subtract(["A1", "P1"])
     <music21.interval.Interval A1>
     
-    >>> interval.subtract(["P8","P1"])
+    >>> interval.subtract(["P8", "P1"])
     <music21.interval.Interval P8>
-    >>> interval.subtract(["P8","d2"])
+    >>> interval.subtract(["P8", "d2"])
     <music21.interval.Interval A7>
-    >>> interval.subtract(["P8","A1"])
+    >>> interval.subtract(["P8", "A1"])
     <music21.interval.Interval d8>
 
     
-    >>> a = interval.subtract(["P5","A5"])
+    >>> a = interval.subtract(["P5", "A5"])
     >>> a.niceName
     'Diminished Unison'
     >>> a.directedNiceName
@@ -2726,7 +2747,7 @@ def subtract(intervalList):
     
     '''
     from music21 import pitch
-    if len(intervalList) == 0:
+    if not intervalList:
         raise IntervalException("Cannot add an empty set of intervals")
     
     n1 = pitch.Pitch("C4")
@@ -2760,7 +2781,7 @@ class Test(unittest.TestCase):
         
         n2.step = "B"
         n2.octave = 5
-        n2.accidental = Accidental("-")
+        n2.pitch.accidental = Accidental("-")
         
         int1  = Interval(noteStart=n1, noteEnd=n2)
         dInt1 = int1.diatonic # returns same as gInt1 -- just a different way of thinking of things
@@ -2769,10 +2790,10 @@ class Test(unittest.TestCase):
         self.assertEqual(gInt1.isDiatonicStep, False)
         self.assertEqual(gInt1.isSkip, True)
         
-        n1.accidental = Accidental("#")
+        n1.pitch.accidental = Accidental("#")
         int1.reinit()
         
-        cInt1 = notesToChromatic(n1,n2) # returns music21.interval.ChromaticInterval object
+        cInt1 = notesToChromatic(n1, n2) # returns music21.interval.ChromaticInterval object
         cInt2 = int1.chromatic # returns same as cInt1 -- a different way of thinking of things
         self.assertEqual(cInt1.semitones, cInt2.semitones)
         
@@ -2795,15 +2816,15 @@ class Test(unittest.TestCase):
         n4 = Note()
         n4.step = "D"
         n4.octave = 3
-        n4.accidental = "-"
+        n4.pitch.accidental = "-"
         
         ##n3 = interval.transposePitch(n4, "AA8")
-        ##if n3.accidental is not None:
-        ##    print n3.step, n3.accidental.name, n3.octave
+        ##if n3.pitch.accidental is not None:
+        ##    print(n3.step, n3.pitch.accidental.name, n3.octave)
         ##else:
-        ##    print n3.step, n3.octave
-        ##print n3.name
-        ##print
+        ##    print(n3.step, n3.octave)
+        ##print(n3.name)
+        ##print()
      
         cI = ChromaticInterval (-14)
         self.assertEqual(cI.semitones, -14)

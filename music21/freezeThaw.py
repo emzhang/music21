@@ -1023,8 +1023,8 @@ class JSONFreezeThawBase(object):
             '_unlinkedType',
             '_dotGroups',
             ],
-        'music21.editorial.NoteEditorial': [
-            'color', 'misc', 'comment',
+        'music21.editorial.Editorial': [
+            '__AUTO_GATHER__',
             ],
         'music21.editorial.Comment': [
             '__AUTO_GATHER__',
@@ -1044,7 +1044,7 @@ class JSONFreezeThawBase(object):
             '_relevance',  '_dataError', '_data',
             ],
         'music21.metadata.Metadata': [
-            '_date', '_imprint', '_copyright', '_workIds', '_urls',
+            '_date', '_imprint', 'copyright', '_workIds', '_urls',
             'contributors',
             ],
         'music21.metadata.bundles.MetadataBundle': [
@@ -1062,6 +1062,7 @@ class JSONFreezeThawBase(object):
             'pitchHighest',
             'pitchLowest',
             'quarterLength',
+            'sourcePath',
             'tempos',
             'tempoFirst',
             'timeSignatureFirst',
@@ -1236,6 +1237,7 @@ class JSONFreezer(JSONFreezeThawBase):
         '_noteheadParenthesis'
         '_priority'
         '_stemDirection'
+        '_style'
         '_volume'
         '''
         result = set()
@@ -1303,10 +1305,10 @@ class JSONFreezer(JSONFreezeThawBase):
 
         For an object which does not define this, just returns all the _underscore attributes:
 
-        >>> ed = editorial.NoteEditorial()
+        >>> ed = editorial.Editorial()
         >>> jsf = freezeThaw.JSONFreezer(ed)
         >>> jsf.jsonAttributes()
-        ['color', 'misc', 'comment']
+        []
 
         >>> l = note.Lyric()
         >>> jsf = freezeThaw.JSONFreezer(l)

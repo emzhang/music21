@@ -9,7 +9,7 @@
 #               Jose Cabal-Ugaz
 #               Ben Houge
 #
-# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
+# Copyright:    Copyright © 2009-2012, 17 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
 
@@ -42,11 +42,10 @@ environLocal = environment.Environment(_MOD)
 
 
 
-def unbundleInstruments(streamIn, inPlace = False):
+def unbundleInstruments(streamIn, inPlace=False):
     '''
     takes a :class:`~music21.stream.Stream` that has :class:`~music21.note.Unpitched` objects
-    and moves their `.storedInstrument` attributes to a new Stream (unless inPlace = True)  
-
+    and moves their `.storedInstrument` attributes to a new Stream (unless inPlace=True)  
     
     >>> up1 = note.Unpitched()
     >>> up1.storedInstrument = instrument.BassDrum()
@@ -57,9 +56,9 @@ def unbundleInstruments(streamIn, inPlace = False):
     >>> s.append(up2)
     >>> s2 = instrument.unbundleInstruments(s)
     >>> s2.show('text')
-    {0.0} <music21.instrument.Instrument Bass Drum>
+    {0.0} <music21.instrument.BassDrum Bass Drum>
     {0.0} <music21.note.Unpitched object at 0x...>
-    {1.0} <music21.instrument.Instrument Cowbell>
+    {1.0} <music21.instrument.Cowbell Cowbell>
     {1.0} <music21.note.Unpitched object at 0x...>
     '''    
     if inPlace is True:
@@ -77,9 +76,8 @@ def unbundleInstruments(streamIn, inPlace = False):
     if inPlace is False:
         return s
 
-def bundleInstruments(streamIn, inPlace = False):
+def bundleInstruments(streamIn, inPlace=False):
     '''
-    
     >>> up1 = note.Unpitched()
     >>> up1.storedInstrument = instrument.BassDrum()
     >>> upUnknownInstrument = note.Unpitched()
@@ -175,7 +173,9 @@ class Instrument(base.Music21Object):
         return ''.join(msg)
 
     def __repr__(self):
-        return "<music21.instrument.Instrument %s>" % self.__str__()
+        return "<%s.%s %s>" % (self.__class__.__module__,
+                               self.__class__.__name__, 
+                               self.__str__())
 
     def bestName(self):
         '''
@@ -254,7 +254,7 @@ class Instrument(base.Music21Object):
             if e != None:
                 channelFilter.append(e)
 
-        if len(channelFilter) == 0:
+        if not channelFilter:
             self.midiChannel = 0
             return 0
         elif len(channelFilter) >= maxMidi:
@@ -419,7 +419,7 @@ class StringInstrument(Instrument):
             return self._cachedPitches
     
     def _setStringPitches(self, newPitches):
-        if len(newPitches) > 0 and (hasattr(newPitches[0], "step") or newPitches[0] is None):
+        if newPitches and (hasattr(newPitches[0], "step") or newPitches[0] is None):
             # newPitches is pitchObjects or something 
             self._stringPitches = newPitches
             self._cachedPitches = newPitches
@@ -447,7 +447,7 @@ class StringInstrument(Instrument):
             (N.B. that string to pitch conversion is happening automatically)
             
             
-            >>> vln1.stringPitches = ["G3","G4","B4","D4"]
+            >>> vln1.stringPitches = ["G3", "G4", "B4", "D4"]
             
             (`[*]In some tuning methods such as reentrant tuning on the ukulele,
             lute, or five-string banjo the order might not strictly be from lowest to
@@ -464,7 +464,7 @@ class Violin(StringInstrument):
         self.midiProgram = 40
 
         self.lowestNote = pitch.Pitch('G3')
-        self._stringPitches = ['G3','D4','A4','E5']
+        self._stringPitches = ['G3', 'D4', 'A4', 'E5']
 
 class Viola(StringInstrument):
     def __init__(self):
@@ -475,7 +475,7 @@ class Viola(StringInstrument):
         self.midiProgram = 41
 
         self.lowestNote = pitch.Pitch('C3')
-        self._stringPitches = ['C3','G3','D4','A4']
+        self._stringPitches = ['C3', 'G3', 'D4', 'A4']
 
 class Violoncello(StringInstrument):
     def __init__(self):
@@ -486,7 +486,7 @@ class Violoncello(StringInstrument):
         self.midiProgram = 42
 
         self.lowestNote = pitch.Pitch('C2')
-        self._stringPitches = ['C2','G2','D3','A3']
+        self._stringPitches = ['C2', 'G2', 'D3', 'A3']
 
 class Contrabass(StringInstrument):
     '''
@@ -503,7 +503,7 @@ class Contrabass(StringInstrument):
         self.midiProgram = 43
 
         self.lowestNote = pitch.Pitch('E2')
-        self._stringPitches = ['E1','A1','D2','G2']
+        self._stringPitches = ['E1', 'A1', 'D2', 'G2']
         self.transposition = interval.Interval('P-8')
 
 class Harp(StringInstrument):
@@ -522,6 +522,13 @@ class Guitar(StringInstrument):
     def __init__(self):
         StringInstrument.__init__(self)
 
+        self.instrumentName = 'Guitar'
+        self.instrumentAbbreviation = 'Gtr'
+        self.midiProgram = 24  # default -- Acoustic
+        
+        self.lowestNote = pitch.Pitch('E2')
+        self._stringPitches = ['E2', 'A2', 'D3', 'G3', 'B3', 'E4']
+
 class AcousticGuitar(Guitar):
     def __init__(self):
         Guitar.__init__(self)
@@ -530,9 +537,6 @@ class AcousticGuitar(Guitar):
         self.instrumentAbbreviation = 'Ac Gtr'
         self.midiProgram = 24
 
-        self.lowestNote = pitch.Pitch('E2')
-        self._stringPitches = ['E2','A2','D3','G3','B3','E4']
-
 class ElectricGuitar(Guitar):
     def __init__(self):
         Guitar.__init__(self)
@@ -540,9 +544,6 @@ class ElectricGuitar(Guitar):
         self.instrumentName = 'Electric Guitar'
         self.instrumentAbbreviation = 'Elec Gtr'
         self.midiProgram = 26
-
-        self.lowestNote = pitch.Pitch('E2')
-        self._stringPitches = ['E2','A2','D3','G3','B3','E4']
 
 class AcousticBass(Guitar):
     def __init__(self):
@@ -553,7 +554,7 @@ class AcousticBass(Guitar):
         self.midiProgram = 32
 
         self.lowestNote = pitch.Pitch('E1')
-        self._stringPitches = ['E1','A1','D2','G2']
+        self._stringPitches = ['E1', 'A1', 'D2', 'G2']
 
 class ElectricBass(Guitar):
     def __init__(self):
@@ -564,7 +565,7 @@ class ElectricBass(Guitar):
         self.midiProgram = 33
 
         self.lowestNote = pitch.Pitch('E1')
-        self._stringPitches = ['E1','A1','D2','G2']
+        self._stringPitches = ['E1', 'A1', 'D2', 'G2']
         
 class FretlessBass(Guitar):
     def __init__(self):
@@ -575,7 +576,7 @@ class FretlessBass(Guitar):
         self.midiProgram = 35
 
         self.lowestNote = pitch.Pitch('E1')
-        self._stringPitches = ['E1','A1','D2','G2']
+        self._stringPitches = ['E1', 'A1', 'D2', 'G2']
         
         
 class Mandolin(StringInstrument):
@@ -586,7 +587,7 @@ class Mandolin(StringInstrument):
         self.instrumentAbbreviation = 'Mdln'
         
         self.lowestNote = pitch.Pitch('G3')
-        self._stringPitches = ['G3','D4','A4','E5']
+        self._stringPitches = ['G3', 'D4', 'A4', 'E5']
         
 class Ukulele(StringInstrument):
     def __init__(self):
@@ -596,7 +597,7 @@ class Ukulele(StringInstrument):
         self.instrumentAbbreviation = 'Uke'
         
         self.lowestNote = pitch.Pitch('C4')
-        self._stringPitches = ['G4','C4','E4','A4']
+        self._stringPitches = ['G4', 'C4', 'E4', 'A4']
 
 class Banjo(StringInstrument):
     def __init__(self):
@@ -607,7 +608,7 @@ class Banjo(StringInstrument):
         self.midiProgram = 105
         
         self.lowestNote = pitch.Pitch('C3')
-        self._stringPitches = ['C3','G3','D4','A4']
+        self._stringPitches = ['C3', 'G3', 'D4', 'A4']
         self.transposition = interval.Interval('P-8')
 
 class Lute(StringInstrument):
@@ -1523,9 +1524,9 @@ def instrumentFromMidiProgram(number):
     return the instrument with "number" as its assigned midi program:
     
     >>> instrument.instrumentFromMidiProgram(0)
-    <music21.instrument.Instrument Piano>
+    <music21.instrument.Piano Piano>
     >>> instrument.instrumentFromMidiProgram(21)
-    <music21.instrument.Instrument Accordion>
+    <music21.instrument.Accordion Accordion>
     >>> instrument.instrumentFromMidiProgram(500)
     Traceback (most recent call last):
     music21.exceptions21.InstrumentException: No instrument found with given midi program    
@@ -1568,36 +1569,36 @@ def partitionByInstrument(streamObj):
     >>> s.show('text')
     {0.0} <music21.stream.Part ...>
         {0.0} <music21.stream.Measure 1 offset=0.0>
-            {0.0} <music21.instrument.Instrument Piccolo>
+            {0.0} <music21.instrument.Piccolo Piccolo>
             {0.0} <music21.clef.TrebleClef>
             {0.0} <music21.meter.TimeSignature 4/4>
             {0.0} <music21.note.Note C>
             {1.0} <music21.note.Note D>
-            {2.0} <music21.instrument.Instrument Alto Saxophone>
+            {2.0} <music21.instrument.AltoSaxophone Alto Saxophone>
             {2.0} <music21.note.Note E>
             {3.0} <music21.note.Note F>
         {4.0} <music21.stream.Measure 2 offset=4.0>
             {0.0} <music21.note.Note G>
             {1.0} <music21.note.Note A>
             {2.0} <music21.note.Note B>
-            {3.0} <music21.instrument.Instrument Piccolo>
+            {3.0} <music21.instrument.Piccolo Piccolo>
             {3.0} <music21.note.Note C>
         {8.0} <music21.stream.Measure 3 offset=8.0>
             {0.0} <music21.note.Note C>
             {4.0} <music21.bar.Barline style=final>
     {0.0} <music21.stream.Part ...>
         {0.0} <music21.stream.Measure 1 offset=0.0>
-            {0.0} <music21.instrument.Instrument Trombone>
+            {0.0} <music21.instrument.Trombone Trombone>
             {0.0} <music21.clef.BassClef>
             {0.0} <music21.meter.TimeSignature 4/4>
             {0.0} <music21.note.Note C#>
             {1.0} <music21.note.Note D#>
             {2.0} <music21.note.Note E#>
-            {3.0} <music21.instrument.Instrument Piccolo>
+            {3.0} <music21.instrument.Piccolo Piccolo>
             {3.0} <music21.note.Note F#>
         {4.0} <music21.stream.Measure 2 offset=4.0>
             {0.0} <music21.note.Note G#>
-            {1.0} <music21.instrument.Instrument Trombone>
+            {1.0} <music21.instrument.Trombone Trombone>
             {1.0} <music21.note.Note A#>
             {2.0} <music21.note.Note B#>
             {3.0} <music21.note.Note C#>
@@ -1623,7 +1624,7 @@ def partitionByInstrument(streamObj):
     >>> s2.show('text')
     {0.0} <music21.stream.Part Piccolo>
         {0.0} <music21.stream.Measure 1 offset=0.0>
-            {0.0} <music21.instrument.Instrument Piccolo>
+            {0.0} <music21.instrument.Piccolo Piccolo>
             {0.0} <music21.clef.TrebleClef>
             {0.0} <music21.meter.TimeSignature 4/4>
             {0.0} <music21.note.Note C>
@@ -1637,9 +1638,23 @@ def partitionByInstrument(streamObj):
         {8.0} <music21.stream.Measure 3 offset=8.0>
             {0.0} <music21.note.Note C>
             {4.0} <music21.bar.Barline style=final>
+    {0.0} <music21.stream.Part Alto Saxophone>
+        {0.0} <music21.stream.Measure 1 offset=0.0>
+            {0.0} <music21.instrument.AltoSaxophone Alto Saxophone>
+            {0.0} <music21.clef.TrebleClef>
+            {0.0} <music21.meter.TimeSignature 4/4>
+            {0.0} <music21.note.Rest rest>
+            {2.0} <music21.note.Note E>
+            {3.0} <music21.note.Note F>
+        {4.0} <music21.stream.Measure 2 offset=4.0>
+            {0.0} <music21.instrument.AltoSaxophone Alto Saxophone>
+            {0.0} <music21.note.Note G>
+            {1.0} <music21.note.Note A>
+            {2.0} <music21.note.Note B>
+            {3.0} <music21.bar.Barline style=final>
     {0.0} <music21.stream.Part Trombone>
         {0.0} <music21.stream.Measure 1 offset=0.0>
-            {0.0} <music21.instrument.Instrument Trombone>
+            {0.0} <music21.instrument.Trombone Trombone>
             {0.0} <music21.clef.BassClef>
             {0.0} <music21.meter.TimeSignature 4/4>
             {0.0} <music21.note.Note C#>
@@ -1654,24 +1669,12 @@ def partitionByInstrument(streamObj):
         {8.0} <music21.stream.Measure 3 offset=8.0>
             {0.0} <music21.note.Note C#>
             {4.0} <music21.bar.Barline style=final>
-    {0.0} <music21.stream.Part Alto Saxophone>
-        {0.0} <music21.stream.Measure 1 offset=0.0>
-            {0.0} <music21.instrument.Instrument Alto Saxophone>
-            {0.0} <music21.clef.TrebleClef>
-            {0.0} <music21.meter.TimeSignature 4/4>
-            {0.0} <music21.note.Rest rest>
-            {2.0} <music21.note.Note E>
-            {3.0} <music21.note.Note F>
-        {4.0} <music21.stream.Measure 2 offset=4.0>
-            {0.0} <music21.instrument.Instrument Alto Saxophone>
-            {0.0} <music21.note.Note G>
-            {1.0} <music21.note.Note A>
-            {2.0} <music21.note.Note B>
-            {3.0} <music21.bar.Barline style=final>
 
 
     TODO: parts should be in Score Order. Coincidence that this almost works.
     TODO: note redundant Alto Saxophone... instrument -- 
+    
+    TODO: use proper recursion to make a copy of the stream. 
     '''
     from music21 import stream
 
@@ -1690,8 +1693,8 @@ def partitionByInstrument(streamObj):
         sub.extendDuration('Instrument')
 
     # first, find all unique instruments
-    found = s.flat.getElementsByClass('Instrument')
-    if len(found) == 0:
+    found = s.recurse().getElementsByClass('Instrument')
+    if not found:
         return None # no partition is available
     
     names = OrderedDict() # store unique names
@@ -1753,17 +1756,17 @@ def fromString(instrumentString):
     >>> from music21 import instrument
     >>> t1 = instrument.fromString("Clarinet 2 in A")
     >>> t1
-    <music21.instrument.Instrument Clarinet>
+    <music21.instrument.Clarinet Clarinet>
     >>> t1.transposition
     <music21.interval.Interval m-3>
     
     >>> t2 = instrument.fromString("Clarinetto 3")
     >>> t2
-    <music21.instrument.Instrument Clarinet>
+    <music21.instrument.Clarinet Clarinet>
     
     >>> t3 = instrument.fromString("Flauto 2")
     >>> t3
-    <music21.instrument.Instrument Flute>
+    <music21.instrument.Flute Flute>
     
     
     Excess information is ignored, and the useful information can be extracted
@@ -1772,7 +1775,7 @@ def fromString(instrumentString):
     
     >>> t4 = instrument.fromString("I <3 music saxofono tenor go beavers")
     >>> t4
-    <music21.instrument.Instrument Tenor Saxophone>
+    <music21.instrument.TenorSaxophone Tenor Saxophone>
     
     
     #_OMIT_FROM_DOCS
@@ -1780,7 +1783,7 @@ def fromString(instrumentString):
     
     >>> t5 = instrument.fromString("Bb Clarinet")
     >>> t5
-    <music21.instrument.Instrument Clarinet>
+    <music21.instrument.Clarinet Clarinet>
     >>> t5.transposition
     <music21.interval.Interval M-2>
 
@@ -1805,7 +1808,7 @@ def fromString(instrumentString):
 
     >>> t9 = instrument.fromString("Klarinette in B.")
     >>> t9
-    <music21.instrument.Instrument Clarinet>
+    <music21.instrument.Clarinet Clarinet>
     >>> t9.transposition
     <music21.interval.Interval M-2>
     
@@ -2013,12 +2016,12 @@ class Test(unittest.TestCase):
         self.assertEqual(len(post.flat.getElementsByClass('Instrument')), 4)
         self.assertEqual(post.parts[0].getInstrument().instrumentName, 'Piano')
         self.assertEqual(len(post.parts[0].notes), 6)
-        self.assertEqual(post.parts[1].getInstrument().instrumentName, 'Piccolo')
-        self.assertEqual(len(post.parts[1].notes), 2)
-        self.assertEqual(post.parts[2].getInstrument().instrumentName, 'Flute')
-        self.assertEqual(len(post.parts[2].notes), 4)
-        self.assertEqual(post.parts[3].getInstrument().instrumentName, 'Acoustic Guitar')
-        self.assertEqual(len(post.parts[3].notes), 3)
+        self.assertEqual(post.parts[1].getInstrument().instrumentName, 'Acoustic Guitar')
+        self.assertEqual(len(post.parts[1].notes), 3)
+        self.assertEqual(post.parts[2].getInstrument().instrumentName, 'Piccolo')
+        self.assertEqual(len(post.parts[2].notes), 2)
+        self.assertEqual(post.parts[3].getInstrument().instrumentName, 'Flute')
+        self.assertEqual(len(post.parts[3].notes), 4)
 
         #environLocal.printDebug(['post processing'])
         #post.show('t')

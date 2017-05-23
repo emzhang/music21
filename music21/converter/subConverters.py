@@ -33,6 +33,8 @@ from music21 import environment
 _MOD = 'converter/subConverters.py'
 environLocal = environment.Environment(_MOD)
 
+# pylint complains when abstract methods are not overwritten, but that's okay.
+# pylint: disable=abstract-method
 
 class SubConverterException(exceptions21.Music21Exception):
     pass
@@ -83,8 +85,11 @@ class SubConverter(object):
         Called when a string (or binary) data is encountered.
         
         This method MUST be implemented to do anything in parsing.
+        
+        Return self.stream in the end
         '''
-        return self.stream
+        raise NotImplementedError
+        # return self.stream
     
     def parseFile(self, filePath, number=None):
         '''
@@ -98,7 +103,12 @@ class SubConverter(object):
         else:
             with open(filePath, 'rb') as f:
                 dataStream = f.read()
-        self.parseData(dataStream, number)
+                
+        try:
+            self.parseData(dataStream, number)
+        except NotImplementedError:  # just for showing that this is possible.
+            raise
+        
         return self.stream
     
     def _getStream(self):
@@ -179,7 +189,7 @@ class SubConverter(object):
         This is currently basically completely unused!!!!
         '''
         exts = self.registerOutputExtensions
-        if len(exts) == 0:
+        if not exts:
             raise SubConverterException(
                 "This subconverter cannot show or write: " + 
                 "no output extensions are registered for it")
@@ -295,7 +305,7 @@ class ConverterIPython(SubConverter):
         
         if subformats and subformats[0] == 'vexflow':
             return self.vfshow(obj)
-            #subformats = ['lilypond','png']
+            #subformats = ['lilypond', 'png']
         if subformats:
             helperFormat = subformats[0]
             helperSubformats = subformats[1:]
@@ -312,21 +322,37 @@ class ConverterIPython(SubConverter):
         helperConverter.setSubconverterFromFormat(helperFormat)
         helperSubConverter = helperConverter.subConverter
 
+        from IPython.display import Image, display, HTML # @UnresolvedImport
+
         if helperFormat in ('musicxml', 'xml', 'lilypond', 'lily'):        
             ### hack to make musescore excerpts -- fix with a converter class in MusicXML
+            from music21.ipython21 import objects as ipythonObjects
+
             savedDefaultTitle = defaults.title
             savedDefaultAuthor = defaults.author
             defaults.title = ''
             defaults.author = ''
+
             
             if 'Opus' not in obj.classes:
+<<<<<<< HEAD
                 fp = helperSubConverter.write(obj, helperFormat, subformats=helperSubformats)
 
                 defaults.title = savedDefaultTitle
                 defaults.author = savedDefaultAuthor
+=======
+                scores = [obj]                
+            else:
+                scores = list(obj.scores)
+
+            for s in scores:
+                fp = helperSubConverter.write(s, helperFormat, 
+                                              subformats=helperSubformats, **keywords)
+        
+>>>>>>> cuthbertLab/master
                 if helperSubformats[0] == 'png':
-                    from music21.ipython21 import objects as ipythonObjects
                     ipo = ipythonObjects.IPythonPNGObject(fp)
+<<<<<<< HEAD
                     return ipo
             else:
                 from IPython.display import Image, display # @UnresolvedImport
@@ -340,12 +366,21 @@ class ConverterIPython(SubConverter):
                 defaults.title = savedDefaultTitle
                 defaults.author = savedDefaultAuthor
                 return None
+=======
+                    display(Image(data=ipo.getData(), retina=True))
+
+            defaults.title = savedDefaultTitle
+            defaults.author = savedDefaultAuthor
+            return None
+        
+>>>>>>> cuthbertLab/master
         elif helperFormat == 'midi':
             import base64
-            from IPython.display import HTML, display # @UnresolvedImport @Reimport
+
             fp = helperSubConverter.write(obj, helperFormat, subformats=helperSubformats)
             with open(fp, 'rb') as f:
                 binaryMidiData = f.read()
+                
             binaryBase64 = base64.b64encode(binaryMidiData)
             s = common.SingletonCounter()
             outputId = "midiPlayerDiv" + str(s())
@@ -413,7 +448,7 @@ class ConverterLilypond(SubConverter):
         then launch the appropriate viewer for .png/.pdf (graphicsPath) or .svg
         (vectorPath)
         '''
-        if subformats is None or len(subformats) == 0:
+        if not subformats:
             subformats = ['png']
         returnedFilePath = self.write(obj, fmt, subformats=subformats, **keywords)
         if subformats is not None and subformats:
@@ -462,7 +497,7 @@ class ConverterText(SubConverter):
     Two keyword options are allowed: addEndTimes=Boolean and useMixedNumerals=Boolean
     '''
     
-    registerFormats = ('text','txt','t')
+    registerFormats = ('text', 'txt', 't')
     registerOutputExtensions = ('txt',)
 
     def write(self, obj, fmt, fp=None, subformats=None, **keywords):
@@ -520,6 +555,7 @@ class ConverterHumdrum(SubConverter):
         >>> c = converter.subConverters.ConverterHumdrum()
         >>> s = c.parseData(humdata)
         >>> c.stream.show('text')
+        {0.0} <music21.metadata.Metadata object at 0x7f33545027b8>
         {0.0} <music21.stream.Part spine_0>
             {0.0} <music21.humdrum.spineParser.MiscTandem **kern humdrum control>
             {0.0} <music21.stream.Measure 1 offset=0.0>
@@ -689,7 +725,7 @@ class ConverterNoteworthyBinary(SubConverter):
 class ConverterMusicXML(SubConverter):
     '''Converter for MusicXML using the 2015 ElementTree system
     '''
-    registerFormats = ('musicxml','xml')
+    registerFormats = ('musicxml', 'xml')
     registerInputExtensions = ('xml', 'mxl', 'mx', 'musicxml')
     registerOutputExtensions = ('xml', 'mxl')
     registerOutputSubformatExtensions = {'png': 'png',
@@ -782,6 +818,7 @@ class ConverterMusicXML(SubConverter):
         musescoreRun = '"' + musescorePath + '" ' + fp + " -o " + fpOut + " -T 0 "
         if 'dpi' in keywords:
             musescoreRun += " -r " + str(keywords['dpi'])
+            
         if common.runningUnderIPython():
             musescoreRun += " -r " + str(defaults.ipythonImageDpi)
         
@@ -1052,8 +1089,8 @@ class ConverterMuseData(SubConverter):
 
         mdw = musedataModule.MuseDataWork()
 
-        for strData in strDataList:
-            mdw.addString(strData)
+        for strDataInner in strDataList:
+            mdw.addString(strDataInner)
 
         musedataTranslate.museDataWorkToStreamScore(mdw, self.stream)
 
@@ -1086,8 +1123,8 @@ class ConverterMuseData(SubConverter):
             else:
                 fpList = fp
 
-            for fp in fpList:
-                mdw.addFile(fp)
+            for fpInner in fpList:
+                mdw.addFile(fpInner)
 
         #environLocal.printDebug(['ConverterMuseData: mdw file count', len(mdw.files)])
 

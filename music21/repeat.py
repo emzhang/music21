@@ -23,7 +23,7 @@ import unittest
 from music21 import exceptions21
 from music21 import expressions
 from music21 import spanner
-
+from music21 import style
 
 from music21 import environment
 _MOD = 'repeat.py'
@@ -81,6 +81,8 @@ class RepeatExpression(RepeatMark, expressions.Expression):
     properly configured TextExpression object can also be 
     used to create an instance of a RepeatExpressions.
     '''
+    _styleClass = style.TextStyle
+    
     def __init__(self):
         expressions.Expression.__init__(self)
         RepeatMark.__init__(self)
@@ -89,18 +91,12 @@ class RepeatExpression(RepeatMark, expressions.Expression):
         # store a lost of alternative text representations
         self._textAlternatives = []
         # store a default text justification
-        self._textJustification = 'center'
+        self.style.justify = 'center'
         # for those that have symbols, declare if the symbol is to be used
         self.useSymbol = False
 
         # for musicxml compatibility
-        self._positionDefaultX = None
-        self._positionDefaultY = 20 # two staff lines above
-        # these values provided for musicxml compatibility
-        self._positionRelativeX = None
-        self._positionRelativeY = None
-        # this does not do anything if default y is defined
-        self._positionPlacement = None
+        self.style.absoluteY = 20 # two staff lines above
 
     def __repr__(self):
         content = self.getText()
@@ -123,6 +119,7 @@ class RepeatExpression(RepeatMark, expressions.Expression):
         '''
         if self._textExpression is None:
             self._textExpression = expressions.TextExpression(value)
+            self._textExpression.style = self.style # link style
             self.applyTextFormatting()
         else:
             self._textExpression.content = value
@@ -195,6 +192,8 @@ class Coda(RepeatExpressionMarker):
     def __init__(self, text=None):
         RepeatExpressionMarker.__init__(self)
         # default text expression is coda
+        self.style.justify = 'center'
+        
         self._textAlternatives = ['Coda', 'to Coda', 'al Coda']
         if text is not None and self.isValidText(text):
             self.setText(text)
@@ -1139,7 +1138,7 @@ class Expander(object):
 #                     break
             #if not shiftedIndex:
             i += 1
-        if len(groupIndices) > 0:
+        if groupIndices:
             groups.append(groupIndices)
         return groups
 
@@ -1160,7 +1159,7 @@ class Expander(object):
             #    "group['repeatBrackets']",  group['repeatBrackets']])
 
             # the numbers must be consecutive
-            if len(rBrackets) == 0:
+            if not rBrackets:
                 return True
             # accept if any single repeat bracket        
             if len(rBrackets) == 1:
@@ -1272,7 +1271,7 @@ class Expander(object):
                 # meaning that we only want up until the previous
                 elif lb.direction == 'end':
                     #environLocal.printDebug(['found an end in left barline: %s' % lb])
-                    if len(startIndices) == 0:
+                    if not startIndices:
                         # get from first to this one
                         barRepeatIndices = range(0, i)
                         break
@@ -1284,7 +1283,7 @@ class Expander(object):
                     and rb.direction == 'end'):
                 # if this is the first end found and no starts found, 
                 # assume we are counting from zero
-                if len(startIndices) == 0: # get from first to this one
+                if not startIndices: # get from first to this one
                     barRepeatIndices = range(0, i + 1)
                     break
                 else: # otherwise get the last start index
@@ -1541,7 +1540,7 @@ class Expander(object):
         # if we do not groups when expected it is probably b/c spanners have
         # been orphaned
         #environLocal.printDebug(['got groups:', groups])   
-        if len(groups) == 0: # none found:
+        if not groups: # none found:
             return self.processInnermostRepeatBars(streamObj)
 
         # need to find innermost repeat, and then see it it has any

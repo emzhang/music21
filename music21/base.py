@@ -28,7 +28,7 @@ available after importing `music21`.
 <class 'music21.base.Music21Object'>
 
 >>> music21.VERSION_STR
-'4.0.2'
+'4.0.4'
 
 Alternatively, after doing a complete import, these classes are available
 under the module "base":
@@ -39,7 +39,6 @@ under the module "base":
 from __future__ import (print_function, division)
 
 import copy
-import imp
 import sys
 import types
 import unittest
@@ -78,16 +77,19 @@ from music21 import exceptions21
 
 Music21Exception = exceptions21.Music21Exception
 
-from music21.sites import SitesException
-from music21 import sites
 from music21 import common
 from music21 import defaults
 from music21 import derivation
 from music21 import duration
+from music21 import editorial
 from music21 import environment
+from music21 import sites
+# ?? pylint does not think that this was used...
+from music21 import style # pylint: disable=unused-import
 
 from music21.common import opFrac
 from music21.sorting import SortTuple, ZeroSortTupleLow, ZeroSortTupleHigh
+from music21.sites import SitesException
 
 
 _MOD = 'music21.base.py'
@@ -95,12 +97,26 @@ environLocal = environment.Environment(_MOD)
 
 
 # check external dependencies and display
+_useImportLib = True
+
+try:
+    import importlib
+    fs = importlib.util.find_spec
+except (ImportError, AttributeError):
+    import imp
+    _useImportLib = False
+
 _missingImport = []
 for modName in ('matplotlib', 'numpy', 'scipy'):    
-    try:
-        imp.find_module(modName)
-    except ImportError:
-        _missingImport.append(modName)
+    if _useImportLib:
+        loader = importlib.util.find_spec(modName)
+        if loader is None:
+            _missingImport.append(modName)
+    else:
+        try:
+            imp.find_module(modName)
+        except ImportError:
+            _missingImport.append(modName)
 
 # used for better PNG processing in lily -- not very important
 #try:
@@ -124,6 +140,9 @@ if _missingImport:
     if environLocal['warnings'] in (1, '1', True):
         environLocal.warn(common.getMissingImportStr(_missingImport),
         header='music21:')
+del _useImportLib
+
+
 
 class Music21ObjectException(exceptions21.Music21Exception):
     pass
@@ -298,6 +317,12 @@ class Music21Object(object):
         object is in.
     8.  derivation: a :class:`~music21.derivation.Derivation` object, or None, that shows
         where the object came from.
+    9.  style: a :class:`~music21.style.Style` object, that contains Style information
+        automatically created if it doesn't exist, so check `.hasStyleInformation` first
+        if that is not desired.
+    10. editorial: a :class:`~music21.editorial.Editorial` object
+    
+
 
     Each of these may be passed in as a named keyword to any music21 object.
 
@@ -313,11 +338,11 @@ class Music21Object(object):
     # this dictionary stores as a tuple of strings for each Class so that
     # it only needs to be made once (11 microseconds per call, can be
     # a big part of iteration; from cache just 1 microsecond)
-    _classListCacheDict = {}
+    _classTupleCacheDict = {}
     _classSetCacheDict = {}
     # same with fully qualified names
     _classListFullyQualifiedCacheDict = {}
-
+    _styleClass = style.Style
 
     # define order to present names in documentation; use strings
     _DOC_ORDER = [
@@ -369,51 +394,56 @@ class Music21Object(object):
         'hideObjectOnPrint': '''if set to `True` will not print upon output 
             (only used in MusicXML output at this point and 
             Lilypond for notes, chords, and rests).''',
-        'xPosition': '''if set, defines the display x-position from 
-            the start of the container (in musicxml "tenths" by default)''',
         }
 
     def __init__(self, *arguments, **keywords):
+        super(Music21Object, self).__init__()
         # None is stored as the internal location of an obj w/o any sites
         self._activeSite = None
         # offset when no activeSite is available
         self._naiveOffset = 0.0
         # offset when activeSite is already garbage collected/dead, as in short-lived sites
-        # like .getElementsByClass
+        # like .getElementsByClass().stream()
         self._activeSiteStoredOffset = None
 
-        
         # store a derivation object to track derivations from other Streams
         # pass a reference to this object
         self._derivation = None
         
+        self._style = None
+        self._editorial = None
+        
         # private duration storage; managed by property
         self._duration = None
         self._priority = 0 # default is zero
-
+        
         self.hideObjectOnPrint = False
-        self.xPosition = None
 
         if "id" in keywords:
             self.id = keywords["id"]
         else:
             self.id = id(self)
 
-        # a duration object is not created until the .duration property is
-        # accessed with _getDuration(); this is a performance optimization
-        if "duration" in keywords:
-            self.duration = keywords["duration"]
         if "groups" in keywords and keywords["groups"] is not None:
             self.groups = keywords["groups"]
         else:
             self.groups = Groups()
+
         if "sites" in keywords:
             self.sites = keywords["sites"]
         else:
             self.sites = sites.Sites()
 
+        # a duration object is not created until the .duration property is
+        # accessed with _getDuration(); this is a performance optimization
+        if "duration" in keywords:
+            self.duration = keywords["duration"]
         if "activeSite" in keywords:
             self.activeSite = keywords["activeSite"]
+        if 'style' in keywords:
+            self.style = keywords['style']
+        if 'editorial' in keywords:
+            self.editorial = keywords['editorial']
 
 
     def mergeAttributes(self, other):
@@ -449,7 +479,7 @@ class Music21Object(object):
         
         TODO: move to class attributes to cache.
         '''
-        defaultIgnoreSet = {'_derivation', '_activeSite', 'id', 'sites', '_duration'}
+        defaultIgnoreSet = {'_derivation', '_activeSite', 'id', 'sites', '_duration', '_style'}
         if ignoreAttributes is None:
             ignoreAttributes = defaultIgnoreSet
         else:
@@ -504,6 +534,10 @@ class Music21Object(object):
             # this calls __deepcopy__ in Sites
             newValue = copy.deepcopy(value, memo)
             setattr(new, 'sites', newValue)
+        if '_style' in ignoreAttributes:
+            value = getattr(self, '_style')
+            newValue = copy.deepcopy(value, memo)
+            setattr(new, '_style', newValue)
 
 
         for name in self.__dict__:
@@ -566,7 +600,7 @@ class Music21Object(object):
         False
         >>> b.id != n.id
         True        
-        >>> n.accidental = "-"
+        >>> n.pitch.accidental = '-'
         >>> b.name
         'A'
         >>> n.offset
@@ -614,9 +648,9 @@ class Music21Object(object):
         True
         >>> n.isClassOrSubclass((note.Rest,))
         False
-        >>> n.isClassOrSubclass((note.Note,note.Rest))
+        >>> n.isClassOrSubclass((note.Note, note.Rest))
         True
-        >>> n.isClassOrSubclass(('Rest','Note'))
+        >>> n.isClassOrSubclass(('Rest', 'Note'))
         True
         '''
         return not self.classSet.isdisjoint(classFilterList)
@@ -654,11 +688,11 @@ class Music21Object(object):
         `Changed 2015 Sep`: returns a tuple, not a list.        
         '''
         try:
-            return self._classListCacheDict[self.__class__]
+            return self._classTupleCacheDict[self.__class__]
         except KeyError:
-            classList = tuple([x.__name__ for x in self.__class__.mro()])
-            self._classListCacheDict[self.__class__] = classList
-            return classList
+            classTuple = tuple([x.__name__ for x in self.__class__.mro()])
+            self._classTupleCacheDict[self.__class__] = classTuple
+            return classTuple
 
     @property
     def classSet(self):
@@ -693,9 +727,11 @@ class Music21Object(object):
         True
         
         >>> sorted([s for s in n.classSet if isinstance(s, str)])
-        ['GeneralNote', 'Music21Object', 'NotRest', 'Note', '....object', 
-         'music21.base.Music21Object', 'music21.note.GeneralNote', 'music21.note.NotRest', 
-         'music21.note.Note', 'object']
+        ['GeneralNote', 'Music21Object', 'NotRest', 'Note',
+         '....object', 
+         'music21.base.Music21Object', 
+         'music21.note.GeneralNote', 'music21.note.NotRest', 'music21.note.Note', 
+         'object']
          
         >>> sorted([s for s in n.classSet if not isinstance(s, str)], key=lambda x: x.__name__)
         [<class 'music21.note.GeneralNote'>, 
@@ -708,12 +744,126 @@ class Music21Object(object):
             return self._classSetCacheDict[self.__class__]
         except KeyError:
             classNameList = list(self.classes)
+            
             classObjList = self.__class__.mro()
             classListFQ = [x.__module__ + '.' + x.__name__ for x in self.__class__.mro()]
             classList = classNameList + classObjList + classListFQ
             classSet = frozenset(classList)
             self._classSetCacheDict[self.__class__] = classSet
             return classSet
+
+
+    #---------------------------------------------------------------------------
+    @property
+    def hasEditorialInformation(self):
+        '''
+        Returns True if there is a :class:`~music21.editorial.Editorial` object
+        already associated with this object, False otherwise.
+        
+        Calling .style on an object will always create a new 
+        Style object, so even though a new Style object isn't too expensive
+        to create, this property helps to prevent creating new Styles more than
+        necessary.
+        
+        >>> mObj = base.Music21Object()
+        >>> mObj.hasEditorialInformation
+        False
+        >>> mObj.editorial
+        <music21.editorial.Editorial {} >
+        >>> mObj.hasEditorialInformation
+        True
+        '''
+        return False if self._editorial is None else True
+
+    @property
+    def editorial(self):
+        '''
+        a :class:`~music21.editorial.Editorial` object that stores editorial information
+        (comments, footnotes, harmonic information, ficta).
+
+        Created automatically as needed:
+
+        >>> n = note.Note("C4")
+        >>> n.editorial
+        <music21.editorial.Editorial {} >
+        >>> n.editorial.ficta = pitch.Accidental('sharp')
+        >>> n.editorial.ficta
+        <accidental sharp>
+        >>> n.editorial
+        <music21.editorial.Editorial {'ficta': <accidental sharp>} >
+
+        OMIT_FROM_DOCS
+        >>> b2 = base.Music21Object()
+        >>> b2._editorial is None
+        True
+        >>> b2.editorial
+        <music21.editorial.Editorial {} >
+        >>> b2._editorial is None
+        False      
+        '''
+        if self._editorial is None:
+            self._editorial = editorial.Editorial()
+        return self._editorial
+
+    @editorial.setter
+    def editorial(self, ed):
+        self._editorial = ed
+
+    @property
+    def hasStyleInformation(self):
+        '''
+        Returns True if there is a :class:`~music21.style.Style` object
+        already associated with this object, False otherwise.
+        
+        Calling .style on an object will always create a new 
+        Style object, so even though a new Style object isn't too expensive
+        to create, this property helps to prevent creating new Styles more than
+        necessary.
+        
+        >>> mObj = base.Music21Object()
+        >>> mObj.hasStyleInformation
+        False
+        >>> mObj.style
+        <music21.style.Style object at 0x10b0a2080>
+        >>> mObj.hasStyleInformation
+        True
+        '''
+        return False if self._style is None else True
+    
+    
+    @property
+    def style(self):
+        '''
+        Returns (or Creates and then Returns) the Style object
+        associated with this object, or sets a new
+        style object.  Different classes might use
+        different Style objects because they might have different 
+        style needs (such as text formatting or bezier positioning)
+        
+        Eventually will also query the groups to see if they have
+        any styles associated with them.
+        
+        >>> n = note.Note()
+        >>> st = n.style
+        >>> st
+        <music21.style.Style object at 0x10ba96208>
+        >>> st.absoluteX = 20.0
+        >>> st.absoluteX
+        20.0
+        >>> n.style = style.Style()
+        >>> n.style.absoluteX is None
+        True
+        '''
+        if self._style is None:
+            styleClass = self._styleClass
+            self._style = styleClass()
+        return self._style
+    
+    @style.setter
+    def style(self, newStyle):
+        self._style = newStyle
+
+
 
     #---------------------------
     # convenience.  used to be in note.Note, but belongs everywhere:
@@ -891,20 +1041,24 @@ class Music21Object(object):
         
         >>> import music21
         >>> aSite = stream.Stream()
+        >>> aSite.id = 'aSite'
         >>> a = music21.Music21Object()
-        >>> a.sites.add(aSite)
+        >>> aSite.insert(0, a)
         >>> aSite.setElementOffset(a, 20)
         >>> a.setOffsetBySite(aSite, 30)
         >>> a.getOffsetBySite(aSite)
         30.0
         
-        And if it isn't there? Nothing changes.
+        And if it isn't in a Stream? Raises an exception and the offset does not change.
         
-        >>> b = note.Note()
+        >>> b = note.Note('D')
         >>> b.setOffsetBySite(aSite, 40)
+        Traceback (most recent call last):
+        music21.exceptions21.StreamException: Cannot set the offset for element 
+            <music21.note.Note D>, not in Stream <music21.stream.Stream aSite>.
+
         >>> b.offset
         0.0
-
         '''
         if site is not None:
             site.setElementOffset(self, value)
@@ -1019,11 +1173,11 @@ class Music21Object(object):
 
         >>> set(n2.getSpannerSites('DynamicWedge')) == set([sp2, sp3])
         True
-        >>> set(n2.getSpannerSites(['Slur','Diminuendo'])) == set([sp1, sp3])
+        >>> set(n2.getSpannerSites(['Slur', 'Diminuendo'])) == set([sp1, sp3])
         True
 
 
-        >>> set(n2.getSpannerSites(['Slur','Diminuendo'])) == set([sp3, sp1])
+        >>> set(n2.getSpannerSites(['Slur', 'Diminuendo'])) == set([sp3, sp1])
         True
 
 
@@ -1587,7 +1741,9 @@ class Music21Object(object):
                 else:
                     offsetInStream = siteObj.elementOffset(self)
                     
-                positionInStream = st.modify(offset=offsetInStream + offsetAppend)
+                newOffset = opFrac(offsetInStream + offsetAppend)
+                    
+                positionInStream = st.modify(offset=newOffset)
             except SitesException:
                 continue # not a valid site any more.  Could be caught in derivationChain
             
@@ -1772,7 +1928,7 @@ class Music21Object(object):
         # these do not need to be flattened b/c we know the self is in these
         # streams
         memo = {}
-        while len(selfSites) > 0:
+        while selfSites:
             #environLocal.printDebug(['looking at siteSites:', s])
             # check for duplicated sites; may be possible
             s = selfSites.pop(0) # take the first off of sites
@@ -3318,7 +3474,7 @@ class Music21Object(object):
         >>> s.insert(0, ts)
         >>> n = note.Note(type='eighth')
         >>> s.repeatAppend(n, 8)
-        >>> s.makeMeasures(inPlace = True)
+        >>> s.makeMeasures(inPlace=True)
         >>> [n.beat for n in s.flat.notes]
         [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5]
         
@@ -3775,7 +3931,7 @@ class Test(unittest.TestCase):
         b.offset = 2.0 # duration.Duration("half")
 
         self.assertFalse(n is b)
-        n.accidental = "-"
+        n.pitch.accidental = '-'
         self.assertEqual(b.name, "A")
         self.assertEqual(n.offset, 1.0)
         self.assertEqual(b.offset, 2.0)
@@ -4245,7 +4401,7 @@ class Test(unittest.TestCase):
         b1 = bar.Barline()
         s.append(n1)
         self.assertEqual(s.highestTime, 30.0)
-        s.setElementOffset(b1, 'highestTime')
+        s.setElementOffset(b1, 'highestTime', addElement=True)
         
         self.assertEqual(b1.getOffsetBySite(s), 30.0)
 
@@ -4661,7 +4817,7 @@ class Test(unittest.TestCase):
         #The order spanners are returned is generally the order that they were
         #added, but that is not guaranteed, so for safety sake, use set comparisons:
 
-        self.assertEqual(set(n2.getSpannerSites(['Slur','Diminuendo'])), set([sp3, sp1]))
+        self.assertEqual(set(n2.getSpannerSites(['Slur', 'Diminuendo'])), set([sp3, sp1]))
 
 
     def testContextSitesA(self):
@@ -4834,18 +4990,14 @@ class Test(unittest.TestCase):
         self.assertEqual(ecopy2.pitch.name, 'F#')
         prev = ecopy2.previous('Note')
         self.assertIs(prev, ecopy1)
-        
-        
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation
 _DOC_ORDER = [Music21Object, ElementWrapper]
 
 
-
-
 #------------------------------------------------------------------------------
-if __name__ == "__main__":
+if __name__ == "__main__":    
     mainTest(Test) #, runTest='testPreviousB')
 
 

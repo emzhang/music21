@@ -137,7 +137,7 @@ def autocorrelationFunction(recordedSignal, recordSampleRateIn):
     correlation = correlation[lengthCorrelation:]
     difference = numpy.diff(correlation) #  Calculates the difference between slots
     positiveDifferences = matplotlib.mlab.find(difference > 0)
-    if len(positiveDifferences) == 0:
+    if len(positiveDifferences) == 0: # pylint: disable=len-as-condition
         finalResult = 10 # Rest
     else:
         beginning = positiveDifferences[0]
@@ -562,7 +562,7 @@ def joinConsecutiveIdenticalPitches(detectedPitchObjects):
     N.B. the returned list is NOT a :class:`~music21.stream.Stream`.
 
     >>> import os
-    >>> readPath = os.path.join(common.getSourceFilePath(), 'audioSearch','test_audio.wav')
+    >>> readPath = os.path.join(common.getSourceFilePath(), 'audioSearch', 'test_audio.wav')
     >>> freqFromAQList = audioSearch.getFrequenciesFromAudioFile(waveFilename=readPath)
     >>> chrome = scale.ChromaticScale('C4')
     >>> detectedPitchesFreq = audioSearch.detectPitchFrequencies(freqFromAQList, useScale=chrome)

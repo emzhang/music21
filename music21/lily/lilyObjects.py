@@ -37,6 +37,11 @@ class LilyObjectsException(exceptions21.Music21Exception):
     pass
 
 class LyObject(object):
+    '''
+    LyObject is the base class of all other Lily Objects
+    
+    
+    '''
     supportedClasses = []  # ordered list of classes to support
     m21toLy = {}
     defaultAttributes = {}
@@ -400,7 +405,12 @@ class LyLilypondHeaderBody(LyObject):
         return self.newlineSeparateStringOutputIfNotNone(self.assignments)
 
 class LyAssignmentId(LyObject):
+    '''
+    >>> lyai = lily.lilyObjects.LyAssignmentId('title', isLyricString=False)
+    >>> str(lyai)
+    'title'
     
+    '''
     def __init__(self, content=None, isLyricString=False):
         LyObject.__init__(self)        
         self.content = content
@@ -427,8 +437,7 @@ class LyAssignment(LyObject):
     title = "hi" 
     
     Note that you could also pass assignmentId a LyAssignmentId object,
-    but that's overkill for a lot of things.
-    
+    but that's overkill for a lot of things.    
     '''
     def __init__(self, assignmentId=None, identifierInit=None, 
                  propertyPath=None, embeddedScm=None):
@@ -594,7 +603,7 @@ class LyBookBody(LyObject):
     def stringOutput(self):
         if self.bookIdentifier is not None:
             return self.bookIdentifier
-        elif len(self.contents) == 0:
+        elif not self.contents:
             return None
         else:
             return self.newlineSeparateStringOutputIfNotNone(self.contents)
@@ -636,7 +645,7 @@ class LyBookpartBody(LyObject):
     def stringOutput(self):
         if self.bookIdentifier is not None:
             return self.bookIdentifier
-        elif len(self.contents) == 0:
+        elif not self.contents:
             return None
         else:
             return self.newlineSeparateStringOutputIfNotNone(self.contents)
@@ -1442,7 +1451,7 @@ class LyEventChord(LyObject):
         self.postEvents = postEvents 
         self.chordRepetition = chordRepetition 
         self.multiMeasureRest = multiMeasureRest 
-        self.duration = duration, 
+        self.duration = duration 
         self.commandElement = commandElement 
         self.noteChordElement = noteChordElement 
     
@@ -1619,9 +1628,8 @@ class LyPostEvent(LyObject):
 
 class LyDirectionLessEvent(LyObject):
     r'''
-    represents ['[',']','~','(',')','\!','\(','\)','\>','\<']
-    or an EVENT_IDENTIFIER or a tremolo_type
-    
+    represents ['[', ']', '~', '(', ')', '\!', '\(', '\)', '\>', '\<']
+    or an EVENT_IDENTIFIER or a tremolo_type    
     '''
     
     def __init__(self, event=None):

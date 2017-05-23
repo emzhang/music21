@@ -314,15 +314,15 @@ class KeyWeightKeyAnalysis(DiscreteAnalysis):
                     sharpCount += 1
         return sharpCount, flatCount
 
-    def _getWeights(self, weightType='major'): 
+    def getWeights(self, weightType='major'): 
         '''
         Returns the key weights. To provide different key weights, 
         subclass and override this method. The defaults here are KrumhanslSchmuckler.
             
         >>> a = analysis.discrete.KrumhanslSchmuckler()
-        >>> len(a._getWeights('major'))
+        >>> len(a.getWeights('major'))
         12
-        >>> len(a._getWeights('minor'))
+        >>> len(a.getWeights('minor'))
         12            
         '''
         weightType = weightType.lower()
@@ -355,8 +355,8 @@ class KeyWeightKeyAnalysis(DiscreteAnalysis):
         [3.0, 0, 1.5, 0, 1.5, 0, 2.0, 0, 0, 0, 1.5, 0]
         '''
         # storage for 12 pitch classes
-        pcDist = [0]*12
-        if len(streamObj.notes) == 0:
+        pcDist = [0] * 12
+        if not streamObj.notes:
             return None
 
         for n in streamObj.notes:        
@@ -378,7 +378,7 @@ class KeyWeightKeyAnalysis(DiscreteAnalysis):
             return None
 
         soln = [0] * 12
-        toneWeights = self._getWeights(weightType)
+        toneWeights = self.getWeights(weightType)
         for i in range(len(soln)):
             for j in range(len(pcDistribution)):
                 soln[i] = soln[i] + (toneWeights[(j - i) % 12] * pcDistribution[j])
@@ -418,7 +418,7 @@ class KeyWeightKeyAnalysis(DiscreteAnalysis):
         bottomRight = [0] * 12
         bottomLeft = [0] * 12
             
-        toneWeights = self._getWeights(weightType)
+        toneWeights = self.getWeights(weightType)
         profileAverage = float(sum(toneWeights)) / len(toneWeights)
         histogramAverage = float(sum(pcDistribution)) / len(pcDistribution) 
             
@@ -642,10 +642,11 @@ class KeyWeightKeyAnalysis(DiscreteAnalysis):
                         (p, coefficient) in likelyKeysMajor]
         else:
             sortList = []
+            
         if likelyKeysMinor is not None:
             sortList += [(coefficient, p, 'minor') for 
                          (p, coefficient) in likelyKeysMinor]
-        if len(sortList) == 0:
+        if not sortList:
             raise DiscreteAnalysisException('failed to get likely keys for Stream component')
 
         sortList.sort()
@@ -731,16 +732,16 @@ class KrumhanslSchmuckler(KeyWeightKeyAnalysis):
     def __init__(self, referenceStream=None):
         KeyWeightKeyAnalysis.__init__(self, referenceStream=referenceStream)
 
-    def _getWeights(self, weightType='major'): 
+    def getWeights(self, weightType='major'): 
         '''
         Returns the key weights. To provide different key weights, 
         subclass and override this method. The defaults here are KrumhanslSchmuckler.
             
         
         >>> a = analysis.discrete.KrumhanslSchmuckler()
-        >>> len(a._getWeights('major'))
+        >>> len(a.getWeights('major'))
         12
-        >>> len(a._getWeights('minor'))
+        >>> len(a.getWeights('minor'))
         12            
         '''
         weightType = weightType.lower()
@@ -770,15 +771,15 @@ class KrumhanslKessler(KeyWeightKeyAnalysis):
     def __init__(self, referenceStream=None):
         KeyWeightKeyAnalysis.__init__(self, referenceStream=referenceStream)
 
-    def _getWeights(self, weightType='major'): 
+    def getWeights(self, weightType='major'): 
         '''
         Returns the key weights.    
         
         >>> a = analysis.discrete.KrumhanslKessler()
-        >>> len(a._getWeights('major'))
+        >>> len(a.getWeights('major'))
         12
-        >>> len(a._getWeights('minor'))
-        12            
+        >>> len(a.getWeights('minor'))
+        12
         '''
         weightType = weightType.lower()
         # note: only one value is different from KrumhanslSchmuckler
@@ -814,14 +815,14 @@ class AardenEssen(KeyWeightKeyAnalysis):
     def __init__(self, referenceStream=None):
         KeyWeightKeyAnalysis.__init__(self, referenceStream=referenceStream)
 
-    def _getWeights(self, weightType='major'): 
+    def getWeights(self, weightType='major'): 
         '''
         Returns the key weights.     
         
         >>> a = analysis.discrete.AardenEssen()
-        >>> len(a._getWeights('major'))
+        >>> len(a.getWeights('major'))
         12
-        >>> len(a._getWeights('minor'))
+        >>> len(a.getWeights('minor'))
         12            
         '''
         weightType = weightType.lower()
@@ -856,14 +857,14 @@ class SimpleWeights(KeyWeightKeyAnalysis):
     def __init__(self, referenceStream=None):
         KeyWeightKeyAnalysis.__init__(self, referenceStream=referenceStream)
 
-    def _getWeights(self, weightType='major'): 
+    def getWeights(self, weightType='major'): 
         '''
         Returns the key weights.     
         
         >>> a = analysis.discrete.SimpleWeights()
-        >>> len(a._getWeights('major'))
+        >>> len(a.getWeights('major'))
         12
-        >>> len(a._getWeights('minor'))
+        >>> len(a.getWeights('minor'))
         12            
         '''
         weightType = weightType.lower()
@@ -893,16 +894,16 @@ class BellmanBudge(KeyWeightKeyAnalysis):
     def __init__(self, referenceStream=None):
         KeyWeightKeyAnalysis.__init__(self, referenceStream=referenceStream)
 
-    def _getWeights(self, weightType='major'): 
+    def getWeights(self, weightType='major'): 
         '''
         Returns the key weights. 
         
         >>> a = analysis.discrete.BellmanBudge()
-        >>> len(a._getWeights('major'))
+        >>> len(a.getWeights('major'))
         12
-        >>> len(a._getWeights('minor'))
+        >>> len(a.getWeights('minor'))
         12            
-        >>> a._getWeights('major')
+        >>> a.getWeights('major')
         [16.8..., 0.8..., 12.9..., 1.4..., ...]
 
         '''
@@ -938,13 +939,13 @@ class TemperleyKostkaPayne(KeyWeightKeyAnalysis):
     def __init__(self, referenceStream=None):
         KeyWeightKeyAnalysis.__init__(self, referenceStream=referenceStream)
 
-    def _getWeights(self, weightType='major'): 
+    def getWeights(self, weightType='major'): 
         ''' Returns the key weights. 
         
         >>> a = analysis.discrete.TemperleyKostkaPayne()
-        >>> len(a._getWeights('major'))
+        >>> len(a.getWeights('major'))
         12
-        >>> len(a._getWeights('minor'))
+        >>> len(a.getWeights('minor'))
         12            
         '''
         weightType = weightType.lower()
@@ -1046,15 +1047,15 @@ class Ambitus(DiscreteAnalysis):
         >>> p.getPitchSpan(s)
         (<music21.pitch.Pitch A2>, <music21.pitch.Pitch C8>)
         '''
-        ssfn = subStream.flat.notes
-        if len(ssfn) == 0:
+        justNotes = subStream.recurse().notes
+        if not justNotes:
             # need to handle case of no pitches
             return None
 
         # find the min and max pitch space value for all pitches
         psFound = []
         pitchesFound = []
-        for n in ssfn:
+        for n in justNotes:
             #environLocal.printDebug([n])
             pitches = []
             if 'Chord' in n.classes and 'ChordSymbol' not in n.classes:
@@ -1119,10 +1120,10 @@ class Ambitus(DiscreteAnalysis):
                 # p2 should always be equal or greater than p1
                 psRange.append(p2-p1)
         
-        if len(psRange) == 0:
-            return 0, 0
+        if not psRange:
+            return (0, 0)
         else:
-            return int(min(psRange)), int(max(psRange))
+            return (int(min(psRange)), int(max(psRange)))
 
 
     def solutionLegend(self, compress=False):
@@ -1233,9 +1234,10 @@ class Ambitus(DiscreteAnalysis):
         post = self.getPitchSpan(sStream)
         if post is not None:
             solution = interval.Interval(noteStart=post[0], noteEnd=post[1])
+            color = self.solutionToColor(post[1].ps - post[0].ps)
         else:
             solution = None
-        color = self.solutionToColor(post[1].ps - post[0].ps)
+            color = '#ffffff'        
         
         # store solutions for compressed legend generation
         self.solutionsFound.append((solution, color))

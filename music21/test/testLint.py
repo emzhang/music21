@@ -51,7 +51,7 @@ def main(fnAccept=None, strict=False):
     poolSize = common.cpus()
     
     if pylintRun is None:
-        print("make sure that 'sudo pip install pylint' is there. exiting.")
+        print("make sure that 'sudo pip3 install pylint' is there. exiting.")
         return 
 
     mg = commonTest.ModuleGather()
@@ -84,13 +84,13 @@ def main(fnAccept=None, strict=False):
                 'redefined-variable-type', # would be good, but currently
                 # lines like: if x: y = note.Note() ; else: y = note.Rest()
                 # triggers this, even though y doesn't change. 
-               
+                'no-else-return', # these are unnessary but can help show the flow of thinking.
                 'cyclic-import', # we use these inside functions when there's a deep problem.
                 'unnecessary-pass', # nice, but not really a problem...
                 'locally-disabled', # test for this later, but hopefully will know what 
                             # they're doing
 
-                'duplicate-code', # needs to ignore strings -- keeps getting doctests...
+                #'duplicate-code', # needs to ignore strings -- keeps getting doctests...
 
                 'abstract-class-instantiated', # this trips on the fractions.Fraction() class.
                 'fixme', # known...
@@ -146,6 +146,8 @@ def main(fnAccept=None, strict=False):
     cmd = ['--output-format=parseable',
            r'--dummy-variables-rgx="_$|dummy|unused|i$|j$|junk|counter"', 
            '--docstring-min-length=3',
+           '--ignore-docstrings=yes',
+           '--min-similarity-lines=8',
            '--max-args=' + str(maxArgs),  # should be 5 later, but baby steps
            '--bad-names="foo,shit,fuck,stuff"', # definitely allow "bar" for barlines
            '--reports=n',

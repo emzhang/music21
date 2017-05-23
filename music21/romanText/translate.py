@@ -78,7 +78,7 @@ Now if we'd like we can get a Histogram of the data.
 It's a little complex, but worth seeing in full:
 
 >>> import operator
->>> histo = graph.GraphHistogram()
+>>> histo = graph.primitives.GraphHistogram()
 >>> i = 0
 >>> data = []
 >>> xlabels = []
@@ -751,7 +751,7 @@ def appendMeasureToRepeatEndingsDict(t, m, repeatEndings, measureNumber = None):
     >>> repeatEndings[2][0][1] is m2
     True
     '''
-    if len(t.repeatLetter) == 0:
+    if not t.repeatLetter:
         return
     
     m.numberSuffix = t.repeatLetter[0]
@@ -880,7 +880,7 @@ def fixPickupMeasure(partObject):
     if m0 is None:
         return
     rnObjects = m0.getElementsByClass('RomanNumeral')
-    if len(rnObjects) == 0:
+    if not rnObjects:
         return
     if rnObjects[0].offset == 0:
         return

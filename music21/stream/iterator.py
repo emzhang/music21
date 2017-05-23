@@ -76,7 +76,7 @@ class StreamIterator(object):
         self.srcStreamElements = srcStream.elements
         self.streamLength = len(self.srcStreamElements)
         
-        # this information can help a 
+        # this information can help in speed later
         self.elementsLength = len(self.srcStream._elements)
         self.sectionIndex = -1
         self.iterSection = '_elements'
@@ -90,7 +90,7 @@ class StreamIterator(object):
             filterList = []
         elif not common.isIterable(filterList):
             filterList = [filterList]
-        elif isinstance(filterList, tuple) or isinstance(filterList, set):
+        elif isinstance(filterList, (set, tuple)):
             filterList = list(filterList) # mutable....
         # self.filters is a list of expressions that
         # return True or False for an element for
@@ -337,6 +337,16 @@ class StreamIterator(object):
         1
         >>> bool(iterator.notes)
         True
+        >>> bool(iterator.notes)
+        True
+        
+        >>> iterator = s.recurse()
+        >>> bool(iterator)
+        True
+        >>> bool(iterator)
+        True
+        >>> bool(iterator)
+        True
 
         >>> bool(iterator.getElementsByClass('Chord'))
         False
@@ -408,6 +418,20 @@ class StreamIterator(object):
             del self.srcStreamElements
             self.srcStream = None
             self.srcStreamElements = ()
+
+
+    #---------------------------------------------------------------
+    # ProtoM21Object things...
+    @property
+    def classSet(self):
+        '''
+        this is not cached -- it should be if we end up using it a lot...
+        '''
+        return common.classTools.getClassSet(self)
+
+    @property
+    def classes(self):
+        return tuple([x.__name__ for x in self.__class__.mro()])
 
     #----------------------------------------------------------------
     # getting items
@@ -1052,6 +1076,108 @@ class StreamIterator(object):
         return self
 
 #------------------------------------------------------------------------------
+class OffsetIterator(StreamIterator):
+    '''
+    An iterator that with each iteration returns a list of elements
+    that are at the same offset (or all at end)
+    
+    >>> s = stream.Stream()
+    >>> s.insert(0, note.Note('C'))
+    >>> s.insert(0, note.Note('D'))
+    >>> s.insert(1, note.Note('E'))
+    >>> s.insert(2, note.Note('F'))
+    >>> s.insert(2, note.Note('G'))
+    >>> s.storeAtEnd(bar.Repeat('end'))
+    >>> s.storeAtEnd(clef.TrebleClef())
+    
+    >>> oiter = stream.iterator.OffsetIterator(s)
+    >>> for groupedElements in oiter:
+    ...     print(groupedElements)
+    [<music21.note.Note C>, <music21.note.Note D>]
+    [<music21.note.Note E>]
+    [<music21.note.Note F>, <music21.note.Note G>]
+    [<music21.bar.Repeat direction=end>, <music21.clef.TrebleClef>]    
+    
+    Does it work again?
+    
+    >>> for groupedElements2 in oiter:
+    ...     print(groupedElements2)
+    [<music21.note.Note C>, <music21.note.Note D>]
+    [<music21.note.Note E>]
+    [<music21.note.Note F>, <music21.note.Note G>]
+    [<music21.bar.Repeat direction=end>, <music21.clef.TrebleClef>]    
+    
+    
+    >>> for groupedElements in oiter.notes:
+    ...     print(groupedElements)
+    [<music21.note.Note C>, <music21.note.Note D>]
+    [<music21.note.Note E>]
+    [<music21.note.Note F>, <music21.note.Note G>]
+    
+    >>> for groupedElements in stream.iterator.OffsetIterator(s).getElementsByClass('Clef'):
+    ...     print(groupedElements)
+    [<music21.clef.TrebleClef>]
+    '''
+    def __init__(self, 
+                 srcStream, 
+                 filterList=None, 
+                 restoreActiveSites=True,
+                 activeInformation=None):
+        super(OffsetIterator, self).__init__(srcStream, 
+                                             filterList=None, 
+                                             restoreActiveSites=True,
+                                             activeInformation=None)
+        self.raiseStopIterationNext = False
+        self.nextToYield = []
+        self.nextOffsetToYield = None
+    
+    def __next__(self):
+        if self.raiseStopIterationNext:
+            raise StopIteration
+        
+        retElementList = None
+        # make sure that cleanup is not called during the loop...
+        try:
+            if self.nextToYield:
+                retElementList = self.nextToYield
+                retElOffset = self.nextOffsetToYield
+            else:
+                retEl = super(OffsetIterator, self).__next__()
+                retElOffset = self.srcStream.elementOffset(retEl)
+                retElementList = [retEl]
+
+            while self.index <= self.streamLength:
+                nextEl = super(OffsetIterator, self).__next__()
+                nextElOffset = self.srcStream.elementOffset(nextEl)
+                if nextElOffset == retElOffset:
+                    retElementList.append(nextEl)
+                else:
+                    self.nextToYield = [nextEl]
+                    self.nextOffsetToYield = nextElOffset
+                    return retElementList
+            
+                    
+        except StopIteration:
+            if retElementList:
+                self.raiseStopIterationNext = True
+                return retElementList
+            else:
+                raise StopIteration
+        
+    if six.PY2:
+        next = __next__
+
+    def reset(self):
+        '''
+        runs before iteration
+        '''
+        super(OffsetIterator, self).reset()
+        self.nextToYield = []
+        self.nextOffsetToYield = None
+        self.raiseStopIterationNext = False
+
+            
+#------------------------------------------------------------------------------
 class RecursiveIterator(StreamIterator):
     '''
     >>> b = corpus.parse('bwv66.6')
@@ -1109,7 +1235,8 @@ class RecursiveIterator(StreamIterator):
     6
     >>> expressive[-1].measureNumber
     9
-        
+    >>> bool(expressive)
+    True
     '''
     def __init__(self, 
                  srcStream, 
@@ -1136,6 +1263,7 @@ class RecursiveIterator(StreamIterator):
         reset prior to iteration
         '''
         self.returnSelf = self.includeSelf
+        self.recursiveIterator = None
         super(RecursiveIterator, self).reset()
     
     def __next__(self):

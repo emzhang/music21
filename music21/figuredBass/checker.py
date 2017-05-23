@@ -248,7 +248,7 @@ def checkSinglePossibilities(music21Stream, functionToApply, color="#FF0000", de
                                                             initOffset, 
                                                             initOffset, 
                                                             mustBeginInSpan=False)[0]
-                    noteA.color = color
+                    noteA.style.color = color
             if debug is True:
                 debugInfo.append("{0!s:25}{1!s}".format(offsets, partNumberTuple))
 
@@ -318,8 +318,8 @@ def checkConsecutivePossibilities(music21Stream, functionToApply, color="#FF0000
                                 initOffsetA, initOffsetA, mustBeginInSpan=False)[0]
                     noteB = allParts[partNumber - 1].iter.getElementsByOffset(
                                 initOffsetB, initOffsetB, mustBeginInSpan=False)[0]
-                    noteA.color = color
-                    noteB.color = color
+                    noteA.style.color = color
+                    noteB.style.color = color
             if debug is True:
                 debugInfo.append("{0!s:25}{1!s:25}{2!s}".format(previousOffsets, 
                                                                 offsets, 
@@ -699,14 +699,12 @@ def generalNoteToPitch(music21GeneralNote):
     Takes a :class:`~music21.note.GeneralNote`. If it is a :class:`~music21.note.Note`,
     returns its pitch. Otherwise, returns the string "RT", a rest placeholder.
     
-    >>> from music21 import note
-    >>> from music21 import chord
     >>> n1 = note.Note('G5')
-    >>> c1 = chord.Chord(['C3','E3','G3'])
-    >>> from music21.figuredBass import checker
-    >>> checker.generalNoteToPitch(n1)
+    >>> c1 = chord.Chord(['C3', 'E3', 'G3'])
+
+    >>> figuredBass.checker.generalNoteToPitch(n1)
     <music21.pitch.Pitch G5>
-    >>> checker.generalNoteToPitch(c1)
+    >>> figuredBass.checker.generalNoteToPitch(c1)
     'RT'
     '''
     if music21GeneralNote.isNote:

@@ -28,6 +28,7 @@ from music21 import interval
 from music21 import note
 from music21 import pitch
 from music21 import scale
+from music21 import style
 
 from music21.ext import six
 
@@ -137,7 +138,7 @@ def sharpsToPitch(sharpCount):
 # store a cache of already-found values
 #_pitchToSharpsCache = {}
 
-fifthsOrder = ['F','C','G','D','A','E','B']
+fifthsOrder = ['F', 'C', 'G', 'D', 'A', 'E', 'B']
 modeSharpsAlter = {'major': 0,
                    'ionian': 0,
                    'minor': -3,
@@ -373,9 +374,8 @@ class KeySignature(base.Music21Object):
     >>> unusual.accidentalsApplyOnlyToOctave
     False
     >>> unusual.accidentalsApplyOnlyToOctave = True
-    
     '''
-
+    _styleClass = style.TextStyle
 
     # note that musicxml permits non-tradtional keys by specifying
     # one or more altered tones; these are given as pairs of 
@@ -385,9 +385,6 @@ class KeySignature(base.Music21Object):
     
     def __init__(self, sharps=None):
         base.Music21Object.__init__(self)
-        #if mode is not None:
-        #    self._mode_is_deprecated()
-        
         # position on the circle of fifths, where 1 is one sharp, -1 is one flat
 
         try:
@@ -1004,7 +1001,7 @@ class Key(KeySignature, scale.DiatonicScale):
     
     def _tonalCertainityCorrelationCoefficient(self, *args, **keywords):
         # possible measures:
-        if len(self.alternateInterpretations) == 0:
+        if not self.alternateInterpretations:
             raise KeySignatureException(
                     'cannot process ambiguity without a list of .alternateInterpretations')
         focus = []

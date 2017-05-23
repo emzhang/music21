@@ -509,7 +509,7 @@ class GeneralMensuralNote(base.Music21Object):
         >>> s_2.append(medren.MensuralNote('B', 'semibrevis'))
         >>> gmn_2 = medren.GeneralMensuralNote('semibrevis')
         >>> s_2.append(gmn_2)
-        >>> s_2.append(medren.Ligature(['A','B']))
+        >>> s_2.append(medren.Ligature(['A', 'B']))
         >>> gmn_2._getSurroundingMeasure(activeSite = s_2)
         ([<music21.medren.MensuralNote semibrevis A>, 
           <music21.medren.MensuralNote semibrevis B>, 
@@ -766,7 +766,7 @@ class MensuralNote(GeneralMensuralNote, note.Note):
         >>> mn.setStem(None)
         >>> mn.fontString
         '0x4d'
-        >>> mn.color = 'red'
+        >>> mn.style.color = 'red'
         >>> mn.fontString
         '0x6d'        
         '''
@@ -807,7 +807,7 @@ class MensuralNote(GeneralMensuralNote, note.Note):
                 else:
                     self._fontString = '0x59'
         
-        if self.color ==  'red':
+        if self.style.color ==  'red':
             if self._fontString in ['41', '61']:
                 self._fontString = ''
             else:
@@ -831,27 +831,6 @@ class MensuralNote(GeneralMensuralNote, note.Note):
     mensuralType = property(GeneralMensuralNote._getMensuralType, _setMensuralType,
                           doc = ''' See documentation in `music21.medren.GeneralMensuralType`''')
     
-    def _setColor(self, value):
-        if value in ['black', 'red']:
-            note.Note._setColor(self, value)
-        else:
-            raise MedRenException('color %s not supported for mensural notes' % value)
-    
-    color = property(note.GeneralNote._getColor, _setColor,
-                     doc = '''The only valid colors for mensural notes are red and black
-                     
-                     >>> from music21.alpha import medren
-                     
-                     >>> n = medren.MensuralNote('A', 'brevis')
-                     >>> n.color
-                     >>> 
-                     >>> n.color = 'red'
-                     >>> n.color
-                     'red'
-                     >>> n.color = 'green'
-                     Traceback (most recent call last):
-                     MedRenException: color green not supported for mensural notes
-                     ''')
     
     def getNumDots(self):
         ''' 
@@ -910,7 +889,7 @@ class MensuralNote(GeneralMensuralNote, note.Note):
                 self.stems = []
             return    
             
-        if self.mensuralType in ['brevis','longa', 'maxima']:
+        if self.mensuralType in ['brevis', 'longa', 'maxima']:
             raise MedRenException('A note of type %s cannot be equipped with a stem' % 
                                   self.mensuralType)
 
@@ -977,9 +956,9 @@ class MensuralNote(GeneralMensuralNote, note.Note):
         >>> r_2.setFlag('up', 'left')
         >>> r_2.getFlags()
         {'up': 'left'}
-        >>> r_3 = medren.MensuralNote('A','semibrevis')
+        >>> r_3 = medren.MensuralNote('A', 'semibrevis')
         >>> r_3.setStem('side')
-        >>> r_3.setFlag('side','left')
+        >>> r_3.setFlag('side', 'left')
         Traceback (most recent call last):
         MedRenException: a flag cannot be added to a stem with direction side
         '''
@@ -1026,8 +1005,8 @@ class Ligature(base.Music21Object):
     An object that represents a ligature commonly found in medieval and Renaissance music. 
     Initialization takes a list of the pitches in the ligature as a required argument.
     Color of the ligature is an optional argument (default is 'black'). Color can also be set 
-    with the :meth:`music21.medren.Ligature.setColor` method. 
-    Color of a ligature can be determined with the :meth:`music21.medren.Ligature.getColor` method.
+    with .style.color. 
+    Color of a ligature can be determined with .style.color.
     Whether the noteheads of the ligature are filled is an optional argument (default is 'yes'). 
     Noteheads can be also filled with the :meth:`music21.medren.Ligature.setFillStatus` method. 
     Fill status of a ligature can be determined with the 
@@ -1080,14 +1059,14 @@ class Ligature(base.Music21Object):
     
     >>> from music21.alpha import medren
     
-    >>> l1 = medren.Ligature(['A4','F4','G4','A4','B-4'])
+    >>> l1 = medren.Ligature(['A4', 'F4', 'G4', 'A4', 'B-4'])
     >>> l1.makeOblique(0)
     >>> l1.setStem(0, 'down', 'left')
     >>> print([n.fullName for n in l1.notes])
     ['brevis A in octave 4 ', 'brevis F in octave 4 ', 
      'brevis G in octave 4 ', 'brevis A in octave 4 ', 'brevis B-flat in octave 4 ']
     >>>
-    >>> l2 = medren.Ligature(['F4','G4','A4','B-4','D5'])
+    >>> l2 = medren.Ligature(['F4', 'G4', 'A4', 'B-4', 'D5'])
     >>> l2.setStem(4, 'down', 'left')
     >>> l2.setReverse(4, True)
     >>> print([(n.mensuralType, n.pitch.nameWithOctave) for n in l2.notes])
@@ -1108,7 +1087,7 @@ class Ligature(base.Music21Object):
             self.pitches = pitches
         
         self._notes = []
-        self.color = color
+        self.style.color = color
         self.filled = filled
         
     
@@ -1124,7 +1103,7 @@ class Ligature(base.Music21Object):
                 self._pitches.append(pitch.Pitch(p))
         
         self.noteheadShape = dict([(ind, 'square') for ind in range(self._ligatureLength())])
-        self.stems = dict([(ind, (None,None)) for ind in range(self._ligatureLength())])
+        self.stems = dict([(ind, (None, None)) for ind in range(self._ligatureLength())])
         self.maximaNotes = dict([(ind, False) for ind in range(self._ligatureLength())])
         self.reversedNotes = dict([(ind, False) for ind in range(self._ligatureLength())])
         
@@ -1138,30 +1117,30 @@ class Ligature(base.Music21Object):
         
         >>> from music21.alpha import medren
         
-        >>> l = medren.Ligature(['A4','B4'])
+        >>> l = medren.Ligature(['A4', 'B4'])
         >>> print([n.mensuralType for n in l.notes])
         ['brevis', 'brevis']
         >>> l.makeOblique(0)
         >>> print([n.mensuralType for n in l.notes])
         ['longa', 'brevis']
-        >>> l = medren.Ligature(['B4','A4'])
+        >>> l = medren.Ligature(['B4', 'A4'])
         >>> print([n.mensuralType for n in l.notes])
         ['longa', 'longa']
         >>> l.makeOblique(0)
         >>> print([n.mensuralType for n in l.notes])
         ['longa', 'brevis']
-        >>> l.setStem(0, 'down','left')
+        >>> l.setStem(0, 'down', 'left')
         >>> print([n.mensuralType for n in l.notes])
         ['brevis', 'brevis']
-        >>> l = medren.Ligature(['G4','A4','B4','A4'])
-        >>> l.setStem(2, 'up','left')
+        >>> l = medren.Ligature(['G4', 'A4', 'B4', 'A4'])
+        >>> l.setStem(2, 'up', 'left')
         >>> print([n.mensuralType for n in l.notes])
         ['brevis', 'brevis', 'semibrevis', 'semibrevis']
-        >>> l = medren.Ligature(['B4','A4','G4','A4','G4','A4','F4'])
+        >>> l = medren.Ligature(['B4', 'A4', 'G4', 'A4', 'G4', 'A4', 'F4'])
         >>> l.makeOblique(0)
         >>> l.makeOblique(4)
         >>> l.setStem(2, 'down', 'left')
-        >>> l.setStem(4, 'up','left')
+        >>> l.setStem(4, 'up', 'left')
         >>> l.setMaxima(6, True)
         >>> print([n.mensuralType for n in l.notes])
         ['longa', 'brevis', 'longa', 'brevis', 'semibrevis', 'semibrevis', 'maxima']
@@ -1214,11 +1193,11 @@ class Ligature(base.Music21Object):
             index = None
         if index != None:
             if index < self._ligatureLength():
-                return self.notes[index]._getColor()
+                return self.notes[index].style.color
             else:
                 raise MedRenException('no note exists at index %d' % index)
         else: 
-            return self.color
+            return self.style.color
         
     def setColor(self, value, index=None):
         '''
@@ -1229,7 +1208,7 @@ class Ligature(base.Music21Object):
         
         >>> from music21.alpha import medren
         
-        >>> l = medren.Ligature(['A4','C5','B4'])
+        >>> l = medren.Ligature(['A4', 'C5', 'B4'])
         >>> l.setColor('red')
         >>> l.getColor()
         'red'
@@ -1243,19 +1222,19 @@ class Ligature(base.Music21Object):
         if index != None:
             if index < self._ligatureLength():
                 if value != tempColor:
-                    self.color = 'mixed'
-                    self.notes[index]._setColor(value)
+                    self.style.color = 'mixed'
+                    self.notes[index].style.color = value
             else:
                 raise MedRenException('no note exists at index %d' % index)
         else:
             if value in ['black', 'red']:
-                self.color = value
+                self.style.color = value
                 for n in self.notes:
-                    n._setColor(value)
+                    n.style.color = value
             else:
                 raise MedRenException('color %s not supported for ligatures' % value)
     
-    def getFillStatus(self, index = None):
+    def getFillStatus(self, index=None):
         '''
         Take one argument: index (optional, default is None).
         
@@ -1284,7 +1263,7 @@ class Ligature(base.Music21Object):
         
         >>> from music21.alpha import medren
         
-        >>> l = medren.Ligature(['A4','C5','B4'])
+        >>> l = medren.Ligature(['A4', 'C5', 'B4'])
         >>> l.setFillStatus('filled')
         >>> l.getFillStatus()
         'yes'
@@ -1303,7 +1282,7 @@ class Ligature(base.Music21Object):
             else:
                 raise MedRenException('no note exists at index %d' % index)
         else:
-            if value in ['yes','fill','filled']:
+            if value in ['yes', 'fill', 'filled']:
                 value = 'yes'
                 self.filled = value
                 for n in self.notes:
@@ -1338,7 +1317,7 @@ class Ligature(base.Music21Object):
         
         >>> from music21.alpha import medren
         
-        >>> l = medren.Ligature(['A4','C5','B4','A4'])
+        >>> l = medren.Ligature(['A4', 'C5', 'B4', 'A4'])
         >>> l.makeOblique(1)
         >>> l.getNoteheadShape(1)
         'oblique'
@@ -1357,7 +1336,7 @@ class Ligature(base.Music21Object):
         if startIndex < self._ligatureLength() - 1:
             currentShape = self.noteheadShape[startIndex]
             nextShape = self.noteheadShape[startIndex+1]
-            if  ((currentShape == ('oblique','end') or nextShape == ('oblique', 'start')) or
+            if  ((currentShape == ('oblique', 'end') or nextShape == ('oblique', 'start')) or
                  (self.isMaxima(startIndex) or self.isMaxima(startIndex+1))): 
                 raise MedRenException('cannot start oblique notehead at index %d' % startIndex)
             
@@ -1379,7 +1358,7 @@ class Ligature(base.Music21Object):
         >>> from music21.alpha import medren
         
         
-        >>> l = medren.Ligature(['A4','C5','B4','A4'])
+        >>> l = medren.Ligature(['A4', 'C5', 'B4', 'A4'])
         >>> l.makeOblique(1)
         >>> l.makeSquare(2)
         >>> l.getNoteheadShape(2)
@@ -1390,11 +1369,11 @@ class Ligature(base.Music21Object):
         if index < self._ligatureLength():
             currentShape = self.noteheadShape[index]
             if currentShape[0] == 'oblique':
-                self.noteheadShape[index] = 'square',
+                self.noteheadShape[index] = ('square',)
                 if currentShape[1] == 'start':
-                    self.noteheadShape[index+1] = 'square',
+                    self.noteheadShape[index + 1] = ('square',)
                 else:
-                    self.noteheadShape[index-1] = 'square',
+                    self.noteheadShape[index - 1] = ('square',)
             else:
                 pass #Already square
         else:
@@ -1424,7 +1403,7 @@ class Ligature(base.Music21Object):
         
         >>> from music21.alpha import medren
         
-        >>> l = medren.Ligature(['A4','C5','B4'])
+        >>> l = medren.Ligature(['A4', 'C5', 'B4'])
         >>> l.setStem(0, 'up', 'left')
         >>> l.setMaxima(2, True)
         >>> l.isMaxima(2)
@@ -1473,7 +1452,7 @@ class Ligature(base.Music21Object):
         
         Index determines which note in the ligature the stem will be placed on.
         Direction determines which way the stem faces. Permitted directions 
-        are 'up','down', and 'none'.
+        are 'up', 'down', and 'none'.
         Orientation determines on which side of the note the stem sits. 
         Permitted orientations are 'left', 'right', and 'none'. 
         Setting the direction and orientation of a stem to 'none' removes the stem from the note.
@@ -1490,8 +1469,8 @@ class Ligature(base.Music21Object):
         
         >>> from music21.alpha import medren
         
-        >>> l = medren.Ligature(['A4','C5','B4','A4','B4'])
-        >>> l.setStem(0, 'none','left')
+        >>> l = medren.Ligature(['A4', 'C5', 'B4', 'A4', 'B4'])
+        >>> l.setStem(0, 'none', 'left')
         Traceback (most recent call last):
         MedRenException: direction "None" and orientation "left" not supported for ligatures
         >>> l.setStem(1,'up', 'left')
@@ -1504,7 +1483,7 @@ class Ligature(base.Music21Object):
         >>> l.setStem(4, 'up', 'left')
         Traceback (most recent call last):
         MedRenException: cannot place stem at index 4
-        >>> l.setStem(3, 'up','left')
+        >>> l.setStem(3, 'up', 'left')
         Traceback (most recent call last):
         MedRenException: a stem with direction "up" not permitted at index 3
         '''
@@ -1592,7 +1571,7 @@ class Ligature(base.Music21Object):
         
         >>> from music21.alpha import medren
         
-        >>> l = medren.Ligature(['A4','C5','F5','F#5'])
+        >>> l = medren.Ligature(['A4', 'C5', 'F5', 'F#5'])
         >>> l.setStem(1, 'down', 'left')
         >>> l.setStem(2, 'down', 'left')
         >>> l.setStem(3, 'down', 'left')
@@ -1624,7 +1603,7 @@ class Ligature(base.Music21Object):
                         tempPitchPrev._setAccidental(None)
                         if ((not self.isReversed(endIndex-1)) 
                                 and (self.getStem(endIndex-1)[0] != 'up') 
-                                and (self.getStem(endIndex) == ('down','left')) 
+                                and (self.getStem(endIndex) == ('down', 'left')) 
                                 and (tempPitchCurrent > tempPitchPrev)):
                             self.reversedNotes[endIndex] = True
                         else:                           
@@ -1762,13 +1741,13 @@ def breakMensuralStreamIntoBrevisLengths(inpStream, inpMOrD=None, printUpdates=F
 
     >>> from music21.alpha import trecento
     >>> p = stream.Part()
-    >>> m.append(medren.MensuralNote('G','B'))
+    >>> m.append(medren.MensuralNote('G', 'B'))
     >>> p.append(trecento.notation.Divisione('.q.'))
-    >>> p.repeatAppend(medren.MensuralNote('A','SB'),2)
+    >>> p.repeatAppend(medren.MensuralNote('A', 'SB'),2)
     >>> p.append(trecento.notation.Punctus())
-    >>> p.repeatAppend(medren.MensuralNote('B','M'),4)
+    >>> p.repeatAppend(medren.MensuralNote('B', 'M'),4)
     >>> p.append(trecento.notation.Punctus())
-    >>> p.append(medren.MensuralNote('C','B'))
+    >>> p.append(medren.MensuralNote('C', 'B'))
     >>> s.append(trecento.notation.Divisione('.p.'))
     >>> s.append(p)
     >>> s.append(m)
@@ -1979,34 +1958,34 @@ def transferTies(score, inPlace=True):
     for el in score.recurse():
         if not isinstance(el, note.Note):
             continue
-        if el.tie is not None:
-            if el.tie.type == 'start':
-                tieBeneficiary = el
-            elif el.tie.type == 'continue':
-                tiedNotes.append(el)
-            elif el.tie.type == 'stop':
-                tiedNotes.append(el)
-                tiedQL = tieBeneficiary.duration.quarterLength
-                for tiedEl in tiedNotes:
-                    tiedQL += tiedEl.duration.quarterLength
-                tempDuration = duration.Duration(tiedQL)
-                if (tempDuration.type != 'complex' and 
-                    len(tempDuration.tuplets) == 0):
-                    # successfully can combine these notes into one unit
-                    ratioDecimal = tiedQL/float(tieBeneficiary.duration.quarterLength)
-                    (tupAct, tupNorm) = common.decimalToTuplet(ratioDecimal)
-                    if (tupAct != 0): # error...
-                        tempTuplet = duration.Tuplet(tupAct, tupNorm, 
-                                                     copy.deepcopy(tempDuration.components[0]))
-                        tempTuplet.tupletActualShow = "none"
-                        tempTuplet.bracket = False
-                        tieBeneficiary.duration = tempDuration
-                        tieBeneficiary.duration.tuplets = (tempTuplet,)
-                        tieBeneficiary.tie = None #.style = 'hidden'
-                        for tiedEl in tiedNotes:
-                            tiedEl.tie = None #.style = 'hidden'
-                            tiedEl.hideObjectOnPrint = True
-                tiedNotes = []
+        if el.tie is None:
+            continue
+        if el.tie.type == 'start':
+            tieBeneficiary = el
+        elif el.tie.type == 'continue':
+            tiedNotes.append(el)
+        elif el.tie.type == 'stop':
+            tiedNotes.append(el)
+            tiedQL = tieBeneficiary.duration.quarterLength
+            for tiedEl in tiedNotes:
+                tiedQL += tiedEl.duration.quarterLength
+            tempDuration = duration.Duration(tiedQL)
+            if (tempDuration.type != 'complex' and not tempDuration.tuplets):
+                # successfully can combine these notes into one unit
+                ratioDecimal = tiedQL / float(tieBeneficiary.duration.quarterLength)
+                (tupAct, tupNorm) = common.decimalToTuplet(ratioDecimal)
+                if (tupAct != 0): # error...
+                    tempTuplet = duration.Tuplet(tupAct, tupNorm, 
+                                                 copy.deepcopy(tempDuration.components[0]))
+                    tempTuplet.tupletActualShow = "none"
+                    tempTuplet.bracket = False
+                    tieBeneficiary.duration = tempDuration
+                    tieBeneficiary.duration.tuplets = (tempTuplet,)
+                    tieBeneficiary.tie = None #.style = 'hidden'
+                    for tiedEl in tiedNotes:
+                        tiedEl.tie = None #.style = 'hidden'
+                        tiedEl.hideObjectOnPrint = True
+            tiedNotes = []
 
     return score
 

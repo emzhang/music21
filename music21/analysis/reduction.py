@@ -18,7 +18,7 @@ Used by graph.PlotHorizontalBarWeighted()
 '''
 from __future__ import division, print_function, absolute_import
 
-
+import re
 import unittest
 import copy
 
@@ -368,7 +368,7 @@ class ScoreReduction(object):
                     #environLocal.printDebug([
                     #  '_createReduction(): found reductive note, rn', rn, 'group', gName])
                     gMeasure = gMeasures[rn.measureIndex]
-                    if len(gMeasure.voices) == 0: # common setup routines
+                    if not gMeasure.voices: # common setup routines
                         # if no voices, start by removing rests
                         gMeasure.removeByClass('Rest')
                         for vId in self._reductiveVoices:
@@ -435,7 +435,7 @@ class PartReductionException(exceptions21.Music21Exception):
 #-------------------------------------------------------------------------------
 class PartReduction(object):
     '''
-    A part reduction reduces a Score into on or more parts. 
+    A part reduction reduces a Score into one or more parts. 
     Parts are combined based on a part group dictionary. 
     Each resulting part is then segmented by an object. 
     This object is assigned as floating-point value.
@@ -520,11 +520,14 @@ class PartReduction(object):
                     # if matches is None, use group name
                     if matches is None:
                         matches = [name]
+                    pId = str(p.id).lower()
                     for m in matches: # strings or instruments
                         if (isinstance(m, six.string_types)
-                                and str(p.id).lower().find(m.lower()) >= 0):
+                                and pId.find(m.lower()) >= 0):
                             sub.append(p)
                             break
+                        elif re.match(m.lower(), pId):
+                            sub.append(p)
                         # TODO: match if m is Instrument class
                 if sub == []:
                     continue
@@ -635,8 +638,8 @@ class PartReduction(object):
                         else:
                             eEnd = eLast.getOffsetBySite(eSrc) + eLast.quarterLength
                         # create a temporary weight
-                        ds = {'eStart':eStart, 'span':eEnd-eStart, 
-                              'weight':None, 'color':pColor}
+                        ds = {'eStart': eStart, 'span': eEnd - eStart, 
+                              'weight': None, 'color': pColor}
                         dataEvents.append(ds)
                         eStart = None
                     elif i >= len(noteSrc) - 1: # this is the last
@@ -645,8 +648,8 @@ class PartReduction(object):
                             eStart = e.getOffsetBySite(eSrc)
                         eEnd = e.getOffsetBySite(eSrc) + e.quarterLength
                         # create a temporary weight
-                        ds = {'eStart':eStart, 'span':eEnd-eStart, 
-                              'weight':None, 'color':pColor}
+                        ds = {'eStart': eStart, 'span': eEnd-eStart, 
+                              'weight': None, 'color': pColor}
                         dataEvents.append(ds)
                         eStart = None
                     else:
@@ -692,10 +695,13 @@ class PartReduction(object):
                     # for each event span, find the targeted object
                     offsetStart = ds['eStart']
                     offsetEnd = offsetStart + ds['span']
-                    match = flatRef.getElementsByOffset(offsetStart, offsetEnd,
-                        includeEndBoundary=False, mustFinishInSpan=False, 
-                        mustBeginInSpan=True).getElementsByClass(target).stream()
-                    if len(match) == 0:
+                    match = flatRef.getElementsByOffset(
+                                offsetStart, 
+                                offsetEnd,
+                                includeEndBoundary=False, 
+                                mustFinishInSpan=False, 
+                                mustBeginInSpan=True).getElementsByClass(target).stream()
+                    if not match:
                         w = None
                     else:
                         w = targetToWeight(match)
@@ -719,7 +725,7 @@ class PartReduction(object):
                     match.extendDuration(target, inPlace=True)
                     #match.show('t')
                     dsFirst = copy.deepcopy(ds)
-                    if len(match) == 0:
+                    if not match:
                         # weight is not known
                         finalBundle.append(dsFirst)
                         continue
@@ -814,7 +820,10 @@ class PartReduction(object):
                     partMax = ds['weight']
             partMaxRef[partBundle['pGroupId']] = partMax
 
-        maxOfMax = max([e for e in partMaxRef.values()])        
+        try:
+            maxOfMax = max([e for e in partMaxRef.values()])        
+        except ValueError: # empty part?
+            maxOfMax = 0
 
         for partBundle in self._partBundles:
             for ds in self._eventSpans[partBundle['pGroupId']]:

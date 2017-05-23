@@ -41,7 +41,7 @@ class IntervalSearcher(object):
             else:
                 for colorNote in range(i, i + self.intervalLength):
                     ## does not exactly work because of rests, oh well
-                    cmpStream.notesAndRests[colorNote].editorial.color = "blue"
+                    cmpStream.notesAndRests[colorNote].style.color = "blue"
                 return True
         return False
 
@@ -67,7 +67,7 @@ class NoteSearcher(object):
                     break
             else:  ## success!
                 for colorNote in range(i, self.noteLength):
-                    sN[colorNote].editorial.color = "blue"
+                    sN[colorNote].style.color = "blue"
                 return True
         return False
 
@@ -107,7 +107,7 @@ def colorFound(searcher1, thisCadence, streamOpus, thisWork, i):
     if searcher1.compareToStream(thisCadence.parts[i].flat) is True:
         notesStr = ""
         for thisNote in thisCadence.parts[i].flat.notesAndRests:
-            #thisNote.editorial.color = "blue"
+            #thisNote.style.color = "blue"
             if thisNote.isRest is False:
                 notesStr += thisNote.nameWithOctave + " "
             else:
@@ -177,9 +177,9 @@ def searchForVat1969():
     for thisWork in ballataObj:
         cadB1 = thisWork.cadenceB1Class()
         cadB2 = thisWork.cadenceB2Class()
-        if (cadB2 is None or len(cadB2.parts) == 0): 
+        if (cadB2 is None or not cadB2.parts): 
             continue
-        if (cadB1 is None or len(cadB1.parts) == 0): 
+        if (cadB1 is None or not cadB1.parts): 
             continue
         
     for i in range(0, len(cadB2.parts)): 

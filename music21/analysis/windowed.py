@@ -29,6 +29,9 @@ from music21 import common
 from music21 import meter
 from music21 import stream 
 
+from music21.analysis.discrete import DiscreteAnalysisException
+
+
 from music21.ext import six
 if six.PY2:
     # pylint: disable=redefined-builtin
@@ -60,18 +63,18 @@ class WindowedAnalysis(object):
             raise WindowedAnalysisException('non-stream provided as argument')
         self._srcStream = streamObj
         # store a windowed Stream, partitioned into bars of 1/4
-        self._windowedStream = self._getMinimumWindowStream() 
+        self._windowedStream = self.getMinimumWindowStream() 
 
-    def _getMinimumWindowStream(self, timeSignature='1/4'):
-        ''' Take the loaded stream and restructure it into measures of 1 quarter note duration.
-
+    def getMinimumWindowStream(self, timeSignature='1/4'):
+        '''
+        Take the loaded stream and restructure it into measures of 1 quarter note duration.
         
         >>> s = corpus.parse('bach/bwv324')
         >>> p = analysis.discrete.Ambitus()
         >>> # placing one part into analysis
         >>> wa = analysis.windowed.WindowedAnalysis(s.parts[0], p)
 
-        >>> post = wa._getMinimumWindowStream()
+        >>> post = wa.getMinimumWindowStream()
         >>> len(post.getElementsByClass('Measure'))
         42
         >>> post.getElementsByClass('Measure')[0]
@@ -97,7 +100,7 @@ class WindowedAnalysis(object):
         return measured
 
 
-    def _analyze(self, windowSize, windowType='overlap'):
+    def analyze(self, windowSize, windowType='overlap'):
         '''
         Calls, for a given window size, an analysis method across all windows in the source Stream. 
 
@@ -117,11 +120,11 @@ class WindowedAnalysis(object):
         >>> wa = analysis.windowed.WindowedAnalysis(s, p)
         >>> len(wa._windowedStream)
         36
-        >>> a, b = wa._analyze(1)
+        >>> a, b = wa.analyze(1)
         >>> len(a), len(b)
         (36, 36)
 
-        >>> a, b = wa._analyze(4)
+        >>> a, b = wa.analyze(4)
         >>> len(a), len(b)
         (33, 33)
 
@@ -146,10 +149,16 @@ class WindowedAnalysis(object):
         if windowType == 'overlap':
             for i in windowCountIndices:
                 current = stream.Stream()
-                for j in range(i, i+windowSize):
+                for j in range(i, i + windowSize):
                     #environLocal.printDebug(['self._windowedStream[j]', self._windowedStream[j]])
                     current.append(self._windowedStream[j])
-                data[i], color[i] = self.processor.process(current)
+
+                try:
+                    data[i], color[i] = self.processor.process(current)
+                except DiscreteAnalysisException:
+                    # current might have no notes...all rests?
+                    data[i], color[i] = (None, None, 0), '#ffffff' 
+                    
 
         elif windowType == 'noOverlap':
             start = 0
@@ -162,7 +171,12 @@ class WindowedAnalysis(object):
                 current = stream.Stream()
                 for j in range(start, end):
                     current.append(self._windowedStream[j])
-                data[i], color[i] = self.processor.process(current)
+
+                try:
+                    data[i], color[i] = self.processor.process(current)
+                except DiscreteAnalysisException:
+                    # current might have no notes...all rests?
+                    data[i], color[i] = (None, None, 0), '#ffffff' 
 
                 start = end
                 end = start + windowSize
@@ -190,7 +204,11 @@ class WindowedAnalysis(object):
                     if i in participants:
                         for m in dataStream:
                             current.append(m)
-                data[i], color[i] = self.processor.process(current)
+                try:
+                    data[i], color[i] = self.processor.process(current)
+                except DiscreteAnalysisException:
+                    # current might have no notes...all rests?
+                    data[i], color[i] = (None, None, 0), '#ffffff' 
 
         return data, color
 
@@ -198,9 +216,10 @@ class WindowedAnalysis(object):
     def process(self, minWindow=1, maxWindow=1, windowStepSize=1, 
                 windowType='overlap', includeTotalWindow=True):
 
-        ''' Main method for windowed analysis across one or more window size.
+        '''
+        Main method for windowed analysis across one or more window sizes.
 
-        Calls :meth:`~music21.analysis.WindowedAnalysis._analyze` for 
+        Calls :meth:`~music21.analysis.WindowedAnalysis.analyze` for 
         the number of different window sizes to be analyzed.
 
         The `minWindow` and `maxWindow` set the range of window sizes in quarter lengths. 
@@ -285,7 +304,7 @@ class WindowedAnalysis(object):
         for i in windowSizes:
             #environLocal.printDebug(['processing window:', i])
             # each of these results are lists, where len is based on 
-            soln, colorn = self._analyze(i, windowType=windowType) 
+            soln, colorn = self.analyze(i, windowType=windowType) 
             # store lists of results in a list of lists
             solutionMatrix.append(soln)
             colorMatrix.append(colorn)
@@ -407,9 +426,9 @@ class Test(unittest.TestCase):
         unused_wa = WindowedAnalysis(s, p)
 
 
-        plot = graph.PlotWindowedKrumhanslSchmuckler(s, doneAction=None,
+        plot = graph.plot.WindowedKey(s, doneAction=None,
             windowStep=4, windowType='overlap')
-        plot.process()
+        plot.run()
         #plot.write()
 
 #-------------------------------------------------------------------------------

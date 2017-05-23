@@ -109,7 +109,7 @@ class Scale(base.Music21Object):
         or single Pitch), 
         extract all unique Pitches using comparisonAttribute to test for them.
         
-        >>> pStrList = ['A4','D4','E4','F-4','D4','D5', 'A', 'D#4']
+        >>> pStrList = ['A4', 'D4', 'E4', 'F-4', 'D4', 'D5', 'A', 'D#4']
         >>> pList = [pitch.Pitch(p) for p in pStrList]
         >>> nList = [note.Note(p) for p in pStrList]
         >>> s = stream.Stream()
@@ -483,7 +483,7 @@ class AbstractScale(Scale):
         Create an abstract pentatonic scale:
 
         
-        >>> pitchList = ["C#4","D#4","F#4","G#4","A#4"]
+        >>> pitchList = ["C#4", "D#4", "F#4", "G#4", "A#4"]
         >>> absc = scale.AbstractScale()
         >>> absc.buildNetworkFromPitches([pitch.Pitch(p) for p in pitchList])
         '''
@@ -1211,7 +1211,7 @@ class ConcreteScale(Scale):
     <music21.pitch.Pitch C4>
     >>> myscale.next("G-2")
     <music21.pitch.Pitch A2>
-    >>> [str(p) for p in myscale.getPitches("E-5","G-7")]
+    >>> [str(p) for p in myscale.getPitches("E-5", "G-7")]
     ['E-5', 'G-5', 'A5', 'C6', 'E-6', 'G-6', 'A6', 'C7', 'E-7', 'G-7']
     
     
@@ -1225,13 +1225,13 @@ class ConcreteScale(Scale):
     >>> complexscale.next("G3", direction=scale.DIRECTION_DESCENDING)
     <music21.pitch.Pitch F3>
 
-    >>> [str(p) for p in complexscale.getPitches("C3","C7")]
+    >>> [str(p) for p in complexscale.getPitches("C3", "C7")]
     ['C#3', 'E-3', 'F3', 'G3', 'B3', 'D~4', 'F#4', 
      'A4', 'C#5', 'E-5', 'F5', 'G5', 'B5', 'D~6', 'F#6', 'A6']
 
     Descending form:
 
-    >>> [str(p) for p in complexscale.getPitches("C7","C5")]
+    >>> [str(p) for p in complexscale.getPitches("C7", "C5")]
     ['A6', 'F#6', 'D~6', 'B5', 'G5', 'F5', 'E-5', 'C#5']    
     '''
     def __init__(self, tonic=None, pitches=None):
@@ -1776,7 +1776,7 @@ class ConcreteScale(Scale):
                     "%s, direction %s, comparisonAttribute='step'" % (pitchTarget, direction))
             pitchesFound = self.pitchesFromScaleDegrees([scaleStepNormal])
             
-            if len(pitchesFound) == 0:
+            if not pitchesFound:
                 return (None, None)
             else:
                 foundPitch = pitchesFound[0]
@@ -2213,7 +2213,7 @@ class ConcreteScale(Scale):
         Create a scale like a Harmonic minor but with flat 2 and sharp 4
         
         >>> e = scale.ConcreteScale(pitches=['A4', 'B-4', 'C5', 'D#5', 'E5', 'F5', 'G#5', 'A5'])
-        >>> f = e.deriveRanked(['C','E','G'])
+        >>> f = e.deriveRanked(['C', 'E', 'G'])
         >>> f
         [(3, <music21.scale.ConcreteScale E Concrete>), 
          (3, <music21.scale.ConcreteScale D- Concrete>), 
@@ -2908,8 +2908,8 @@ class ChromaticScale(ConcreteScale):
     '''
     def __init__(self, tonic=None):
         super(ChromaticScale, self).__init__(tonic=tonic)
-        self._abstract = AbstractCyclicalScale(mode=['m2','m2','m2',
-            'm2','m2','m2', 'm2','m2','m2','m2','m2','m2'])
+        self._abstract = AbstractCyclicalScale(mode=['m2', 'm2', 'm2',
+            'm2', 'm2', 'm2', 'm2', 'm2', 'm2', 'm2', 'm2', 'm2'])
         self._abstract._net.pitchSimplification = 'mostCommon'
         self.type = 'Chromatic'
 
