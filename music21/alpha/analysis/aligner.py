@@ -834,7 +834,7 @@ class StreamAligner(object):
          
         self.changesCount = Counter(elem[2] for elem in self.changes)
         self.similarityScore = float(self.changesCount[ChangeOps.NoChange]) / len(self.changes)
-        
+        print(self.changesCount)
     def showChanges(self, show=False):
         '''
         Visual and debugging feature to display which notes are changed.

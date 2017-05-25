@@ -20,11 +20,12 @@ import unittest
 class OMRMidiFixer(object):
     '''
     Base class for future fixers
+    changes is a list of changes associated with the midiStream and omrStream, not a list of lists
     '''
-    def __init__(self, changes, midiScore, omrScore):
+    def __init__(self, changes, midiStream, omrStream):
         self.changes = changes
-        self.midiScore = midiScore
-        self.omrScore = omrScore
+        self.midiStream = midiStream
+        self.omrStream = omrStream
     
     def checkIfNoteInstance(self, midiRef, omrRef):
         if isinstance(midiRef, note.Note) and isinstance(omrRef, note.Note):
@@ -42,21 +43,24 @@ class OMRMidiFixer(object):
     
 class DeleteFixer(OMRMidiFixer):
     '''
+    CAUTION: this does really weird things still.
     Deletes measure that have wrong things in them a la OpenScore specs
     
     '''
-    def __init__(self, changes, midiScore, omrScore):
-        super().__init__(changes, midiScore, omrScore)
+    def __init__(self, changes, midiStream, omrStream):
+        super().__init__(changes, midiStream, omrStream)
          
     def fix(self):
-        for (midiRef, omrRef, op) in itertools.chain.from_iterable(self.changes):
+        for (midiRef, omrRef, op) in self.changes:
+            if self.checkIfNoteInstance(midiRef, omrRef) == False:
+                continue
             # if the are the same, don't bother to try changing it
             # 3 is the number of noChange Ops
             if isinstance(op, aligner.ChangeOps) and op.changeOpNum == 3:
                 continue
              
             m = omrRef.getContextByClass(stream.Measure)
-            self.omrScore.remove(m, recurse=True)
+            self.omrStream.remove(m)
     
 class EnharmonicFixer(OMRMidiFixer):
     '''
@@ -83,7 +87,7 @@ class EnharmonicFixer(OMRMidiFixer):
      
     >>> ct1 = (midiNote1, omrNote1, subOp)
     >>> ct2 = (midiNote2, omrNote2, subOp)
-    >>> changes1 = [[ct1, ct2]]
+    >>> changes1 = [ct1, ct2]
      
     >>> fixer1 = alpha.analysis.fixer.EnharmonicFixer(changes1, None, None)
     >>> fixer1.fix()
@@ -109,7 +113,7 @@ class EnharmonicFixer(OMRMidiFixer):
      
     >>> ct2_1 = (midi2Note1, omr2Note1, ncOp)
     >>> ct2_2 = (midi2Note2, omr2Note2, ncOp)
-    >>> changes2 = [[ct2_1, ct2_2]]
+    >>> changes2 = [ct2_1, ct2_2]
      
     >>> fixer2 = alpha.analysis.fixer.EnharmonicFixer(changes2, None, None)
     >>> fixer2.fix()
@@ -127,7 +131,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> subOp = alpha.analysis.aligner.ChangeOps.Substitution
      
     >>> ct3 = (midiNote3, omrNote3, subOp)
-    >>> changes3 = [[ct3]]
+    >>> changes3 = [ct3]
     >>> omrNote3.pitch.accidental
     <accidental natural>
     >>> fixer3 = alpha.analysis.fixer.EnharmonicFixer(changes3, None, None)
@@ -143,7 +147,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> subOp = alpha.analysis.aligner.ChangeOps.Substitution
      
     >>> ct4 = (midiNote4, omrNote4, subOp)
-    >>> changes4 = [[ct4]]
+    >>> changes4 = [ct4]
     >>> omrNote4.pitch.accidental
     <accidental natural>
     >>> fixer4 = alpha.analysis.fixer.EnharmonicFixer(changes4, None, None)
@@ -160,7 +164,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> subOp = alpha.analysis.aligner.ChangeOps.Substitution
     
     >>> ct5 = (midiNote5, omrNote5, subOp)
-    >>> changes5 = [[ct5]]
+    >>> changes5 = [ct5]
     >>> omrNote5.pitch.accidental
     <accidental natural>
     >>> fixer5 = alpha.analysis.fixer.EnharmonicFixer(changes5, None, None)
@@ -180,7 +184,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> subOp6_2 = alpha.analysis.aligner.ChangeOps.Substitution
     >>> ct6_1 = (midiNote6_1, omrNote6_1, subOp6_1)
     >>> ct6_2 = (midiNote6_2, omrNote6_2, subOp6_2)
-    >>> changes6 = [[ct6_1, ct6_2]]
+    >>> changes6 = [ct6_1, ct6_2]
     
     >>> omrNote6_1.pitch.accidental
     <accidental natural>
@@ -208,7 +212,7 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> subOp7_2 = alpha.analysis.aligner.ChangeOps.Substitution
     >>> ct7_1 = (midiNote7_1, omrNote7_1, subOp7_1)
     >>> ct7_2 = (midiNote7_2, omrNote7_2, subOp7_2)
-    >>> changes7 = [[ct7_1, ct7_2]]
+    >>> changes7 = [ct7_1, ct7_2]
     
     >>> omrNote7_1.pitch.accidental
     <accidental sharp>
@@ -227,11 +231,11 @@ class EnharmonicFixer(OMRMidiFixer):
     >>> omrNote7_2.pitch.accidental
     <accidental sharp>
     '''
-    def __init__(self, changes, midiScore, omrScore):
-        super().__init__(changes, midiScore, omrScore)
+    def __init__(self, changes, midiStream, omrStream):
+        super().__init__(changes, midiStream, omrStream)
     
     def fix(self):
-        for (midiRef, omrRef, op) in itertools.chain.from_iterable(self.changes):
+        for (midiRef, omrRef, op) in self.changes:
             #if they're not notes, don't bother with rest
             if self.checkIfNoteInstance(midiRef, omrRef) == False:
                 continue
@@ -283,7 +287,11 @@ class EnharmonicFixer(OMRMidiFixer):
                     if omrRef.pitch.accidental == pitch.Accidental('flat'):
                         if omrRef.pitch.transpose(interval.Interval(2)).isEnharmonic(midiRef.pitch):
                             omrRef.pitch.accidental = pitch.Accidental('sharp')
-
+            # case 5: same step, MIDI has accidental, omr was read wrong (e.g. key signture not parsed)
+            # e.g. midi = b-, gt = b-, omr=
+            elif omrRef.pitch != midiRef.pitch and self.hasSharpFlatAcc(midiRef) and self.stepEq(midiRef, omrRef):
+                omrRef.pitch = midiRef.pitch
+                
     def isEnharmonic(self, midiRef, omrRef):
         return midiRef.pitch.isEnharmonic(omrRef.pitch)
     
@@ -365,8 +373,6 @@ class KeyFixer(OMRMidiFixer):
     pass
 
 class Test(unittest.TestCase):
-    pass
-    
     def testDeleteSimpleMelody(self):
         '''
         this test has a discrepancy in measure 2
@@ -393,11 +399,15 @@ class Test(unittest.TestCase):
         s_omr.show('text')
         delete_omc = omrMidiCorrector.OMRMIDICorrector(s_midi, s_omr)
         delete_omc.processRunner()
-        changes = delete_omc.changes
-    
+        changes1 = delete_omc.changes[0]
+        changes2 = delete_omc.changes[0]
         
-        df = DeleteFixer(changes, s_midi, s_omr)
-        df.fix()
+        
+        df1 = DeleteFixer(changes1, s_midi, s_omr)
+        df1.fix()
+        
+        df2 = DeleteFixer(changes2, s_midi, s_omr)
+        df2.fix()
         
         s_omr.show('text')
         

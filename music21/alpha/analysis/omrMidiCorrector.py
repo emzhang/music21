@@ -111,10 +111,15 @@ class OMRMIDICorrector(object):
         Streams have uneven number of parts.
         '''
         if self.discretizeParts == True:
-            self.midiParts = [p.flat for p in self.midiStream.getElementsByClass(stream.Part)]
-            self.omrParts = [p.flat for p in self.omrStream.getElementsByClass(stream.Part)]
+            self.midiPartsUnflattened = [pm for pm in self.midiStream.getElementsByClass(stream.Part)]
+            self.midiParts = [pm1.flat for pm1 in self.midiPartsUnflattened]
+            self.omrPartsUnflattened = [po for po in self.omrStream.getElementsByClass(stream.Part)]
+            self.omrParts = [po1.flat for po1 in self.omrPartsUnflattened]
+
         else:
+            self.midiPartsUnflattened = [self.midiStream]
             self.midiParts = [self.midiStream.flat]
+            self.omrPartsUnflattened = [self.omrStream]
             self.omrParts = [self.omrStream.flat]
             
         numMidiParts = len(self.midiParts)
@@ -127,7 +132,7 @@ class OMRMIDICorrector(object):
             pass
             #TODO: something smarter?
         elif numMidiParts - numOmrParts == 1:
-            if self.checkBassDoublesCello(self.midiStream[-1], self.midiStream[-2]):
+            if self.checkBassDoublesCello(self.midiParts[-1], self.midiParts[-2]):
                 pass
             else:
                 raise OMRMIDICorrectorException("Streams have uneven number of parts.")
@@ -143,6 +148,7 @@ class OMRMIDICorrector(object):
         bassCelloHasher.hashOffset = False
         bassCelloHasher.hashPitch = False
         bassCelloHasher.hashIntervalFromLastNote = True
+        bassCelloHasher.includeReference = True
         bassCelloAligner = aligner.StreamAligner(bassPart, celloPart, bassCelloHasher)
         bassCelloAligner.align()
         if bassCelloAligner.similarityScore > .8:
@@ -190,43 +196,7 @@ class OMRMIDICorrector(object):
         h.includeReference = True
         self.hasher = h
     
-#     def hashOmrMidiStreams(self):
-#         '''
-#         takes MIDI and OMR streams and hashes them with the hasher 
-#         
-#         >>> midiStream = stream.Stream()
-#         >>> omrStream = stream.Stream()
-#         >>> p1 = stream.Part()
-#         >>> p2 = stream.Part()
-#         >>> p3 = stream.Part()
-#         >>> p4 = stream.Part()
-#         >>> note1 = note.Note("C4")
-#         >>> note2 = note.Note("D4")
-#         >>> note3 = note.Note("C4")
-#         >>> note4 = note.Note("E4")
-#         >>> p1.append(note1)
-#         >>> p2.append(note2)
-#         >>> p3.append(note3)
-#         >>> p4.append(note4)
-#         >>> midiStream.append([p1, p2])
-#         >>> omrStream.append([p3, p4])
-#         >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
-#        
-#         >>> omc.preprocessStreams()
-#         >>> omc.setupHasher()
-#         >>> omc.hashOmrMidiStreams()
-#         >>> len(omc.hashedMidiParts)
-#         2
-#         
-#         >>> len(omc.hashedOmrParts)
-#         2
-#         '''
-#         pass
-#         for midiPart in self.midiParts:
-#             self.hashedMidiParts.append(self.hasher.hashStream(midiPart))
-#         
-#         for omrPart in self.omrParts:
-#             self.hashedOmrParts.append(self.hasher.hashStream(omrPart))  
+#
     
     def alignStreams(self):
         '''
@@ -250,6 +220,12 @@ class OMRMIDICorrector(object):
 
 
 class Test(unittest.TestCase):
+    
+    def testk525(self):
+        import os
+        from music21 import omr
+        pass
+        
     def testDiscretization(self):
         from music21 import stream
         
@@ -265,53 +241,69 @@ class Test(unittest.TestCase):
         omc.discretizeParts = True
         omc.preprocessStreams()
     
+    def testSimpleOmrMidik525(self):
+        from music21 import converter
+        from music21.alpha.analysis import testFiles
+        from music21.alpha.analysis import fixer
+        from music21 import metadata
+        k525shortmidifp = testFiles.K525_short_midi_path
+        k525shortomrfp = testFiles.K525_short_omr_path
+      
+        k525midistream = converter.parse(k525shortmidifp)
+        k525omrstream = converter.parse(k525shortomrfp)
+      
+        k525omc = OMRMIDICorrector(k525midistream, k525omrstream)
+        k525omc.debugShow = False
+          
+        k525omc.processRunner()
+        
+        print(k525omc.similarityScores)
+#         k525violaChanges = k525omc.changes[2]
+#         k525violaMidiStream = k525omc.midiPartsUnflattened[2]
+#         k525violaOmrStream = k525omc.omrPartsUnflattened[2]
+#         k525DeleteFixer = fixer.DeleteFixer(k525violaChanges, k525violaMidiStream, k525violaOmrStream)
+#         k525DeleteFixer.fix()
+#         k525violaOmrStream.metadata = metadata.Metadata() 
+#         k525violaOmrStream.metadata.title = "K.525 Viola Part OMR Stream w/ Delete Fixer 2" 
+#         k525violaOmrStream.show()
+        
     def testSimpleOmrMidik160(self):
-            
+             
         from pprint import pprint
         from music21 import converter
         from music21.alpha.analysis import testFiles
-        
+        from music21.alpha.analysis import fixer
+        from music21 import metadata
+         
         K160iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
         K160iOmrFP = testFiles.K160_mvmt_i_omr_path
-        
+         
         midiStream = converter.parse(K160iMidiFP)
         omrStream = converter.parse(K160iOmrFP)
-        
-#         midiStreamParts = [p for p in midiStream.getElementsByClass(stream.Part)]
-#         omrStreamParts = [p for p in omrStream.getElementsByClass(stream.Part)]
-#         midiStream = stream.Score()
-#         omrStream = stream.Score()
-#         midiStream.append(midiStreamParts[0])
-#         omrStream.append(omrStreamParts[0])
-        K160omc = OMRMIDICorrector(midiStream, omrStream)
-        K160omc.debugShow = True
-        K160omc.processRunner()
-        pprint(K160omc.changes)
-        pprint(K160omc.similarityScores)
-        
-#     def testSimpleOmrMidik160V2(self):
-#         from pprint import pprint
-#         from music21 import converter
-#         from music21.alpha.analysis import testFiles
-#         
-#         K160iMidiFP = testFiles.K160_mvmt_i_midi_ms_path
-#         K160iOmrFP = testFiles.K160_mvmt_i_omr_path
-#         
-#         midiStream = converter.parse(K160iMidiFP)
-#         omrStream = converter.parse(K160iOmrFP)
-#         
+         
 #         midiStreamParts = [p for p in midiStream.getElementsByClass(stream.Part)]
 #         omrStreamParts = [p for p in omrStream.getElementsByClass(stream.Part)]
 #         midiStream = stream.Score()
 #         omrStream = stream.Score()
 #         midiStream.append(midiStreamParts[2])
 #         omrStream.append(omrStreamParts[2])
-#         K160omcV2 = OMRMIDICorrector(midiStream, omrStream)
-#         K160omcV2.debugShow = True
-#         K160omcV2.processRunner()
-#         pprint(K160omcV2.changes)
-#         pprint(K160omcV2.similarityScores)
+        K160omc = OMRMIDICorrector(midiStream, omrStream)
+        K160omc.debugShow = False
+        K160omc.processRunner()
         
+        K160omcV1Changes = K160omc.changes[0]
+        K160omcV1MidiStream = K160omc.midiParts[0]
+        K160omcV1OmrStream = K160omc.omrParts[0]
+        K160omcV1OmrStream.metadata = metadata.Metadata() 
+        K160omcV1OmrStream.metadata.title = "K.160 Violin 1 Part OMR Stream NO FIXER " 
+        K160omcV1OmrStream.show()
+        K160EnharmonicFixer = fixer.EnharmonicFixer(K160omcV1Changes, K160omcV1MidiStream, K160omcV1OmrStream)
+        K160EnharmonicFixer.fix()
+        K160omcV1OmrStream.metadata.title = "K.160 Violin 1 Part OMR Stream w/ Enharmonic Fixer " 
+        K160omcV1OmrStream.show()
+# #         pprint(K160omc.similarityScores)
+        
+#   
 
 if __name__ == '__main__':
     import music21
