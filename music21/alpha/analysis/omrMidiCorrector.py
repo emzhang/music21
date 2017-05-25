@@ -111,9 +111,9 @@ class OMRMIDICorrector(object):
         Streams have uneven number of parts.
         '''
         if self.discretizeParts == True:
-            self.midiPartsUnflattened = [pm for pm in self.midiStream.getElementsByClass(stream.Part)]
+            self.midiPartsUnflattened = [pm for pm in self.midiStream.parts]
             self.midiParts = [pm1.flat for pm1 in self.midiPartsUnflattened]
-            self.omrPartsUnflattened = [po for po in self.omrStream.getElementsByClass(stream.Part)]
+            self.omrPartsUnflattened = [po for po in self.omrStream.parts]
             self.omrParts = [po1.flat for po1 in self.omrPartsUnflattened]
 
         else:
@@ -307,4 +307,4 @@ class Test(unittest.TestCase):
 
 if __name__ == '__main__':
     import music21
-    music21.mainTest(Test)
+    music21.mainTest(Test, runTest='testSimpleOmrMidik160')
