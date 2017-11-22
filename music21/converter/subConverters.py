@@ -352,7 +352,10 @@ class ConverterIPython(SubConverter):
                 fp = helperSubConverter.write(s, helperFormat,
                                               subformats=helperSubformats, **keywords)
 <<<<<<< HEAD
+<<<<<<< HEAD
         
+=======
+>>>>>>> cuthbertLab/master
 =======
 >>>>>>> cuthbertLab/master
 
@@ -371,9 +374,12 @@ class ConverterIPython(SubConverter):
             defaults.author = savedDefaultAuthor
             return None
 <<<<<<< HEAD
+<<<<<<< HEAD
     
         elif helperFormat == 'midi':
             import base64
+=======
+>>>>>>> cuthbertLab/master
 =======
 >>>>>>> cuthbertLab/master
 
@@ -846,6 +852,7 @@ class ConverterMusicXML(SubConverter):
         fileLikeOpen.close()
         sys.stderr = storedStrErr
 <<<<<<< HEAD
+<<<<<<< HEAD
         
         # check whether total number of pngs is in 1-9, 10-99, or 100-999 range, then return appropriate fp
         if os.path.exists(fpOut[0:len(fpOut) - 4] + "-1.png"):
@@ -861,6 +868,8 @@ class ConverterMusicXML(SubConverter):
     
     def writeDataStream(self, fp, dataBytes):
 =======
+=======
+>>>>>>> cuthbertLab/master
 
         if subformatExtension == 'png':
             return self.findPNGfpFromXMLfp(fpOut)
@@ -869,6 +878,9 @@ class ConverterMusicXML(SubConverter):
         #common.cropImageFromPath(fp)
 
     def writeDataStream(self, fp, dataBytes): # pragma: no cover
+<<<<<<< HEAD
+>>>>>>> cuthbertLab/master
+=======
 >>>>>>> cuthbertLab/master
         if fp is None:
             fp = self.getTemporaryFile()
@@ -1387,11 +1399,14 @@ class TestExternal(unittest.TestCase): # pragma: no cover
 #     def testMultiPageXMlShow2(self):
 #         '''
 <<<<<<< HEAD
+<<<<<<< HEAD
 #         tests whether show() works for music that is 100-999 pages long. Currently takes way too long to run.
             
 #         '''
 #         from music21 import corpus, stream, note
 =======
+=======
+>>>>>>> cuthbertLab/master
 #          tests whether show() works for music that is 100-999 pages long.
 #          Currently takes way too long to run.
 #          '''
