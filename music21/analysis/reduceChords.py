@@ -12,8 +12,6 @@
 '''
 Automatically reduce a MeasureStack to a single chord or group of chords.
 '''
-from __future__ import division, print_function, absolute_import
-
 import collections
 import itertools
 import unittest
@@ -58,7 +56,7 @@ def testMeasureStream1():
 class ChordReducerException(exceptions21.Music21Exception):
     pass
 
-class ChordReducer(object):
+class ChordReducer:
     r'''
     A chord reducer.
     '''
@@ -82,7 +80,7 @@ class ChordReducer(object):
 
         if allowableChords is not None:
             if not all(isinstance(x, chord.Chord) for x in allowableChords):
-                raise ChordReducerException("All allowableChords must be Chords")                
+                raise ChordReducerException("All allowableChords must be Chords")
             intervalClassSets = []
             for x in allowableChords:
                 intervalClassSet = self._getIntervalClassSet(x.pitches)
@@ -91,15 +89,15 @@ class ChordReducer(object):
 
         if forbiddenChords is not None:
             if not all(isinstance(x, chord.Chord) for x in forbiddenChords):
-                raise ChordReducerException("All forbiddenChords must be Chords")                
+                raise ChordReducerException("All forbiddenChords must be Chords")
             intervalClassSets = []
             for x in allowableChords:
                 intervalClassSet = self._getIntervalClassSet(x.pitches)
                 intervalClassSets.append(intervalClassSet)
             forbiddenChords = frozenset(intervalClassSets)
 
-        scoreTree = tree.fromStream.asTimespans(inputScore, 
-                                              flatten=True, 
+        scoreTree = tree.fromStream.asTimespans(inputScore,
+                                              flatten=True,
                                               classList=(note.Note, chord.Chord))
 
         self.removeZeroDurationTimespans(scoreTree)
@@ -129,7 +127,7 @@ class ChordReducer(object):
             templateStream=inputScore,
             )
         chordifiedPart = stream.Part()
-        for measure in chordifiedReduction:
+        for measure in chordifiedReduction.getElementsByClass('Measure'):
             reducedMeasure = self.reduceMeasureToNChords(
                 measure,
                 maximumNumberOfChords=maximumNumberOfChords,
@@ -199,7 +197,7 @@ class ChordReducer(object):
             verticalityOne, verticalityTwo = verticalities
             pitchSetOne = verticalityOne.pitchSet
             pitchSetTwo = verticalityTwo.pitchSet
-            if (not verticalityOne.isConsonant 
+            if (not verticalityOne.isConsonant
                 or not verticalityTwo.isConsonant):
                 continue
             if verticalityOne.measureNumber != verticalityTwo.measureNumber:
@@ -328,7 +326,7 @@ class ChordReducer(object):
         def procedure(timespan):
             verticality = scoreTree.getVerticalityAt(timespan.offset)
             return verticality.bassTimespan
-        
+
         for unused_part, subtree in partwiseTrees.items():
             timespanList = [x for x in subtree]
             for bassTimespan, group in itertools.groupby(timespanList, procedure):
@@ -344,9 +342,9 @@ class ChordReducer(object):
                                                                                     group[0])
                     if previousTimespan is not None:
                         if previousTimespan.endTime > group[0].offset:
-                            msg = ('Timespan offset errors: previousTimespan.endTime, ' + 
+                            msg = ('Timespan offset errors: previousTimespan.endTime, ' +
                                     str(previousTimespan.endTime) + ' should be before ' +
-                                    str(group[0].offset) + 
+                                    str(group[0].offset) +
                                     ' previousTimespan: ' + repr(previousTimespan) +
                                     ' groups: ' + repr(group) + ' group[0]: ' + repr(group[0])
                                     )
@@ -358,7 +356,7 @@ class ChordReducer(object):
                     subtree.removeTimespan(group[0])
                     newTimespan = group[0].new(offset=offset)
                     newTimespan.beatStrength = beatStrength
-                        
+
                     scoreTree.insert(newTimespan)
                     subtree.insert(newTimespan)
                     group[0] = newTimespan
@@ -376,7 +374,7 @@ class ChordReducer(object):
 
                 for i in range(len(group) - 1):
                     timespanOne, timespanTwo = group[i], group[i + 1]
-                    if (timespanOne.pitches == timespanTwo.pitches 
+                    if (timespanOne.pitches == timespanTwo.pitches
                             or timespanOne.endTime != timespanTwo.offset):
                         newTimespan = timespanOne.new(endTime=timespanTwo.endTime)
                         group[i] = newTimespan
@@ -398,7 +396,7 @@ class ChordReducer(object):
                 group = list(group)
                 for i in range(len(group) - 1):
                     timespanOne, timespanTwo = group[i], group[i + 1]
-                    if (timespanOne.pitches == timespanTwo.pitches 
+                    if (timespanOne.pitches == timespanTwo.pitches
                             or timespanOne.endTime != timespanTwo.offset):
                         newTimespan = timespanOne.new(endTime=timespanTwo.endTime)
                         group[i] = newTimespan
@@ -409,7 +407,7 @@ class ChordReducer(object):
                 if group[0].offset != group[0].parentOffset:
                     newTimespan = group[0].new(offset=group[0].parentOffset)
                     newTimespan.beatStrength = 1.0
-                        
+
                     toRemove.add(group[0])
                     toInsert.add(newTimespan)
                     group[0] = newTimespan
@@ -433,7 +431,7 @@ class ChordReducer(object):
             measureNumber = timespan.measureNumber
             pitches = timespan.pitches
             return measureNumber, pitches
-        
+
         mapping = scoreTree.toPartwiseTimespanTrees()
         subtree = mapping[part]
         timespanList = [x for x in subtree]
@@ -701,7 +699,7 @@ class Test(unittest.TestCase):
             s.append(c)
 
 
-class TestExternal(unittest.TestCase):
+class TestExternal(unittest.TestCase): # pragma: no cover
 
     def runTest(self):
         pass

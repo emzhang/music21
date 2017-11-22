@@ -1,16 +1,11 @@
 # -*- coding: utf-8 -*-
-
-from music21.test.dedent import dedent
-
 __all__ = [
     'coverageM21',
     'commonTest',
-    'dedent',
-    'testDocumentation', 
-    'testExternal', 
-    'testPerformance', 
+    'testExternal',
+    'testPerformance',
     'testRunner',
-    'timeGraphs', 
+    'timeGraphs',
     'testStream',
     ]
 

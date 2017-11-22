@@ -9,9 +9,7 @@
 # Copyright:    Copyright © 2014-15 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
-
 import sys
-from music21.ext import six
 
 omit_modules = [
                 'music21/ext/*',
@@ -34,8 +32,9 @@ exclude_lines = [
                 r'class TestExternal.*',
                 ]
 
-def getCoverage():
-    if six.PY2: # PY3 and sys.version_info.minor == 6:
+def getCoverage(overrideVersion=False):
+    if overrideVersion or sys.version_info.minor == 5: 
+        # run on Py 3.5 -- to get Py 3.4 and 3.6 timing...
         try:
             import coverage
             cov = coverage.coverage(omit=omit_modules)
@@ -45,8 +44,7 @@ def getCoverage():
         except ImportError:
             cov = None
     else:
-        cov = None # coverage is extremely slow on Python 3.4 for some reason
-            # in any case we only need to run it once.
+        cov = None
     return cov
 
 def stopCoverage(cov):

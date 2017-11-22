@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''
-The music21 Framework is Copyright © 2006-2016 Michael Scott Cuthbert 
+The music21 Framework is Copyright © 2006-2016 Michael Scott Cuthbert
 and the music21 Project
 
 (Michael Scott Cuthbert, principal investigator; cuthbert@mit.edu)
@@ -17,23 +17,23 @@ of copyright and ownership remain publicly accessible.  You may also
 modify this software or use it in your own programs so long as you do
 so long as you make your product available
 under the same license.  You may also link to this code as a library
-from your sold, proprietary commercial product so long as this code 
-remains open and accessible, this license is made accessible, 
+from your sold, proprietary commercial product so long as this code
+remains open and accessible, this license is made accessible,
 and the developers are credited.
 
 The development of music21 was supported by grants
-from the Seaver Institute and the NEH/Digging into Data Challenge, 
+from the Seaver Institute and the NEH/Digging into Data Challenge,
 with the support of the MIT
 Music and Theater Arts section and the School of Humanities, Arts,
 and Social Sciences.  Portions of music21 were originally part of
 the PMusic (Perl) library, developed by Cuthbert prior to arriving at MIT.
 
-music21 outputs a subset of XML data defined by the  MusicXML 2.0 
+music21 outputs a subset of XML data defined by the  MusicXML 2.0
 standard, Copyright © Recordare LLC;  License available at
 http://www.recordare.com/dtds/license.html, transfered to MakeMusic
 now transferred to W3C
 
-music21 incorporates Microsoft Excel reading via the included 
+music21 incorporates Microsoft Excel reading via the included
 xlrd library:
    Portions copyright (c) 2005-2006, Stephen John Machin, Lingfo Pty Ltd
    All rights reserved.
@@ -43,55 +43,83 @@ Files in the ext/ folder are not copyright music21 Project but whose distributio
 is compatible with music21.  The corpus files have copyrights retained by their
 owners who have allowed them to be included with music21.
 '''
+import sys
+
+minPythonVersion = (3, 4)
+minPythonVersionStr = '.'.join([str(x) for x in minPythonVersion])
+if sys.version_info < minPythonVersion:
+    raise ImportError('''
+    Music21 v.5 is a Python {}+ only library.
+    Use music21 v.4 to run on Python 2.7.
+
+    If you got this library by installing there are several options.
+
+    - 1. (Best) Upgrade to Python 3, latest.
+
+         The great features there will more
+         than make up for the headache of downloading
+         a new version from https://www.python.org/
+
+         You may already have Python 3 on your system.
+         Try running "python3" instead of "python"
+
+    - 2. Upgrade pip and setuptools to the latest version
+         and then "upgrade" music21 to version 4.
+
+         $ pip install --upgrade pip setuptools
+         $ pip install 'music21<5.0'
+    '''.format(minPythonVersionStr))
+del sys
+del minPythonVersion
+del minPythonVersionStr
+
 # this defines what  is loaded when importing __all__
 # put these in alphabetical order FIRST dirs then modules
-# but: base must come first; in some cases other modules depend on 
+# but: base must come first; in some cases other modules depend on
 # definitions in base
 
 
 __all__ = [
     'base', # top...
-    'sites', # important 
+    'sites', # important
 
     # sub folders
-    'abcFormat', 
+    'abcFormat',
     'alpha',
-    'analysis', 
+    'analysis',
     'audioSearch',
-    'braille', 
+    'braille',
     'capella',
     'chord',
     'common',
     'converter',
-    'corpus', 
-    'demos',
-    'documentation',
+    'corpus',
     'features',
-    'figuredBass', 
+    'figuredBass',
     'humdrum',
     'ipython21',
     'languageExcerpts',
-    'lily', 
+    'lily',
     'mei',
     'metadata',
     'midi',
     'musedata',
-    'musicxml', 
+    'musicxml',
     'noteworthy',
     'omr',
-    'romanText', 
+    'romanText',
     'scale',
     'search',
     'test',
     'tree',
     'vexflow',
-    # individual modules 
+    # individual modules
     # KEEP ALPHABETICAL unless necessary for load reasons, if so
     # put a note.  Keep one letter per line.
-    'articulations', 
+    'articulations',
     'bar',
     # base listed above
-    'beam', 
+    'beam',
     'clef',
     'configure',
     'defaults',
@@ -101,17 +129,17 @@ __all__ = [
     'editorial',
     'environment',
     'exceptions21',
-    'expressions', 
+    'expressions',
     'freezeThaw',
-    'graph', 
-    'harmony', 
+    'graph',
+    'harmony',
     'instrument',
     'interval',
-    'key', 
+    'key',
     'layout',
-    'meter', 
-    'note', 
-    'pitch', 
+    'meter',
+    'note',
+    'pitch',
     'repeat',
     'roman',
     'serial',
@@ -119,16 +147,16 @@ __all__ = [
     'sorting',
     'spanner',
     'stream',
-    'style', 
+    'style',
     'tempo',
-    'text', 
+    'text',
     'tie',
-    'tinyNotation', 
+    'tinyNotation',
     'variant',
     'voiceLeading',
+    'volpiano',
     'volume',
     ]
-
 
 #-------------------------------------------------------------------------------
 # for sub packages, need to manually add the modules in these subpackages
@@ -156,9 +184,8 @@ __version__ = VERSION_STR
 from music21.test.testRunner import mainTest
 
 #------------------------------------------------------------------------------
-# this bring all of our own __all__ names into the music21 package namespace
+# this brings all of our own __all__ names into the music21 package namespace
 from music21 import * # @UnresolvedImport # pylint: disable=wildcard-import
 
 #------------------------------------------------------------------------------
 # eof
-

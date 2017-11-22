@@ -7,23 +7,22 @@
 #               Michael Scott Cuthbert
 #               Josiah Oberholtzer
 #
-# Copyright:    Copyright © 2010, 2012-14 Michael Scott Cuthbert and the music21
+# Copyright:    Copyright © 2010, 2012-14, '17 Michael Scott Cuthbert and the music21
 #               Project
 # License:      LGPL or BSD, see license.txt
 #------------------------------------------------------------------------------
 
-
+import gzip
 import os
+import pathlib
+import pickle
 import time
 import unittest
+
 from collections import OrderedDict
+
 from music21 import common
 from music21 import exceptions21
-from music21 import freezeThaw
-from music21.ext import six
-
-if six.PY3:
-    unicode = str # @ReservedAssignment
 
 
 #------------------------------------------------------------------------------
@@ -39,7 +38,7 @@ class MetadataBundleException(exceptions21.Music21Exception):
 #------------------------------------------------------------------------------
 
 
-class MetadataEntry(object):
+class MetadataEntry:
     '''
     An entry in a metadata bundle.
 
@@ -57,11 +56,11 @@ class MetadataEntry(object):
     score file is found:
 
     >>> metadataEntry.sourcePath
-    'bach/bwv66.6.mxl'
+    PosixPath('bach/bwv66.6.mxl')
 
-    The metadata payload contains its metadata object:
+    The metadata property contains its :class:`~music21.metadata.RichMetadata` object:
 
-    >>> metadataEntry.metadataPayload
+    >>> metadataEntry.metadata
     <music21.metadata.RichMetadata object at 0x...>
 
     And the metadata entry can be parsed:
@@ -73,20 +72,22 @@ class MetadataEntry(object):
     ### INITIALIZER ###
 
     def __init__(self,
-        sourcePath=None,
-        number=None,
-        metadataPayload=None,
-        ):
+                 sourcePath=None,
+                 number=None,
+                 metadataPayload=None,
+                 corpusName=None,
+                 ):
         self._sourcePath = sourcePath
         self._number = number
         self._metadataPayload = metadataPayload
+        self._corpusName = corpusName
 
     ### SPECIAL METHODS ###
 
     def __getnewargs__(self):
         return (
             self.sourcePath,
-            self.metadataPayload,
+            self.metadata,
             self.number,
             )
 
@@ -96,6 +97,18 @@ class MetadataEntry(object):
             self.__class__.__name__,
             self.corpusPath,
             )
+
+    def __fspath__(self):
+        '''
+        for Py3.6 to allow MetadataEntries to be used where filepaths are being employed
+
+        Returns self.sourcePath() as a string
+
+        >>> mde1 = metadata.bundles.MetadataEntry(sourcePath='/tmp/myFile.xml')
+        >>> mde1.__fspath__()
+        '/tmp/myFile.xml'
+        '''
+        return str(self.sourcePath)
 
     ### PUBLIC METHODS ###
 
@@ -109,9 +122,10 @@ class MetadataEntry(object):
     def show(self, showFormat=None):
         score = self.parse()
         score.show(showFormat)
-        
-    def search(self, query, field=None):
-        return self.metadataPayload.search(query, field)
+
+    def search(self, query=None, field=None, **kwargs):
+        # runs search on the RichMetadata object
+        return self.metadata.search(query, field, **kwargs)
 
     ### PUBLIC PROPERTIES ###
 
@@ -120,7 +134,10 @@ class MetadataEntry(object):
         return MetadataBundle.corpusPathToKey(self.sourcePath, self.number)
 
     @property
-    def metadataPayload(self):
+    def metadata(self):
+        '''
+        Returns the Metadata object that is stored in the bundle.
+        '''
         return self._metadataPayload
 
     @property
@@ -131,11 +148,15 @@ class MetadataEntry(object):
     def sourcePath(self):
         return self._sourcePath
 
+    @property
+    def corpusName(self):
+        return self._corpusName
+
 
 #------------------------------------------------------------------------------
 
 
-class MetadataBundle(object):
+class MetadataBundle:
     r'''
     An object that provides access to, searches within, and stores and loads
     multiple Metadata objects.
@@ -143,29 +164,39 @@ class MetadataBundle(object):
     >>> from music21 import corpus, metadata
     >>> coreBundle = corpus.corpora.CoreCorpus().metadataBundle
     >>> coreBundle
-    <music21.metadata.bundles.MetadataBundle 'core': {144... entries}>
+    <music21.metadata.bundles.MetadataBundle 'core': {150... entries}>
 
     >>> searchResults = coreBundle.search('bach', field='composer')
     >>> searchResults
-    <music21.metadata.bundles.MetadataBundle {22 entries}>
+    <music21.metadata.bundles.MetadataBundle {25 entries}>
 
     >>> resultsEntries = searchResults.search('3/4')
     >>> resultsEntries
-    <music21.metadata.bundles.MetadataBundle {5 entries}>
+    <music21.metadata.bundles.MetadataBundle {6 entries}>
 
 
     Results are ordered by their source path:
-    
+
     >>> resultsEntries[0]
-    <music21.metadata.bundles.MetadataEntry: bach_choraleAnalyses_riemenschneider001_rntxt>
+    <music21.metadata.bundles.MetadataEntry: bach_bwv366_krn>
 
     To get a score out of the entry, call .parse()
 
     >>> resultsEntries[0].parse()
     <music21.stream.Score ...>
 
-    A metadata bundle can be instantiated in three ways, (1) from a ``Corpus`` instance, 
-    or (2) a string indicating which corpus cacheName to draw from:
+    Or pass it into converter:
+
+    >>> converter.parse(resultsEntries[0])
+    <music21.stream.Score ...>
+
+
+    A metadata bundle can be instantiated in three ways, (1) from a ``Corpus`` instance,
+    or (2) a string indicating which corpus name to draw from, and then calling
+    .read() or (3) by calling
+    .metadataBundle on a corpus object.  This
+    calls `.read()` automatically:
+
 
     Method 1:
 
@@ -173,35 +204,28 @@ class MetadataBundle(object):
     >>> coreBundle = metadata.bundles.MetadataBundle(coreCorpus)
     >>> localCorpus = corpus.corpora.LocalCorpus()
     >>> localBundle = metadata.bundles.MetadataBundle(localCorpus)
-    >>> virtualCorpus = corpus.corpora.VirtualCorpus()
-    >>> virtualBundle = metadata.bundles.MetadataBundle(virtualCorpus)
 
     Method 2:
 
     >>> coreBundle = metadata.bundles.MetadataBundle('core')
     >>> localBundle = metadata.bundles.MetadataBundle('local')
-    >>> virtualBundle = metadata.bundles.MetadataBundle('virtual')
 
     After calling these you'll need to call ``read()``:
 
     >>> coreBundle
     <music21.metadata.bundles.MetadataBundle 'core': {0 entries}>
     >>> coreBundle.read()
-    <music21.metadata.bundles.MetadataBundle 'core': {144... entries}>
+    <music21.metadata.bundles.MetadataBundle 'core': {150... entries}>
     >>> coreBundle
-    <music21.metadata.bundles.MetadataBundle 'core': {144... entries}>
+    <music21.metadata.bundles.MetadataBundle 'core': {150... entries}>
 
-    The third method is to call `.metadataBundle` on the corpus itself. This
-    calls `.read()` automatically:
-    
     Method 3:
 
     >>> coreBundle = corpus.corpora.CoreCorpus().metadataBundle
     >>> localBundle = corpus.corpora.LocalCorpus().metadataBundle
-    >>> virtualBundle = corpus.corpora.VirtualCorpus().metadataBundle
 
     >>> coreBundle
-    <music21.metadata.bundles.MetadataBundle 'core': {144... entries}>
+    <music21.metadata.bundles.MetadataBundle 'core': {150... entries}>
 
 
 
@@ -214,26 +238,27 @@ class MetadataBundle(object):
     ...     field='composer',
     ...     )
     >>> bachBundle
-    <music21.metadata.bundles.MetadataBundle {22 entries}>
+    <music21.metadata.bundles.MetadataBundle {25 entries}>
     >>> tripleMeterBundle = coreBundle.search('3/4')
     >>> tripleMeterBundle
-    <music21.metadata.bundles.MetadataBundle {1870 entries}>
+    <music21.metadata.bundles.MetadataBundle {1876 entries}>
     >>> bachBundle.intersection(tripleMeterBundle)
-    <music21.metadata.bundles.MetadataBundle {5 entries}>
+    <music21.metadata.bundles.MetadataBundle {6 entries}>
 
     Finally, a metadata bundle need not be associated with any corpus at all,
     and can be populated ad hoc:
 
     >>> anonymousBundle = metadata.bundles.MetadataBundle()
-    >>> paths = corpus.corpora.CoreCorpus().getMonteverdiMadrigals()[:4]
+    >>> mdb = corpus.corpora.CoreCorpus().search('monteverdi')[:4]
+    >>> paths = [common.getCorpusFilePath() / x.sourcePath for x in mdb]
     >>> failedPaths = anonymousBundle.addFromPaths(
     ...     paths, useMultiprocessing=False)
     >>> failedPaths
     []
     >>> anonymousBundle
-    <music21.metadata.bundles.MetadataBundle {4 entries}>        
+    <music21.metadata.bundles.MetadataBundle {4 entries}>
     '''
-    
+
     ### INITIALIZER ###
 
     def __init__(self, expr=None):
@@ -241,10 +266,15 @@ class MetadataBundle(object):
         self._metadataEntries = OrderedDict()
         if not isinstance(expr, (str, corpus.corpora.Corpus, type(None))):
             raise MetadataBundleException("Need to take a string, corpus, or None as expression")
+
+        self._corpus = None
+
         if isinstance(expr, corpus.corpora.Corpus):
             self._name = expr.name
+            self.corpus = expr
         else:
             self._name = expr
+            self.corpus = None
 
     ### SPECIAL METHODS ###
 
@@ -259,12 +289,12 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
         >>> tripleMeterBundle = coreBundle.search('3/4')
         >>> tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1870 entries}>
+        <music21.metadata.bundles.MetadataBundle {1876 entries}>
         >>> bachBundle & tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {5 entries}>
+        <music21.metadata.bundles.MetadataBundle {6 entries}>
 
         Returns a new metadata bundle.
         '''
@@ -477,7 +507,7 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
         >>> corelliBundle = coreBundle.search(
         ...     'corelli',
         ...     field='composer',
@@ -485,7 +515,7 @@ class MetadataBundle(object):
         >>> corelliBundle
         <music21.metadata.bundles.MetadataBundle {1 entry}>
         >>> bachBundle | corelliBundle
-        <music21.metadata.bundles.MetadataBundle {23 entries}>
+        <music21.metadata.bundles.MetadataBundle {26 entries}>
 
         Returns a new metadata bundle.
         '''
@@ -518,12 +548,12 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
         >>> tripleMeterBundle = coreBundle.search('3/4')
         >>> tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1870 entries}>
+        <music21.metadata.bundles.MetadataBundle {1876 entries}>
         >>> bachBundle - tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {17 entries}>
+        <music21.metadata.bundles.MetadataBundle {19 entries}>
 
         Returns a new metadata bundle.
 
@@ -546,13 +576,13 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
 
         >>> tripleMeterBundle = coreBundle.search('3/4')
         >>> tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1870 entries}>
+        <music21.metadata.bundles.MetadataBundle {1876 entries}>
         >>> bachBundle ^ tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1882 entries}>
+        <music21.metadata.bundles.MetadataBundle {1889 entries}>
 
         Returns a new metadata bundle.
         '''
@@ -576,9 +606,9 @@ class MetadataBundle(object):
             else:
                 metadataEntry = metadataBundle._metadataEntries[key]
             resultBundle._metadataEntries[key] = metadataEntry
-            
+
         mdbItems = list(resultBundle._metadataEntries.items())
-        resultBundle._metadataEntries = OrderedDict(sorted(mdbItems, 
+        resultBundle._metadataEntries = OrderedDict(sorted(mdbItems,
                                                            key=lambda mde: mde[1].sourcePath))
         return resultBundle
 
@@ -591,6 +621,8 @@ class MetadataBundle(object):
 
     ### PUBLIC PROPERTIES ###
 
+    ### PUBLIC PROPERTIES ###
+
     @property
     def corpus(self):
         r'''
@@ -600,56 +632,83 @@ class MetadataBundle(object):
         >>> from music21 import metadata
         >>> coreBundle = corpus.corpora.CoreCorpus().metadataBundle
         >>> coreBundle
-        <music21.metadata.bundles.MetadataBundle 'core': {144... entries}>
+        <music21.metadata.bundles.MetadataBundle 'core': {150... entries}>
         >>> coreBundle.corpus
         <music21.corpus.corpora.CoreCorpus>
         '''
-        from music21.corpus import manager
+        if self._corpus is not None:
+            cObj = common.unwrapWeakref(self._corpus)
+            if cObj is not None:
+                return cObj
+
         if self.name is None:
             return None
+
+        from music21.corpus import manager
         return manager.fromName(self.name)
+
+    @corpus.setter
+    def corpus(self, newCorpus):
+        self._corpus = common.wrapWeakref(newCorpus)
+
 
     @property
     def filePath(self):
         r'''
         The filesystem name of the cached metadata bundle, if the metadata
         bundle's name is not None.
+
+        >>> ccPath = corpus.corpora.CoreCorpus().metadataBundle.filePath
+        >>> ccPath.name
+        'core.p.gz'
+        >>> '_metadataCache' in ccPath.parts
+        True
+
+        >>> localPath = corpus.corpora.LocalCorpus().metadataBundle.filePath
+        >>> localPath.name
+        'local.p.gz'
+
+        Local corpora metadata is stored in the scratch dir, not the
+        corpus directory
+
+        >>> '_metadataCache' in localPath.parts
+        False
+
+        >>> funkCorpus = corpus.corpora.LocalCorpus('funk')
+        >>> funkPath = funkCorpus.metadataBundle.filePath
+        >>> funkPath.name
+        'local-funk.p.gz'
         '''
-        if self.name is None:
+        c = self.corpus
+        if c is None:
             return None
-        if self.name in ('virtual', 'core'):
-            filePath = os.path.join(
-                common.getMetadataCacheFilePath(),
-                self.name + '.json',
-                )
-        elif self.name == 'local':
-            # write in temporary dir
-            filePath = os.path.join(
-                environLocal.getRootTempDir(),
-                self.name + '.json',
-                )
         else:
-            filePath = os.path.join(
-                environLocal.getRootTempDir(),
-                'local-{0}.json'.format(self.name),
-                )
-        return filePath
+            cfp = c.cacheFilePath
+            if not isinstance(cfp, pathlib.Path):
+                return pathlib.Path(cfp)
+            else:
+                return cfp
 
     @property
     def name(self):
         r'''
         The name of the metadata bundle.
 
-        Can be 'core', 'local', 'virtual' or None.
+        Can be 'core', 'local', '{name}' where name is the name
+        of a named local corpus or None.
 
-        The names 'core', 'local' and 'virtual refer to the core, local and
-        virtual corpuses respectively:
+        The names 'core' and 'local' refer to the core and local
+        corpuses respectively: (virtual corpus is currently offline)
 
         >>> from music21 import metadata
         >>> metadata.bundles.MetadataBundle().name is None
         True
-        >>> corpus.corpora.CoreCorpus().metadataBundle.name == 'core'
-        True
+        >>> corpus.corpora.CoreCorpus().metadataBundle.name
+        'core'
+
+        >>> funkCorpus = corpus.corpora.LocalCorpus('funk')
+        >>> funkCorpus.metadataBundle.name
+        'funk'
 
         Return string or None.
         '''
@@ -660,7 +719,7 @@ class MetadataBundle(object):
     def addFromPaths(
         self,
         paths,
-        useCorpus=False,
+        parseUsingCorpus=False,
         useMultiprocessing=True,
         storeOnDisk=True,
         verbose=False
@@ -679,7 +738,7 @@ class MetadataBundle(object):
         >>> p = corpus.corpora.CoreCorpus().getWorkList('bach/bwv66.6')
         >>> metadataBundle.addFromPaths(
         ...     p,
-        ...     useCorpus=False,
+        ...     parseUsingCorpus=False,
         ...     useMultiprocessing=False,
         ...     storeOnDisk=False, #_DOCS_HIDE
         ...     )
@@ -693,8 +752,8 @@ class MetadataBundle(object):
         jobs = []
         accumulatedResults = []
         accumulatedErrors = []
-        if self.filePath is not None and os.path.exists(self.filePath):
-            metadataBundleModificationTime = os.path.getctime(self.filePath)
+        if self.filePath is not None and self.filePath.exists():
+            metadataBundleModificationTime = self.filePath.stat().st_ctime
         else:
             metadataBundleModificationTime = time.time()
 
@@ -709,19 +768,25 @@ class MetadataBundle(object):
         currentJobNumber = 0
         skippedJobsCount = 0
         for path in paths:
-            if not path.startswith('http'):
-                path = os.path.abspath(path)
             key = self.corpusPathToKey(path)
-            if key in self._metadataEntries and not key.startswith('http'):
-                pathModificationTime = os.path.getctime(path)
+            if key in self._metadataEntries:
+                pathModificationTime = path.stat().st_ctime
                 if pathModificationTime < metadataBundleModificationTime:
                     skippedJobsCount += 1
                     continue
             currentJobNumber += 1
+            corpusName = self.name
+            if corpusName is None:
+                corpusName = 'core' # TODO: remove this after rebuilding
+
+            if corpusName.startswith('local-'):
+                corpusName = corpusName[6:]
+
             job = metadata.caching.MetadataCachingJob(
                 path,
                 jobNumber=currentJobNumber,
-                useCorpus=useCorpus,
+                parseUsingCorpus=parseUsingCorpus,
+                corpusName=corpusName,
                 )
             jobs.append(job)
         currentIteration = 0
@@ -732,7 +797,7 @@ class MetadataBundle(object):
         else:
             environLocal.printDebug(message)
 
-        
+
         if useMultiprocessing:
             jobProcessor = metadata.caching.JobProcessor.process_parallel
         else:
@@ -748,8 +813,8 @@ class MetadataBundle(object):
                 environLocal.warn(message)
             else:
                 environLocal.printDebug(message)
-            
-            
+
+
             currentIteration += 1
             accumulatedResults.extend(result['metadataEntries'])
             accumulatedErrors.extend(result['errors'])
@@ -773,7 +838,7 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
 
         >>> bachBundle.clear()
         >>> bachBundle
@@ -786,7 +851,7 @@ class MetadataBundle(object):
     @staticmethod
     def corpusPathToKey(filePath, number=None):
         r'''
-        Given a file path or corpus path, return the meta-data path:
+        Given a file path or corpus path, return the metadata key:
 
         >>> from music21 import metadata
         >>> mb = metadata.bundles.MetadataBundle()
@@ -798,15 +863,29 @@ class MetadataBundle(object):
         >>> key.endswith('corelli_opus3no1_1grave_xml')
         True
         '''
-        if 'corpus' in filePath or 'music21' in filePath:
-            # get filePath after corpus
-            corpusPath = filePath.split('corpus')[-1]
+        if isinstance(filePath, pathlib.Path):
+            try:
+                filePath = filePath.relative_to(common.getSourceFilePath() / 'corpus')
+            except ValueError:
+                pass
+
+            parts = filePath.parts
+            if parts[0] == '/' and len(parts) > 1:
+                parts = parts[1:]
+
+            corpusPath = '_'.join(parts)
         else:
-            corpusPath = filePath
-        if corpusPath.startswith(os.sep):
-            corpusPath = corpusPath[1:]
-        corpusPath = corpusPath.replace('/', '_')
-        corpusPath = corpusPath.replace(os.sep, '_')
+            if 'corpus' in filePath:
+                # get filePath after corpus
+                corpusPath = filePath.split('corpus')[-1]
+            else:
+                corpusPath = filePath
+
+            if corpusPath.startswith(os.sep):
+                corpusPath = corpusPath[1:]
+            corpusPath = corpusPath.replace('/', '_')
+            corpusPath = corpusPath.replace(os.sep, '_')
+
         corpusPath = corpusPath.replace('.', '_')
         # append name to metadata path
         if number is not None:
@@ -822,8 +901,8 @@ class MetadataBundle(object):
         Return none.
         '''
         if self.filePath is not None:
-            if os.path.exists(self.filePath):
-                os.remove(self.filePath)
+            if self.filePath.exists():
+                self.filePath.unlink()
         return self
 
     def difference(self, metadataBundle):
@@ -838,14 +917,14 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
 
         >>> tripleMeterBundle = coreBundle.search('3/4')
         >>> tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1870 entries}>
+        <music21.metadata.bundles.MetadataBundle {1876 entries}>
 
         >>> bachBundle.difference(tripleMeterBundle)
-        <music21.metadata.bundles.MetadataBundle {17 entries}>
+        <music21.metadata.bundles.MetadataBundle {19 entries}>
 
         Returns a new metadata bundle.
         '''
@@ -866,14 +945,14 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
 
         >>> tripleMeterBundle = coreBundle.search('3/4')
         >>> tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1870 entries}>
+        <music21.metadata.bundles.MetadataBundle {1876 entries}>
 
         >>> bachBundle.intersection(tripleMeterBundle)
-        <music21.metadata.bundles.MetadataBundle {5 entries}>
+        <music21.metadata.bundles.MetadataBundle {6 entries}>
 
         Returns a new MetadataBundle.
         '''
@@ -895,7 +974,7 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
 
         >>> corelliBundle = coreBundle.search(
         ...     'corelli',
@@ -909,7 +988,7 @@ class MetadataBundle(object):
 
         >>> tripleMeterBundle = coreBundle.search('3/4')
         >>> tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1870 entries}>
+        <music21.metadata.bundles.MetadataBundle {1876 entries}>
 
         >>> bachBundle.isdisjoint(tripleMeterBundle)
         False
@@ -931,11 +1010,11 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
 
         >>> tripleMeterBachBundle = bachBundle.search('3/4')
         >>> tripleMeterBachBundle
-        <music21.metadata.bundles.MetadataBundle {5 entries}>
+        <music21.metadata.bundles.MetadataBundle {6 entries}>
 
         >>> tripleMeterBachBundle.issubset(bachBundle)
         True
@@ -960,11 +1039,11 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
 
         >>> tripleMeterBachBundle = bachBundle.search('3/4')
         >>> tripleMeterBachBundle
-        <music21.metadata.bundles.MetadataBundle {5 entries}>
+        <music21.metadata.bundles.MetadataBundle {6 entries}>
 
         >>> tripleMeterBachBundle.issuperset(bachBundle)
         False
@@ -984,11 +1063,18 @@ class MetadataBundle(object):
         >>> for field in metadata.bundles.MetadataBundle.listSearchFields():
         ...     field
         ...
+        'actNumber'
         'alternativeTitle'
         'ambitus'
+        'associatedWork'
+        'collectionDesignation'
+        'commission'
         'composer'
         'copyright'
+        'countryOfComposition'
         'date'
+        'dedication'
+        'groupTitle'
         'keySignatureFirst'
         'keySignatures'
         'localeOfComposition'
@@ -996,16 +1082,23 @@ class MetadataBundle(object):
         'movementNumber'
         'noteCount'
         'number'
+        'numberOfParts'
         'opusNumber'
+        'parentTitle'
         'pitchHighest'
         'pitchLowest'
+        'popularTitle'
         'quarterLength'
+        'sceneNumber'
         'sourcePath'
         'tempoFirst'
         'tempos'
+        'textLanguage'
+        'textOriginalLanguage'
         'timeSignatureFirst'
         'timeSignatures'
         'title'
+        'volume'
         '''
         from music21 import metadata
         return tuple(sorted(metadata.RichMetadata.searchAttributes))
@@ -1013,21 +1106,21 @@ class MetadataBundle(object):
     def read(self, filePath=None):
         r'''
         Load cached metadata from the file path suggested by the name of this
-        MetadataBundle ('core', 'local', or 'virtual').
+        MetadataBundle ('core', 'local', or a name).
 
         If a specific filepath is given with the `filePath` keyword, attempt to
         load cached metadata from the file at that location.
 
         If `filePath` is None, and `self.filePath` is also None, do nothing.
 
-        >>> virtualBundle = metadata.bundles.MetadataBundle('virtual').read()
+        >>> #_DOCS_SHOW coreBundle = metadata.bundles.MetadataBundle('core').read()
 
         If a metadata is unnamed, and no file path is specified, an exception
         will be thrown:
 
         >>> anonymousBundle = metadata.bundles.MetadataBundle().read()
         Traceback (most recent call last):
-        music21.exceptions21.MetadataException: Unnamed MetadataBundles have 
+        music21.exceptions21.MetadataException: Unnamed MetadataBundles have
             no default file path to read from.
 
         '''
@@ -1039,13 +1132,29 @@ class MetadataBundle(object):
             raise exceptions21.MetadataException(
                 'Unnamed MetadataBundles have no default file path to read '
                 'from.')
-        if not os.path.exists(filePath):
+        if not isinstance(filePath, pathlib.Path):
+            filePath = pathlib.Path(filePath)
+
+        if not filePath.exists():
             environLocal.printDebug('no metadata found for: {0!r}; '
                 'try building cache with corpus.cacheMetadata({1!r})'.format(
                     self.name, self.name))
             return self
-        jst = freezeThaw.JSONThawer(self)
-        jst.jsonRead(filePath)
+
+
+        with gzip.open(str(filePath), 'rb') as pickledFile:
+            try:
+                uncompressed = pickledFile.read()
+                newMdb = pickle.loads(uncompressed)
+            except Exception as e: # pylint: disable=broad-except
+                # pickle exceptions cannot be caught directly
+                # because they might come from pickle or _pickle and the latter cannot
+                # be caught.
+                raise MetadataBundleException('Cannot load file ' + str(filePath)) from e
+
+
+        self._metadataEntries = newMdb._metadataEntries
+
         environLocal.printDebug([
             'MetadataBundle: loading time:',
             self.name,
@@ -1055,43 +1164,16 @@ class MetadataBundle(object):
             ])
         return self
 
-    def rebuild(self, useMultiprocessing=True, verbose=True):
-        r'''
-        Rebuild a named bundle from scratch.
-
-        If a bundle is associated with one of music21's corpuses, delete any
-        metadata cache on disk, clear the bundle's contents and reload in all
-        files from that associated corpus.
-
-        Return the rebuilt metadata bundle.
-        '''
-        from music21 import corpus
-        if self.filePath is None:
-            return self
-        self.clear()
-        self.delete()
-        useCorpus = False
-        if isinstance(self.corpus, corpus.corpora.CoreCorpus):
-            useCorpus = True
-        self.addFromPaths(
-            self.corpus.getPaths(),
-            useCorpus=useCorpus,
-            useMultiprocessing=useMultiprocessing,
-            verbose=verbose
-            )
-        return self
-
-    def search(self, query, field=None, fileExtensions=None):
+    def search(self, query=None, field=None, fileExtensions=None, **kwargs):
         r'''
         Perform search, on all stored metadata, permit regular expression
         matching.
 
-        >>> from music21 import corpus, metadata
         >>> workList = corpus.corpora.CoreCorpus().getWorkList('ciconia')
         >>> metadataBundle = metadata.bundles.MetadataBundle()
         >>> failedPaths = metadataBundle.addFromPaths(
         ...     workList,
-        ...     useCorpus=False,
+        ...     parseUsingCorpus=False,
         ...     useMultiprocessing=False,
         ...     storeOnDisk=False, #_DOCS_HIDE
         ...     )
@@ -1123,22 +1205,42 @@ class MetadataBundle(object):
         ...     )
         >>> len(searchResult)
         1
+
+        Searches can also use keyword args:
+
+        >>> metadataBundle.search(composer='cicon')
+        <music21.metadata.bundles.MetadataBundle {1 entry}>
         '''
+        if fileExtensions is not None and not common.isIterable(fileExtensions):
+            fileExtensions = [fileExtensions]
+
         newMetadataBundle = MetadataBundle()
+        if query is None and field is None:
+            if not kwargs:
+                raise MetadataBundleException("Query cannot be empty")
+            field, query = kwargs.popitem()
+
         for key in self._metadataEntries:
             metadataEntry = self._metadataEntries[key]
             # ignore stub entries
-            if metadataEntry.metadataPayload is None:
+            if metadataEntry.metadata is None:
                 continue
+            sp = metadataEntry.sourcePath
+            if not isinstance(sp, pathlib.Path):
+                sp = pathlib.Path(sp)
+
             if metadataEntry.search(query, field)[0]:
                 include = False
                 if fileExtensions is not None:
                     for fileExtension in fileExtensions:
-                        if metadataEntry.sourcePath.endswith(fileExtension):
+                        if fileExtension and fileExtension[0] != '.':
+                            fileExtension = '.' + fileExtension
+
+                        if sp.suffix == fileExtension:
                             include = True
                             break
                         elif (fileExtension.endswith('xml')
-                                and metadataEntry.sourcePath.endswith(('mxl', 'mx'))):
+                                and sp.suffix in ('.mxl', '.mx')):
                             include = True
                             break
                 else:
@@ -1146,8 +1248,11 @@ class MetadataBundle(object):
                 if include and key not in newMetadataBundle._metadataEntries:
                     newMetadataBundle._metadataEntries[key] = metadataEntry
         newMetadataBundle._metadataEntries = OrderedDict(
-                                sorted(list(newMetadataBundle._metadataEntries.items()), 
+                                sorted(list(newMetadataBundle._metadataEntries.items()),
                                                         key=lambda mde: mde[1].sourcePath))
+
+        if kwargs:
+            return newMetadataBundle.search(**kwargs)
 
         return newMetadataBundle
 
@@ -1162,12 +1267,12 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
         >>> tripleMeterBundle = coreBundle.search('3/4')
         >>> tripleMeterBundle
-        <music21.metadata.bundles.MetadataBundle {1870 entries}>
+        <music21.metadata.bundles.MetadataBundle {1876 entries}>
         >>> bachBundle.symmetric_difference(tripleMeterBundle)
-        <music21.metadata.bundles.MetadataBundle {1882 entries}>
+        <music21.metadata.bundles.MetadataBundle {1889 entries}>
 
         Returns a new MetadataBundle.
         '''
@@ -1186,16 +1291,16 @@ class MetadataBundle(object):
         ...     field='composer',
         ...     )
         >>> bachBundle
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
         >>> beethovenBundle = coreBundle.search(
         ...     'beethoven',
         ...     field='composer',
         ...     )
         >>> beethovenBundle
-        <music21.metadata.bundles.MetadataBundle {16 entries}>
+        <music21.metadata.bundles.MetadataBundle {20 entries}>
 
         >>> bachBundle.union(beethovenBundle)
-        <music21.metadata.bundles.MetadataBundle {38 entries}>
+        <music21.metadata.bundles.MetadataBundle {45 entries}>
 
         Returns a new MetadataBundle.
         '''
@@ -1211,11 +1316,6 @@ class MetadataBundle(object):
         If the entry represents a non-virtual corpus asset, test that its
         source path is locatable on disk.  If not, remove the metadata entry
         from the metadata bundle.
-        
-        Currently (Dec 2014) there is one entry in the metadata bundle that
-        has been removed, so calling validate (called from addFromPaths) results in
-        14083 instead of 14084 entries
-        
         '''
         timer = common.Timer()
         timer.start()
@@ -1228,16 +1328,19 @@ class MetadataBundle(object):
             sourcePath = metadataEntry.sourcePath
             if sourcePath in validatedPaths:
                 continue
-            if sourcePath.startswith('http:'):
+
+            if isinstance(sourcePath, str) and sourcePath.startswith('http:'):
                 validatedPaths.add(metadataEntry.sourcePath)
                 continue
-            if not os.path.isabs(sourcePath):
-                sourcePath = os.path.abspath(os.path.join(
-                    common.getCorpusFilePath(),
-                    sourcePath,
-                    ))
-            if not os.path.exists(sourcePath):
+            elif isinstance(sourcePath, str):
+                sourcePath = pathlib.Path(sourcePath)
+
+            if not sourcePath.is_absolute():
+                sourcePath = common.getCorpusFilePath() / sourcePath
+
+            if not sourcePath.exists():
                 invalidatedKeys.append(key)
+
             validatedPaths.add(metadataEntry.sourcePath)
         for key in invalidatedKeys:
             del(self._metadataEntries[key])
@@ -1248,7 +1351,7 @@ class MetadataBundle(object):
 
     def write(self, filePath=None):
         r'''
-        Write the metadata bundle to disk as a JSON file.
+        Write the metadata bundle to disk as a pickle file.
 
         If `filePath` is None, use `self.filePath`.
 
@@ -1266,15 +1369,22 @@ class MetadataBundle(object):
         >>> import tempfile
         >>> tempFilePath = tempfile.mkstemp()[1]
         >>> bachBundle.write(filePath=tempFilePath)
-        <music21.metadata.bundles.MetadataBundle {22 entries}>
+        <music21.metadata.bundles.MetadataBundle {25 entries}>
         >>> os.remove(tempFilePath)
         '''
         filePath = filePath or self.filePath
         if self.filePath is not None:
             filePath = self.filePath
             environLocal.printDebug(['MetadataBundle: writing:', filePath])
-            jsf = freezeThaw.JSONFreezer(self)
-            return jsf.jsonWrite(filePath)
+            storedCorpusClient = self._corpus # no weakrefs allowed...
+            self._corpus = None
+            uncompressed = pickle.dumps(self, protocol=3)
+            # 3 is a safe protocol for some time to come.
+
+            with gzip.open(str(filePath), 'wb') as outFp:
+                outFp.write(uncompressed)
+            self._corpus = storedCorpusClient
+
         return self
 
 
@@ -1286,6 +1396,45 @@ class Test(unittest.TestCase):
     def runTest(self):
         pass
 
+    def testOneFromCorpus(self):
+        from music21.corpus.corpora import CoreCorpus
+        cc = CoreCorpus()
+        coreBundle = cc.metadataBundle
+        metadataEntry = coreBundle.search('bwv66.6')[0]
+        self.assertEqual(repr(metadataEntry),
+                         '<music21.metadata.bundles.MetadataEntry: bach_bwv66_6_mxl>')
+
+    def testFileExtensions(self):
+        from music21.corpus.corpora import CoreCorpus
+        cc = CoreCorpus()
+        workList = cc.getWorkList('ciconia')
+        mdb = MetadataBundle()
+        failedPaths = mdb.addFromPaths(
+            workList,
+            parseUsingCorpus=False,
+            useMultiprocessing=False,
+            storeOnDisk=False,
+        )
+        self.assertFalse(failedPaths)
+        searchResult = mdb.search(
+            'cicon',
+            field='composer'
+        )
+        self.assertEqual(len(searchResult), 1)
+        self.assertEqual(repr(searchResult[0]),
+                         '<music21.metadata.bundles.MetadataEntry: ciconia_quod_jactatur_xml>')
+        searchResult = mdb.search(
+            'cicon',
+            field='composer',
+            fileExtensions=('.krn',),
+        )
+        self.assertEqual(len(searchResult), 0)
+        searchResult = mdb.search(
+            'cicon',
+            field='composer',
+            fileExtensions=('.xml'),
+        )
+        self.assertEqual(len(searchResult), 1)
 
 #------------------------------------------------------------------------------
 
@@ -1301,7 +1450,7 @@ __all__ = [
 
 if __name__ == "__main__":
     import music21
-    music21.mainTest(Test)
+    music21.mainTest(Test) #, runTest='testFileExtensions')
 
 
 #------------------------------------------------------------------------------

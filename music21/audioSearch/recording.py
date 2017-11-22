@@ -12,19 +12,13 @@
 '''
 modules for audio searching that directly record from the microphone.
 
-
 Requires PyAudio and portaudio to be installed (http://www.portaudio.com/download.html)
-
 
 To download pyaudio for windows 64-bit go to http://www.lfd.uci.edu/~gohlke/pythonlibs/
 
-
 users of 64-bit windows but 32-bit python should download the win32 port
 
-
 users of 64-bit windows and 64-bit python should download the amd64 port
- 
-
 '''
 import os
 import unittest
@@ -32,10 +26,9 @@ import wave
 
 
 from music21 import exceptions21
-from music21.ext import six
 
 from music21 import environment
-_MOD = "audiosearch.recording.py"
+_MOD = "audioSearch.recording"
 environLocal = environment.Environment(_MOD)
 
 
@@ -51,31 +44,31 @@ default_recordChunkLength = 1024
 
 def samplesFromRecording(seconds=10.0, storeFile=True,
                 recordFormat=None,
-                recordChannels=default_recordChannels,     
-                recordSampleRate=default_recordSampleRate, 
-                recordChunkLength=default_recordChunkLength):
+                recordChannels=default_recordChannels,
+                recordSampleRate=default_recordSampleRate,
+                recordChunkLength=default_recordChunkLength):  # pragma: no cover
     '''
     records `seconds` length of sound in the given format (default Wave)
     and optionally stores it to disk using the filename of `storeFile`
-    
-    
+
+
     Returns a list of samples.
     '''
-    
+
     try:
         import pyaudio #@UnresolvedImport
         recordFormatDefault = pyaudio.paInt16
     except (ImportError, SystemExit):
         pyaudio = None
         environLocal.warn("No Pyaudio found. Recording will probably not work.")
-        recordFormatDefault = 8 # pyaudio.paInt16    
+        recordFormatDefault = 8 # pyaudio.paInt16
 
     if recordFormat is None:
         recordFormat = recordFormatDefault
 
     if recordFormat == pyaudio.paInt8:
         raise RecordingException("cannot perform freq_from_autocorr on 8-bit samples")
-    
+
     p_audio = pyaudio.PyAudio()
     st = p_audio.open(format=recordFormat,
                     channels=recordChannels,
@@ -84,7 +77,7 @@ def samplesFromRecording(seconds=10.0, storeFile=True,
                     frames_per_buffer=recordChunkLength)
 
     recordingLength = int(recordSampleRate * float(seconds) / recordChunkLength)
-    
+
     storedWaveSampleList = []
 
     #time_start = time.time()
@@ -93,16 +86,17 @@ def samplesFromRecording(seconds=10.0, storeFile=True,
         storedWaveSampleList.append(data)
     #print 'Time elapsed: %.3f s\n' % (time.time() - time_start)
     st.close()
-    p_audio.terminate()    
+    p_audio.terminate()
 
-    if storeFile != False: 
-        if isinstance(storeFile, six.string_types):
+    if storeFile != False:
+        if isinstance(storeFile, str):
             waveFilename = storeFile
         else:
-            waveFilename = environLocal.getRootTempDir() + os.path.sep + 'recordingTemp.wav'
+            waveFilename = str(environLocal.getRootTempDir() / 'recordingTemp.wav')
         ### write recording to disk
         data = b''.join(storedWaveSampleList)
         try:
+            # wave.open does not take a pathlike object as of 3.6
             wf = wave.open(waveFilename, 'wb')
             wf.setnchannels(recordChannels)
             wf.setsampwidth(p_audio.get_sample_size(recordFormat))
@@ -120,15 +114,15 @@ class RecordingException(exceptions21.Music21Exception):
 
 #------------------------------------------
 class Test(unittest.TestCase):
-    
+
     def runTest(self):
         pass
 
-class TestExternal(unittest.TestCase):
-    
+class TestExternal(unittest.TestCase): # pragma: no cover
+
     def runTest(self):
         pass
-    
+
     def testRecording(self):
         '''
         record one second of data and print 10 records

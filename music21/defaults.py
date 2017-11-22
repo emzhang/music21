@@ -15,14 +15,15 @@ Simple storage for data defaults used throughout music21.
 
 
 import unittest
+from music21 import _version
 
 # note: this module should not import any higher level modules
 
-_MOD = 'defaults.py'
+_MOD = 'defaults'
 
 
 
-# TODO: defaults should check the environment object to see 
+# TODO: defaults should check the environment object to see
 # if there are any preferences set for values used here
 
 
@@ -34,15 +35,16 @@ class DefaultsException(Exception):
 
 title = 'Music21 Fragment'
 author = 'Music21'
-software = 'Music21' # used in xml encoding source software 
+software = 'music21 v.' + _version.__version__ # used in xml encoding source software
+musicxmlVersion = '3.0'
 
 meterNumerator = 4
 meterDenominator = 'quarter'
 meterDenominatorBeatType = 4  # musicxml representation
 
-limitOffsetDenominator = 65535 # > CD track level precision. 
+limitOffsetDenominator = 65535 # > CD track level precision.
 # allows for tuples up to n:x within m:y within l:z within k:w where x,y,z <=100 and w<=44
-# not allowing more can be construed as a feature. 
+# not allowing more can be construed as a feature.
 
 
 pitchStep = 'C'
@@ -81,7 +83,7 @@ be a problem, music21 could be modified to keep track of "rounding errors"
 and make sure that for instance half the notes of an 11:1 are 916 divisions
 long and the other half are 917.  But this has not been done yet.
 '''
-divisionsPerQuarter = 32*3*3*5*7 # 10080
+divisionsPerQuarter = 32 * 3 * 3 * 5 * 7 # 10080
 
 # ticks per quarter is used for midi
 # while a supposedly 16 bit unsigned value
@@ -128,7 +130,7 @@ class Test(unittest.TestCase):
 
 
 #-----------------------------------------------------------------||||||||||||--
-if __name__ == "__main__":
+if __name__ == '__main__':
     import music21
     music21.mainTest(Test)
 

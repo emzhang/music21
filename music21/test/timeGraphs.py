@@ -9,15 +9,15 @@
 # Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
+import time
 
 
 # script to create a graph to time how fast some things are happening...
 # generates pretty graphs showing what the bottlenecks in the system are, for helping to
-# improve them.  Requires pycallgraph (not included with music21).  
+# improve them.  Requires pycallgraph (not included with music21).
 
 import pycallgraph  # @UnusedImport @UnresolvedImport
 import pycallgraph.output  # @UnresolvedImport
-import time
 
 
 #from music21 import *
@@ -34,11 +34,11 @@ import time
 
 
 
-# this class is duplicated from common.py in order to avoid 
+# this class is duplicated from common.py in order to avoid
 # import the module for clean testing
-class Timer(object):
+class Timer:
     """An object for timing."""
-        
+
     def __init__(self):
         # start on init
         self._tStart = time.time()
@@ -50,7 +50,7 @@ class Timer(object):
         self._tStart = time.time()
         self._tStop = None # show that a new run has started so __call__ works
         self._tDif = 0
-    
+
     def stop(self):
         self._tStop = time.time()
         self._tDif = self._tStop - self._tStart
@@ -64,29 +64,29 @@ class Timer(object):
         '''Reports current time or, if stopped, stopped time.
         '''
         # if stopped, gets _tDif; if not stopped, gets current time
-        if self._tStop == None: # if not stoped yet
+        if self._tStop is None: # if not stoped yet
             t = time.time() - self._tStart
         else:
             t = self._tDif
-        return t 
+        return t
 
     def __str__(self):
-        if self._tStop == None: # if not stoped yet
+        if self._tStop is None: # if not stoped yet
             t = time.time() - self._tStart
         else:
             t = self._tDif
-        return str(round(t,3))
+        return str(round(t, 3))
 
 
 
 #-------------------------------------------------------------------------------
-class CallTest(object):
+class CallTest:
     '''Base class for timed tests
     '''
     def __init__(self):
         '''Perform setup routines for tests
         '''
-        pass 
+        pass
 
     def testFocus(self):
         '''Calls to be timed
@@ -94,7 +94,7 @@ class CallTest(object):
         pass # run tests
 
 
-class M21CallTest(object):
+class M21CallTest:
     '''Base class for timed tests that need music21 importerd
     '''
     def __init__(self):
@@ -108,7 +108,7 @@ class M21CallTest(object):
 class TestTimeHumdrum(M21CallTest):
     def testFocus(self):
         music21 = self.m21
-        masterStream = music21.humdrum.parseData(music21.humdrum.humdrumTestFiles.mazurka6).stream #@UnusedVariable @UndefinedVariable
+        unused = music21.humdrum.parseData(music21.humdrum.humdrumTestFiles.mazurka6).stream
 
 class TestTimeMozart(M21CallTest):
     def testFocus(self):
@@ -136,6 +136,7 @@ class TestTimeIsmir(M21CallTest):
 
 class TestMakeMeasures(CallTest):
     def __init__(self):
+        super().__init__()
         import music21.stream
         import music21.note
         self.s = music21.stream.Stream()
@@ -152,6 +153,8 @@ class TestMakeTies(CallTest):
         import music21.stream
         import music21.note
 
+        super().__init__()
+
         self.s = music21.stream.Stream()
         for i in range(100):
             n = music21.note.Note()
@@ -167,6 +170,7 @@ class TestMakeBeams(CallTest):
     def __init__(self):
         import music21.stream
         import music21.note
+        super().__init__()
 
         self.s = music21.stream.Stream()
         for i in range(100):
@@ -184,6 +188,8 @@ class TestMakeAccidentals(CallTest):
         import music21.stream
         import music21.note
 
+        super().__init__()
+
         self.s = music21.stream.Stream()
         for i in range(100):
             n = music21.note.Note()
@@ -200,6 +206,8 @@ class TestMusicXMLOutput(CallTest):
         import music21.stream
         import music21.note
 
+        super().__init__()
+
         self.s = music21.stream.Stream()
         for i in range(100):
             n = music21.note.Note()
@@ -211,10 +219,12 @@ class TestMusicXMLOutput(CallTest):
 
 
 class TestMusicXMLOutputParts(CallTest):
-    '''This tries to isolate a problem whereby part creation is much faster than score creation. 
+    '''This tries to isolate a problem whereby part creation is much faster than score creation.
     '''
     def __init__(self):
         from music21 import corpus
+        super().__init__()
+
         self.s = corpus.parse('bach/bwv66.6', forceSource=True)
         #self.s = corpus.parse('beethoven/opus59no2/movement3', forceSource=True)
 
@@ -224,10 +234,13 @@ class TestMusicXMLOutputParts(CallTest):
 
 
 class TestMusicXMLOutputScore(CallTest):
-    '''This tries to isolate a problem whereby part creation is much faster than score creation. 
+    '''This tries to isolate a problem whereby part creation is much faster than score creation.
     '''
     def __init__(self):
         from music21 import corpus
+
+        super().__init__()
+
         self.s = corpus.parse('bach/bwv66.6', forceSource=True)
         #self.s = corpus.parse('beethoven/opus59no2/movement3', forceSource=True)
 
@@ -249,6 +262,8 @@ class TestCreateTimeSignature(CallTest):
 
     def __init__(self):
         from music21.test import testPerformance
+        super().__init__()
+
         self.t = testPerformance.Test()
 
     def testFocus(self):
@@ -261,6 +276,8 @@ class TestCreateDurations(CallTest):
 
     def __init__(self):
         from music21.test import testPerformance
+        super().__init__()
+
         self.t = testPerformance.Test()
 
     def testFocus(self):
@@ -304,7 +321,7 @@ class TestGetContextByClassA(CallTest):
                     unused = n.getContextByClass(clef.Clef)
                     unused = n.getContextByClass(meter.TimeSignature)
                     unused = n.getContextByClass(key.KeySignature)
-            
+
 
 class TestParseRNText(CallTest):
 
@@ -385,7 +402,7 @@ class TestGetElementsByClassB(CallTest):
         self.s.repeatInsert(clef.BassClef(), [0, 50, 100, 150])
 
     def testFocus(self):
-        for i in range(20): 
+        for i in range(20):
             self.s.getElementsByClass(['Rest'])
             self.s.getElementsByClass(['Note'])
             self.s.getElementsByClass(['GeneralNote'])
@@ -488,7 +505,7 @@ class TestImportCorpus2(M21CallTest):
 
     def testFocus(self):
         music21 = self.m21
-        unused = music21.corpus.getBachChorales()
+        unused = music21.corpus.getWork('bach/bwv66.6')
 
 
 class TestImportCorpus3(CallTest):
@@ -504,14 +521,14 @@ class TestRomantextParse(CallTest):
         from music21.romanText import testFiles as tf
         self.converter = converter
         self.tf = tf
-        
+
     def testFocus(self):
-        self.converter.parse(self.tf.monteverdi_3_13) 
+        self.converter.parse(self.tf.monteverdi_3_13)
 
 
 #-------------------------------------------------------------------------------
 # handler
-class CallGraph(object):
+class CallGraph:
 
     def __init__(self):
         self.includeList = ['*xmlToM21*', '*meter*']
@@ -553,20 +570,20 @@ class CallGraph(object):
         #self.callTest = TestRomantextParse
         #self.callTest = TestImportStar
 
-        # common to all call tests. 
+        # common to all call tests.
         if hasattr(self.callTest, 'includeList'):
             self.includeList = self.callTest.includeList
 
     def run(self, runWithEnviron=True):
         '''
-        Main code runner for testing. To set a new test, update the self.callTest attribute in __init__(). 
-        
+        Main code runner for testing. To set a new test, update the self.callTest attribute in __init__().
+
         Note that the default of runWithEnviron imports music21.environment.  That might
         skew results
         '''
         suffix = '.png' # '.svg'
         outputFormat = suffix[1:]
-        _MOD = "test.timeGraphs.py"
+        _MOD = "test.timeGraphs"
 
         if runWithEnviron:
             from music21 import environment
@@ -581,24 +598,24 @@ class CallGraph(object):
                 platform = 'win'
             else:
                 platform = 'other'
-            
+
             tempdir = os.path.join(tempfile.gettempdir(), 'music21')
             if platform != 'win':
                 fd, fp = tempfile.mkstemp(dir=tempdir, suffix=suffix)
                 if isinstance(fd, int):
                 # on MacOS, fd returns an int, like 3, when this is called
-                # in some context (specifically, programmatically in a 
+                # in some context (specifically, programmatically in a
                 # TestExternal class. the fp is still valid and works
                 # TODO: this did not work on MacOS 10.6.8 w/ py 2.7
                     pass
                 else:
-                    fd.close() 
+                    fd.close()
             else:
                 tf = tempfile.NamedTemporaryFile(dir=tempdir, suffix=suffix)
                 fp = tf.name
                 tf.close()
 
- 
+
         if self.includeList is not None:
             gf = pycallgraph.GlobbingFilter(include=self.includeList, exclude=self.excludeList)
         else:
@@ -613,7 +630,7 @@ class CallGraph(object):
 
         graphviz = pycallgraph.output.GraphvizOutput(output_file=fp)
         graphviz.tool = '/usr/local/bin/dot'
-        
+
         config = pycallgraph.Config()
         config.trace_filter = gf
 
@@ -625,7 +642,7 @@ class CallGraph(object):
         #s = converter.parse(beeth, forceSource=True)
         #beeth = common.getCorpusFilePath() + '/bach/bwv66.6.mxl'
         #s = converter.parse(beeth, forceSource=True)
-            
+
         with pycallgraph.PyCallGraph(output=graphviz, config=config):
             note.Note()
             meter.TimeSignature('4/4')

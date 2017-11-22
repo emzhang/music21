@@ -8,7 +8,9 @@
 # Copyright:    Copyright © 2009-2010 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
-
+'''
+Implementation of Walter Hewlett's base40 system for musical intervals.
+'''
 import unittest
 from music21 import exceptions21
 
@@ -16,7 +18,6 @@ from music21 import common
 from music21 import interval
 from music21 import note
 from music21 import pitch
-
 
 #Key => Base40 pitch number
 #Value => Music21 Pitch name
@@ -59,7 +60,8 @@ base40Equivalent = {1: 'C--',
                     37: 'B-',
                     38: 'B',
                     39: 'B#',
-                    40: 'B##'}
+                    40: 'B##',
+                    }
 
 
 #Key => Music21 Pitch name
@@ -153,7 +155,7 @@ def base40DeltaToInterval(delta):
     Raises a Base40 Exception if the interval is not handled by Base40.
     Base40 can only handle major, minor, perfect, augmented,
     and diminished intervals. Although not for certain, it seems
-    that the engineers that designed this system assumed that asdfasdf 
+    that the engineers that designed this system assumed that asdfasdf
     other intervals (doubly augmented intervals, for instance)
     would be of a very rare occurrence, and extreme intervals
     which would trigger an incorrect answer (C-- to C##, for
@@ -300,8 +302,8 @@ def base40Interval(base40NumA, base40NumB):
     music21.musedata.base40.Base40Exception: Pitch name not assigned to these Base40 numbers
         12 and 6 Interval does not exist
     '''
-    pitchA = base40Equivalent[(base40NumA-1)%40 + 1]
-    pitchB = base40Equivalent[(base40NumB-1)%40 + 1]
+    pitchA = base40Equivalent[(base40NumA - 1) % 40 + 1]
+    pitchB = base40Equivalent[(base40NumB - 1) % 40 + 1]
 
     delta = base40NumB - base40NumA
 
@@ -332,20 +334,20 @@ def base40ActualInterval(base40NumA, base40NumB):
     by music21.
 
 
-    >>> musedata.base40.base40ActualInterval(163,191)
+    >>> musedata.base40.base40ActualInterval(163, 191)
     <music21.interval.Interval m6>
-    >>> musedata.base40.base40ActualInterval(186,174) #Descending M3
+    >>> musedata.base40.base40ActualInterval(186, 174) #Descending M3
     <music21.interval.Interval M-3>
-    >>> musedata.base40.base40ActualInterval(1,5)
+    >>> musedata.base40.base40ActualInterval(1, 5)
     <music21.interval.Interval AAAA1>
-    >>> musedata.base40.base40ActualInterval(1,3)
+    >>> musedata.base40.base40ActualInterval(1, 3)
     <music21.interval.Interval AA1>
-    >>> musedata.base40.base40ActualInterval(2,6)
+    >>> musedata.base40.base40ActualInterval(2, 6)
     Traceback (most recent call last):
     music21.musedata.base40.Base40Exception: Pitch name not assigned to this Base40 number 6
 
     OMIT_FROM_DOCS
-    >>> musedata.base40.base40ActualInterval(12,6)
+    >>> musedata.base40.base40ActualInterval(12, 6)
     Traceback (most recent call last):
     music21.musedata.base40.Base40Exception: Pitch name not assigned to this Base40 number 12
     '''
@@ -466,7 +468,7 @@ class Base40Exception(exceptions21.Music21Exception):
 
 
 
-class BaseN(object):
+class BaseN:
     def __init__(self, order=2):
         self.order = order
 
@@ -477,7 +479,7 @@ class BaseN(object):
                 outLetters.append(letter + '-' * i)
             outLetters.append(letter)
             for i in range(self.order):
-                outLetters.append(letter + '#' * (i+1))
+                outLetters.append(letter + '#' * (i + 1))
             if letter not in ('E', 'B'):
                 outLetters.append(None)
         return outLetters

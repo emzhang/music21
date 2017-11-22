@@ -41,17 +41,17 @@ The following example creates a :class:`~music21.stream.Stream` object, adds a
     :width: 600
 
 '''
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import os
+import pathlib
 import re
 import unittest
 
 from music21 import base
 from music21 import common
+from music21 import defaults
 from music21 import freezeThaw
 from music21 import exceptions21
-
-from music21.ext import six
 
 from music21.metadata import bundles
 from music21.metadata import caching
@@ -60,13 +60,15 @@ from music21.metadata.primitives import (Date, DateSingle, DateRelative, DateBet
                                          DateSelection, Text, Contributor, Creator,
                                          Imprint, Copyright)
 
-from music21.metadata import testMetadata 
+from music21.metadata import testMetadata
 #------------------------------------------------------------------------------
 
 
 from music21 import environment
 environLocal = environment.Environment(os.path.basename(__file__))
 
+
+AmbitusShort = namedtuple('AmbitusShort', 'semitones diatonic pitchLowest pitchHighest')
 
 #------------------------------------------------------------------------------
 
@@ -104,11 +106,17 @@ class Metadata(base.Music21Object):
     made available by default.
 
     >>> md.searchAttributes
-    ('alternativeTitle', 'composer', 'copyright', 'date', 'localeOfComposition', 
-     'movementName', 'movementNumber', 'number', 'opusNumber', 'title')
-    
+    ('actNumber', 'alternativeTitle', 'associatedWork', 'collectionDesignation',
+     'commission', 'composer', 'copyright', 'countryOfComposition', 'date', 'dedication',
+     'groupTitle', 'localeOfComposition', 'movementName', 'movementNumber', 'number',
+     'opusNumber', 'parentTitle', 'popularTitle', 'sceneNumber', 'textLanguage',
+     'textOriginalLanguage', 'title', 'volume')
+
+    Plus anything that is in contributors...
+
+
     All contributors are stored in a .contributors list:
-     
+
     >>> md.contributors
     [<music21.metadata.primitives.Contributor composer:Gershwin, George>]
     '''
@@ -116,20 +124,6 @@ class Metadata(base.Music21Object):
     ### CLASS VARIABLES ###
 
     classSortOrder = -30
-
-    # add more as properties/import exists
-    searchAttributes = (
-        'alternativeTitle',
-        'composer',
-        'copyright',
-        'date',
-        'localeOfComposition',
-        'movementName',
-        'movementNumber',
-        'number',
-        'opusNumber',
-        'title',
-        )
 
     # !!!OTL: Title.
     # !!!OTP: Popular Title.
@@ -175,6 +169,14 @@ class Metadata(base.Music21Object):
         'txo': 'textOriginalLanguage',
         }
 
+    # add more as properties/import exists
+    searchAttributes = tuple(sorted([
+        'composer',
+        'copyright',
+        'date',
+        ] + list(workIdAbbreviationDict.values())))
+
+
     workIdLookupDict = {}
     for key, value in workIdAbbreviationDict.items():
         workIdLookupDict[value.lower()] = key
@@ -182,7 +184,7 @@ class Metadata(base.Music21Object):
     ### INITIALIZER ###
 
     def __init__(self, *args, **keywords):
-        base.Music21Object.__init__(self)
+        super().__init__()
 
         # a list of Contributor objects
         # there can be more than one composer, or any other combination
@@ -193,8 +195,14 @@ class Metadata(base.Music21Object):
         # be local file paths or otherwise
         self._urls = []
 
-        # TODO: need a specific object for copyright and imprint
+        # TODO: need a specific object for imprint
         self._imprint = None
+
+        self.software = [defaults.software]
+
+        # Copyright can be None or a copyright object
+        # TODO: Change to property to prevent text setting
+        # (but need to regenerate CoreCorpus() after doing so.)
         self.copyright = None
 
         # a dictionary of Text elements, where keys are work id strings
@@ -220,60 +228,58 @@ class Metadata(base.Music21Object):
     def all(self, skipContributors=False):
         '''
         Returns all values (as strings) stored in this metadata as a sorted list of tuples.
-        
+
         >>> c = corpus.parse('corelli/opus3no1/1grave')
         >>> c.metadata.all()
-        [('arranger', 'Michael Scott Cuthbert'), 
-         ('composer', 'Arcangelo Corelli'), 
+        [('arranger', 'Michael Scott Cuthbert'),
+         ('composer', 'Arcangelo Corelli'),
+         ('copyright', '© 2014, Creative Commons License (CC-BY)'),
          ('movementName', 'Sonata da Chiesa, No. I (opus 3, no. 1)')]
 
         Skip contributors is there to help with musicxml parsing -- there's no reason for it
         except that we haven't exposed enough functionality yet:
-        
+
         >>> c.metadata.date = metadata.DateRelative('1689', 'onOrBefore')
         >>> c.metadata.localeOfComposition = 'Rome'
         >>> c.metadata.all(skipContributors=True)
-        [('date', '1689/--/-- or earlier'), 
-         ('localeOfComposition', 'Rome'), 
+        [('copyright', '© 2014, Creative Commons License (CC-BY)'),
+         ('date', '1689/--/-- or earlier'),
+         ('localeOfComposition', 'Rome'),
          ('movementName', 'Sonata da Chiesa, No. I (opus 3, no. 1)')]
         '''
         # pylint: disable=undefined-variable
-        allOut = []
-        for wid in self._workIds.keys():
-            val = self._workIds[wid]
-            if val is None:
+        allOut = {}
+
+        searchAttributes = self.searchAttributes
+
+        for thisAttribute in sorted(set(searchAttributes)):
+            try:
+                val = getattr(self, thisAttribute)
+            except AttributeError:
                 continue
-            if six.PY3:
-                t = (str(wid), str(val))
-            else:
-                try:
-                    t = (str(wid), unicode(val)) # @UndefinedVariable
-                except UnicodeDecodeError as ude:
-                    print(val, repr(val), ude)
-            allOut.append(t)
+
+            if skipContributors:
+                if isinstance(val, Contributor):
+                    continue
+                if thisAttribute == 'composer':
+                    continue
+            if val == 'None' or not val:
+                continue
+            allOut[str(thisAttribute)] = str(val)
+
         if not skipContributors:
-            for contri in self.contributors:
-                for n in contri._names:
-                    if six.PY3:
-                        t = (str(contri.role), str(n))
-                    else:
-                        t = (str(contri.role), unicode(n)) # @UndefinedVariable
-                    allOut.append(t)
-        if self._date is not None:
-            if six.PY3:
-                t = ('date', str(self._date))
-            else:
-                t = ('date', unicode(self._date)) # @UndefinedVariable
-            allOut.append(t)
-        if self.copyright is not None:
-            if six.PY3:
-                t = ('copyright', str(self.copyright))
-            else:
-                t = ('copyright', unicode(self.copyright)) # @UndefinedVariable
-            allOut.append(t)
-            
-        
-        return sorted(allOut)
+            for c in self.contributors:
+                if c.role in allOut:
+                    continue
+                if not c.name or c.name == 'None':
+                    continue
+                allOut[str(c.role)] = str(c.name)
+
+        if 'title' in allOut and 'movementName' in allOut:
+            if allOut['movementName'] == allOut['title']:
+                del(allOut['title'])
+
+        return list(sorted(allOut.items()))
 
     def __getattr__(self, name):
         r'''
@@ -335,6 +341,17 @@ class Metadata(base.Music21Object):
         >>> md.composers
         ['Beach, Amy', 'Cheney, Amy Marcy']
 
+        All contributor roles are searchable, even if they are not standard roles:
+
+        >>> md.search('Beach')
+        (True, 'composer')
+
+        >>> dancer = metadata.Contributor()
+        >>> dancer.names = ['Mark Gotham', 'I. Quinn']
+        >>> dancer.role = 'interpretive dancer'
+        >>> md.addContributor(dancer)
+        >>> md.search('Gotham')
+        (True, 'interpretive dancer')
         '''
         if not isinstance(c, Contributor):
             raise exceptions21.MetadataException(
@@ -381,7 +398,7 @@ class Metadata(base.Music21Object):
         else:
             return None
 
-    def search(self, query, field=None):
+    def search(self, query=None, field=None, **kwargs):
         r'''
         Search one or all fields with a query, given either as a string or a
         regular expression match.
@@ -405,7 +422,7 @@ class Metadata(base.Music21Object):
         ...     )
         (True, 'composer')
 
-        These don't work (Richard W. didn't have the rhythm...)
+        These don't work (Richard W. didn't have the rhythm to write this...)
 
         >>> md.search(
         ...     'Wagner',
@@ -436,9 +453,27 @@ class Metadata(base.Music21Object):
 
         >>> md.search('opl(.*)cott')
         (True, 'composer')
+
+
+        New in v.4 -- use a keyword argument to search
+        that field directly:
+
+        >>> md.search(composer='Joplin')
+        (True, 'composer')
+
+        TODO: Change to a namedtuple and add as a third element
+        during a succesful search, the full value of the retrieved
+        field (so that 'Joplin' would return 'Joplin, Scott')
         '''
         valueFieldPairs = []
+        if query is None and field is None and not kwargs:
+            return (False, None)
+        elif query is None and field is None and kwargs:
+            field, query = kwargs.popitem()
+
+
         if field is not None:
+            field = field.lower()
             match = False
             try:
                 value = getattr(self, field)
@@ -455,13 +490,22 @@ class Metadata(base.Music21Object):
                         valueFieldPairs.append((value, searchAttribute))
                         match = True
                         break
-            # if cannot find a match for any field, return
-            if not match:
-                return False, None
         else:  # get all fields
             for innerField in self.searchAttributes:
                 value = getattr(self, innerField)
                 valueFieldPairs.append((value, innerField))
+
+        # now search all contributors.
+        for contrib in self.contributors:
+            if field is not None:
+                if contrib.role is None and field.lower() != 'contributor':
+                    continue
+                if contrib.role is not None and field.lower() not in contrib.role:
+                    continue
+            for name in contrib.names:
+                valueFieldPairs.append((name, contrib.role))
+
+
         # for now, make all queries strings
         # ultimately, can look for regular expressions by checking for
         # .search
@@ -470,14 +514,15 @@ class Metadata(base.Music21Object):
             useRegex = True
             reQuery = query  # already compiled
         # look for regex characters
-        elif (isinstance(query, six.string_types)
+        elif (isinstance(query, str)
               and any(character in query for character in '*.|+?{}')):
             useRegex = True
             reQuery = re.compile(query, flags=re.IGNORECASE) #  @UndefinedVariable
+
         if useRegex:
             for value, innerField in valueFieldPairs:
                 # re.I makes case insensitive
-                if isinstance(value, six.string_types):
+                if isinstance(value, str):
                     match = reQuery.search(value)
                     if match is not None:
                         return True, innerField
@@ -487,7 +532,7 @@ class Metadata(base.Music21Object):
                     return True, innerField
         else:
             for value, innerField in valueFieldPairs:
-                if isinstance(value, six.string_types):
+                if isinstance(value, str):
                     query = str(query)
                     if query.lower() in value.lower():
                         return True, innerField
@@ -797,21 +842,25 @@ class RichMetadata(Metadata):
     >>> 'keySignatureFirst' in richMetadata.searchAttributes
     True
     >>> richMetadata.searchAttributes
-    ('alternativeTitle', 'ambitus', 'composer', 'copyright', 'date', 
-     'keySignatureFirst', 'keySignatures', 'localeOfComposition', 
-     'movementName', 'movementNumber', 'noteCount', 'number', 
-     'opusNumber', 'pitchHighest', 'pitchLowest', 'quarterLength',
-     'sourcePath', 
-     'tempoFirst', 'tempos', 'timeSignatureFirst', 'timeSignatures', 'title')
+    ('actNumber', 'alternativeTitle', 'ambitus', 'associatedWork', 'collectionDesignation',
+     'commission', 'composer', 'copyright', 'countryOfComposition', 'date', 'dedication',
+     'groupTitle', 'keySignatureFirst', 'keySignatures', 'localeOfComposition', 'movementName',
+     'movementNumber', 'noteCount', 'number', 'numberOfParts',
+     'opusNumber', 'parentTitle', 'pitchHighest',
+     'pitchLowest', 'popularTitle', 'quarterLength', 'sceneNumber', 'sourcePath', 'tempoFirst',
+     'tempos', 'textLanguage', 'textOriginalLanguage', 'timeSignatureFirst',
+     'timeSignatures', 'title', 'volume')
     '''
 
     ### CLASS VARIABLES ###
 
+    # When changing this, be sure to update freezeThaw.py
     searchAttributes = tuple(sorted(Metadata.searchAttributes + (
         'ambitus',
         'keySignatureFirst',
         'keySignatures',
         'noteCount',
+        'numberOfParts',
         'pitchHighest',
         'pitchLowest',
         'quarterLength',
@@ -825,11 +874,12 @@ class RichMetadata(Metadata):
     ### INITIALIZER ###
 
     def __init__(self, *args, **keywords):
-        super(RichMetadata, self).__init__(*args, **keywords)
+        super().__init__(*args, **keywords)
         self.ambitus = None
         self.keySignatureFirst = None
         self.keySignatures = []
         self.noteCount = None
+        self.numberOfParts = None
         self.pitchHighest = None
         self.pitchLowest = None
         self.quarterLength = None
@@ -882,7 +932,7 @@ class RichMetadata(Metadata):
         '''
         Get a string of the path after the corpus for the piece...useful for
         searching on corpus items without proper composer data...
-         
+
         >>> rmd = metadata.RichMetadata()
         >>> b = corpus.parse('bwv66.6')
         >>> rmd.getSourcePath(b)
@@ -892,16 +942,17 @@ class RichMetadata(Metadata):
             return '' # for some abc files...
         if not streamObj.filePath:
             return ''
-        corpusParts = streamObj.filePath.split(os.sep)
-        try:         
-            corpusIndex = corpusParts.index('corpus')
+
+        streamFp = streamObj.filePath
+        if not isinstance(streamFp, pathlib.Path):
+            streamFp = pathlib.Path(streamFp)
+
+        try:
+            relativePath = streamFp.relative_to(common.getCorpusFilePath())
+            return relativePath.as_posix()
         except ValueError:
-            return ''
-        if corpusIndex == len(corpusParts) + 1:
-            return ''
-        relevantParts = corpusParts[corpusIndex + 1:]
-        return '/'.join(relevantParts)
-       
+            return streamFp.as_posix()
+
     def update(self, streamObj):
         r'''
         Given a Stream object, update attributes with stored objects.
@@ -911,14 +962,15 @@ class RichMetadata(Metadata):
         True
         >>> rmd.sourcePath
         ''
-        
+
         >>> b = corpus.parse('bwv66.6')
         >>> rmd.update(b)
         >>> rmd.keySignatureFirst
         '<music21.key.Key of f# minor>'
         >>> rmd.sourcePath
         'bach/bwv66.6.mxl'
-        
+        >>> rmd.numberOfParts
+        4
         '''
         from music21 import key
         from music21 import meter
@@ -928,16 +980,18 @@ class RichMetadata(Metadata):
 
         flat = streamObj.flat.sorted
 
+
+        self.numberOfParts = len(streamObj.parts)
         self.keySignatureFirst = None
         self.keySignatures = []
         self.tempoFirst = None
         self.tempos = []
         self.timeSignatureFirst = None
         self.timeSignatures = []
-        
+
         self.sourcePath = self.getSourcePath(streamObj)
-        
-        
+
+
         # We combine element searching into a single loop to prevent
         # multiple traversals of the flattened stream.
         for element in flat:
@@ -997,16 +1051,21 @@ class RichMetadata(Metadata):
         psRange = analysisObject.getPitchSpan(streamObj)
         if psRange is not None:  # may be none if no pitches are stored
             # presently, these are numbers; convert to pitches later
-            self.pitchLowest = str(psRange[0])
-            self.pitchHighest = str(psRange[1])
-        self.ambitus = analysisObject.getSolution(streamObj)
+            self.pitchLowest = psRange[0].nameWithOctave
+            self.pitchHighest = psRange[1].nameWithOctave
+        ambitusInterval = analysisObject.getSolution(streamObj)
+        self.ambitus = AmbitusShort(semitones=ambitusInterval.semitones,
+                                    diatonic=ambitusInterval.diatonic.simpleName,
+                                    pitchLowest=self.pitchLowest,
+                                    pitchHighest=self.pitchHighest,
+                                    )
 
 #------------------------------------------------------------------------------
 class Test(unittest.TestCase):
-    
+
     def runTest(self):
         pass
-    
+
 
 #------------------------------------------------------------------------------
 

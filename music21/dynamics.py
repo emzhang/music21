@@ -11,8 +11,8 @@
 #-------------------------------------------------------------------------------
 
 '''
-Classes and functions for creating and manipulating dynamic symbols. Rather than 
-subclasses, the :class:`~music21.dynamics.Dynamic` object is often specialized by parameters. 
+Classes and functions for creating and manipulating dynamic symbols. Rather than
+subclasses, the :class:`~music21.dynamics.Dynamic` object is often specialized by parameters.
 '''
 
 import unittest
@@ -23,10 +23,8 @@ from music21 import common
 from music21 import spanner
 from music21 import style
 
-from music21.ext import six
-
 from music21 import environment
-_MOD = 'dynamics.py'
+_MOD = 'dynamics'
 environLocal = environment.Environment(_MOD)
 
 
@@ -52,7 +50,7 @@ englishNames = {'ppp': 'extremely soft',
                  'mf': 'moderately loud',
                  'f': 'loud',
                  'ff': 'very loud',
-                 'fff': 'extremely loud'} 
+                 'fff': 'extremely loud'}
 
 
 def dynamicStrFromDecimal(n):
@@ -60,8 +58,8 @@ def dynamicStrFromDecimal(n):
     Given a decimal from 0 to 1, return a string representing a dynamic
     with 0 being the softest (0.01 = 'ppp') and 1 being the loudest (0.9+ = 'fff')
     0 returns "n" (niente), while ppp and fff are the loudest dynamics used.
-    
-    
+
+
     >>> dynamics.dynamicStrFromDecimal(0.25)
     'pp'
     >>> dynamics.dynamicStrFromDecimal(1)
@@ -118,9 +116,7 @@ class WedgeException(exceptions21.Music21Exception):
 class Dynamic(base.Music21Object):
     '''
     Object representation of Dynamics.
-    
-    
-    
+
     >>> pp1 = dynamics.Dynamic('pp')
     >>> pp1.value
     'pp'
@@ -128,42 +124,41 @@ class Dynamic(base.Music21Object):
     'pianissimo'
     >>> pp1.englishName
     'very soft'
-    
-    
-    Dynamics can also be specified on a 0 to 1 scale with 1 being the 
+
+
+    Dynamics can also be specified on a 0 to 1 scale with 1 being the
     loudest (see dynamicStrFromDecimal() above)
-    
-    
+
     >>> ppp = dynamics.Dynamic(0.15) # on 0 to 1 scale
     >>> ppp.value
     'ppp'
     >>> print('%.2f' % ppp.volumeScalar)
     0.15
-    
-    
+
+
     Note that we got lucky last time because the dynamic 0.15 exactly corresponds
     to what we've considered the default for 'ppp'.  Here we assign 0.98 which
     is close to the 0.9 that is the default for 'fff' -- but the 0.98 will
     be retained in the .volumeScalar
-    
+
     >>> loud = dynamics.Dynamic(0.98) # on 0 to 1 scale
     >>> loud.value
     'fff'
     >>> print('%.2f' % loud.volumeScalar)
     0.98
-    
+
     Transferring the .value ('fff') to a new Dynamic object will set the volumeScalar
     back to 0.9
-    
+
     >>> loud2 = dynamics.Dynamic(loud.value)
     >>> loud2.value
     'fff'
     >>> print('%.2f' % loud2.volumeScalar)
     0.90
-    
-    
+
+
     Custom dynamics are possible:
-    
+
     >>> myDyn = dynamics.Dynamic('rfzsfmp')
     >>> myDyn.value
     'rfzsfmp'
@@ -172,13 +167,13 @@ class Dynamic(base.Music21Object):
     >>> myDyn.volumeScalar = 0.87
     >>> myDyn.volumeScalar
     0.87
-    
-    
-    
-    
+
+
+
+
     Dynamics can be placed anywhere in a stream.
-    
-    
+
+
     >>> s = stream.Stream()
     >>> s.insert(0, note.Note('E-4', type='half'))
     >>> s.insert(2, note.Note('F#5', type='half'))
@@ -186,49 +181,49 @@ class Dynamic(base.Music21Object):
     >>> s.insert(1, dynamics.Dynamic('mf'))
     >>> s.insert(3, dynamics.Dynamic('fff'))
     >>> #_DOCS_SHOW s.show()
-    
-    
+
+
     .. image:: images/dynamics_simple.*
         :width: 344
 
-    
+
     '''
     classSortOrder = 10
     _styleClass = style.TextStyle
-    
+
     _DOC_ORDER = ['longName', 'englishName']
     _DOC_ATTR = {
         'longName': r'''
             the name of this dynamic in Italian.
-            
-            
+
+
             >>> d = dynamics.Dynamic('pp')
             >>> d.longName
             'pianissimo'
             ''',
         'englishName': r'''
             the name of this dynamic in English.
-            
-            
+
+
             >>> d = dynamics.Dynamic('pp')
             >>> d.englishName
             'very soft'
             ''',
     }
 
-    
+
     def __init__(self, value=None):
-        base.Music21Object.__init__(self)
+        super().__init__()
 
         # the scalar is used to calculate the final output of a note
-        # under this dynamic. if this property is set, it will override 
-        # use of a default. 
+        # under this dynamic. if this property is set, it will override
+        # use of a default.
         self._volumeScalar = None
         self.longName = None
         self.englishName = None
         self._value = None
 
-        if not isinstance(value, six.string_types):
+        if not isinstance(value, str):
             # assume it is a number, try to convert
             self._volumeScalar = value
             self.value = dynamicStrFromDecimal(value)
@@ -240,9 +235,10 @@ class Dynamic(base.Music21Object):
         self.style.absoluteX = -36
         self.style.absoluteY = -80 # below top line
         # this value provides good 16th note alignment
+        self.positionPlacement = None
 
     def __repr__(self):
-        return "<music21.dynamics.Dynamic %s >" % self.value
+        return '<music21.dynamics.Dynamic %s >' % self.value
 
 
     def _getValue(self):
@@ -262,9 +258,9 @@ class Dynamic(base.Music21Object):
 
     value = property(_getValue, _setValue,
         doc='''
-        Get or set the value of this dynamic, which sets the long and 
-        English names of this Dynamic. The value is a string specification. 
-        
+        Get or set the value of this dynamic, which sets the long and
+        English names of this Dynamic. The value is a string specification.
+
         >>> p = dynamics.Dynamic('p')
         >>> p.value
         'p'
@@ -272,7 +268,7 @@ class Dynamic(base.Music21Object):
         'soft'
         >>> p.longName
         'piano'
-        
+
         >>> p.value = 'f'
         >>> p.value
         'f'
@@ -310,14 +306,14 @@ class Dynamic(base.Music21Object):
             raise DynamicException('cannot set as volume scalar to: %s', value)
 
     volumeScalar = property(_getVolumeScalar, _setVolumeScalar, doc=r'''
-        Get or set the volume scalar for this dynamic. If not explicitly set, a 
-        default volume scalar will be provided. Any number between 0 and 1 can be 
-        used to set the volume scalar, overriding the expected behavior. 
+        Get or set the volume scalar for this dynamic. If not explicitly set, a
+        default volume scalar will be provided. Any number between 0 and 1 can be
+        used to set the volume scalar, overriding the expected behavior.
 
-        As mezzo is at .5, the unit interval range is doubled for 
+        As mezzo is at .5, the unit interval range is doubled for
         generating final output. The default output is .5.
 
-        
+
         >>> d = dynamics.Dynamic('mf')
         >>> d.volumeScalar
         0.55...
@@ -327,16 +323,16 @@ class Dynamic(base.Music21Object):
         0.1
         >>> d.value
         'mf'
-        
 
-        int(volumeScalar \* 127) gives the MusicXML <sound dynamics="x"/> tag 
+
+        int(volumeScalar \* 127) gives the MusicXML <sound dynamics="x"/> tag
 
         >>> xmlout = musicxml.m21ToXml.GeneralObjectExporter().parse(d).decode('utf-8')
         >>> print(xmlout)
         <?xml...
         <direction>
             <direction-type>
-              <dynamics default-x="-36" default-y="-80" halign="left" valign="top">
+              <dynamics default-x="-36" default-y="-80">
                 <mf />
               </dynamics>
             </direction-type>
@@ -348,14 +344,15 @@ class Dynamic(base.Music21Object):
 
 #-------------------------------------------------------------------------------
 class DynamicWedge(spanner.Spanner):
-    '''Common base-class for Crescendo and Diminuendo. 
+    '''Common base-class for Crescendo and Diminuendo.
     '''
     def __init__(self, *arguments, **keywords):
-        spanner.Spanner.__init__(self, *arguments, **keywords)
+        super().__init__(*arguments, **keywords)
 
         self.type = None # crescendo or diminuendo
         self.placement = 'below' # can above or below, after musicxml
-        self.spread = 15 # this unit is probably in tenth
+        self.spread = 15 # this unit is in tenths
+        self.niente = False
 
     def __repr__(self):
         msg = spanner.Spanner.__repr__(self)
@@ -367,19 +364,16 @@ class Crescendo(DynamicWedge):
 
     >>> from music21 import dynamics
     >>> d = dynamics.Crescendo()
-    >>> d.getStartParameters()['spread']
-    0
-    >>> d.getStartParameters()['type']
-    'crescendo'
-
-    >>> d.getEndParameters()['spread']
+    >>> d.spread
     15
-    >>> d.getEndParameters()['type']
-    'stop'
-
+    >>> d.spread = 20
+    >>> d.spread
+    20
+    >>> d.type
+    'crescendo'
     '''
     def __init__(self, *arguments, **keywords):
-        DynamicWedge.__init__(self, *arguments, **keywords)
+        super().__init__(*arguments, **keywords)
         self.type = 'crescendo'
 
     def __repr__(self):
@@ -387,41 +381,18 @@ class Crescendo(DynamicWedge):
         msg = msg.replace(self._reprHead, '<music21.spanner.Crescendo ')
         return msg
 
-    def getStartParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = self.type # cresc 
-        post['spread'] = 0 # start at zero
-        return post
-
-    def getEndParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = 'stop'  # end is always stop
-        post['spread'] = self.spread # end with spread
-        return post
 
 class Diminuendo(DynamicWedge):
     '''A spanner diminuendo wedge.
 
     >>> from music21 import dynamics
     >>> d = dynamics.Diminuendo()
-    >>> startP = d.getStartParameters()
-    >>> startP['spread']
-    15
-    >>> startP['type']
-    'diminuendo'
-    
-    >>> endP = d.getEndParameters()
-    >>> endP['spread']
-    0
-    >>> endP['type']
-    'stop'
+    >>> d.spread = 20
+    >>> d.spread
+    20
     '''
     def __init__(self, *arguments, **keywords):
-        DynamicWedge.__init__(self, *arguments, **keywords)
+        super().__init__(*arguments, **keywords)
         self.type = 'diminuendo'
 
     def __repr__(self):
@@ -429,31 +400,12 @@ class Diminuendo(DynamicWedge):
         msg = msg.replace(self._reprHead, '<music21.spanner.Diminuendo ')
         return msg
 
-    def getStartParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = self.type # dim
-        post['spread'] = self.spread # start with spread
-        return post
-
-    def getEndParameters(self):
-        '''Return the parameters for the start of this spanner
-        ''' 
-        post = {}
-        post['type'] = 'stop'  # end is always stop
-        post['spread'] = 0
-        return post
-
-
-
-
 #-------------------------------------------------------------------------------
-class TestExternal(unittest.TestCase):
-    
+class TestExternal(unittest.TestCase): # pragma: no cover
+
     def runTest(self):
         pass
-    
+
     def testSingle(self):
         a = Dynamic('ffff')
         a.show()
@@ -473,10 +425,10 @@ class TestExternal(unittest.TestCase):
 
 #-------------------------------------------------------------------------------
 class Test(unittest.TestCase):
-    
+
     def runTest(self):
         pass
-    
+
     def testCopyAndDeepcopy(self):
         '''Test copying all objects defined in this module
         '''
@@ -501,7 +453,7 @@ class Test(unittest.TestCase):
     def testBasic(self):
         nodyn = Dynamic()
         assert nodyn.longName is None
-        
+
         pp = Dynamic('pp')
         self.assertEqual(pp.value, 'pp')
         self.assertEqual(pp.longName, 'pianissimo')
@@ -511,10 +463,10 @@ class Test(unittest.TestCase):
     def testCorpusDynamicsWedge(self):
         from music21 import corpus
         a = corpus.parse('opus41no1/movement2') # has dynamics!
-        b = a.parts[0].flat.getElementsByClass("Dynamic")
+        b = a.parts[0].flat.getElementsByClass('Dynamic')
         self.assertEqual(len(b), 35)
 
-        b = a.parts[0].flat.getElementsByClass("DynamicWedge")
+        b = a.parts[0].flat.getElementsByClass('DynamicWedge')
         self.assertEqual(len(b), 2)
 
 
@@ -565,7 +517,7 @@ class Test(unittest.TestCase):
 # define presented order in documentation
 _DOC_ORDER = [Dynamic, dynamicStrFromDecimal]
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import music21
     music21.mainTest(Test)
 

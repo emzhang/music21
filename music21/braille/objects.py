@@ -7,9 +7,6 @@
 # Copyright:    Copyright © 2016 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
-
-from __future__ import division, print_function
-
 import unittest
 
 from music21.base import Music21Object
@@ -28,7 +25,7 @@ class BrailleTranscriptionHelper(Music21Object):
 class BrailleSegmentDivision(BrailleTranscriptionHelper):
     '''
     Represents that a segment must divide at this point.
-    
+
     >>> bsd = braille.objects.BrailleSegmentDivision()
     >>> bsd
     <music21.braille.objects.BrailleSegmentDivision object at 0x10afc1a58>

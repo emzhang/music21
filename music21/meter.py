@@ -10,12 +10,11 @@
 #               Project
 # License:      LGPL or BSD, see license.txt
 #------------------------------------------------------------------------------
-'''This module defines the :class:`~music21.meter.TimeSignature` object,
+'''
+This module defines the :class:`~music21.meter.TimeSignature` object,
 as well as component objects for defining nested metrical structures,
 :class:`~music21.meter.MeterTerminal` and :class:`~music21.meter.MeterSequence` objects.
 '''
-from __future__ import division, print_function
-
 import collections
 import copy
 import fractions
@@ -32,9 +31,8 @@ from music21 import exceptions21
 from music21 import style
 
 from music21.common import SlottedObjectMixin, opFrac
-from music21.ext import six
 
-_MOD = 'meter.py'
+_MOD = 'meter'
 environLocal = environment.Environment(_MOD)
 
 
@@ -90,7 +88,7 @@ def slashToTuple(value):
     elif 'fast' in valueChars.lower():
         tempoIndication = 'fast'
 
-    matches = re.match(r"(\d+)\/(\d+)", valueNumbers)
+    matches = re.match(r'(\d+)\/(\d+)', valueNumbers)
     if matches is not None:
         n = int(matches.group(1))
         d = int(matches.group(2))
@@ -205,7 +203,7 @@ def fractionToSlashMixed(fList):
         # look at previous fration and determin if denominator is the same
 
         match = None
-        search = list(range(0,len(pre)))
+        search = list(range(len(pre)))
         search.reverse() # go backwards
         for j in search:
             if pre[j][1] == d:
@@ -234,13 +232,13 @@ def fractionSum(fList):
     Given a list of fractions represented as a list,
     find the sum; does NOT reduce to lowest terms.
 
-    >>> meter.fractionSum([(3,8), (5,8), (1,8)])
+    >>> meter.fractionSum([(3, 8), (5, 8), (1, 8)])
     (9, 8)
-    >>> meter.fractionSum([(1,6), (2,3)])
+    >>> meter.fractionSum([(1, 6), (2, 3)])
     (5, 6)
-    >>> meter.fractionSum([(3,4), (1,2)])
+    >>> meter.fractionSum([(3, 4), (1, 2)])
     (5, 4)
-    >>> meter.fractionSum([(1,13), (2,17)])
+    >>> meter.fractionSum([(1, 13), (2, 17)])
     (43, 221)
     >>> meter.fractionSum([])
     (0, 1)
@@ -249,7 +247,7 @@ def fractionSum(fList):
     by just doing a fractions.Fraction() sum (I tried!), but not reducing to lowest
     terms is a feature of this method. 3/8 + 3/8 = 6/8, not 3/4:
 
-    >>> meter.fractionSum([(3,8), (3,8)])
+    >>> meter.fractionSum([(3, 8), (3, 8)])
     (6, 8)
     '''
     nList = []
@@ -276,7 +274,7 @@ def fractionSum(fList):
             nSrc = nList[i]
             dSrc = dList[i]
             scalar = d // dSrc
-            nShift.append(nSrc*scalar)
+            nShift.append(nSrc * scalar)
         return (sum(nShift), d)
 
 
@@ -423,7 +421,7 @@ def bestTimeSignature(meas):
             try:
                 dType, match = duration.quarterLengthToClosestType(minDurTest)
             except ZeroDivisionError:
-                raise MeterException("Cannot find a good match for this measure")
+                raise MeterException('Cannot find a good match for this measure')
 
             if match or dType == MIN_DENOMINATOR_TYPE:
                 break
@@ -460,7 +458,7 @@ def bestTimeSignature(meas):
         denominator = denominator // denom
 
     # simplifies rare time signatures like 16/16 and 1/1 to 4/4
-    if numerator == denominator and numerator not in [2,4]:
+    if numerator == denominator and numerator not in [2, 4]:
         numerator = 4
         denominator = 4
     elif numerator != denominator and denominator == 1:
@@ -591,7 +589,7 @@ class MeterTerminal(SlottedObjectMixin):
         return '<MeterTerminal %s>' % self.__str__()
 
     def __str__(self):
-        return str(int(self.numerator)) + "/" + str(int(self.denominator))
+        return str(int(self.numerator)) + '/' + str(int(self.denominator))
 
 # now using ratioEqual()
 
@@ -698,7 +696,7 @@ class MeterTerminal(SlottedObjectMixin):
 
 
         >>> a = meter.MeterTerminal('3/4')
-        >>> b = a.subdivideByList([1,1,1])
+        >>> b = a.subdivideByList([1, 1, 1])
         >>> len(b)
         3
         >>> b[0]
@@ -706,7 +704,7 @@ class MeterTerminal(SlottedObjectMixin):
 
         Unequal subdivisions work:
 
-        >>> c = a.subdivideByList([1,2])
+        >>> c = a.subdivideByList([1, 2])
         >>> len(c)
         2
         >>> (c[0], c[1])
@@ -896,7 +894,7 @@ class MeterTerminal(SlottedObjectMixin):
 #     quarterLengthToBeatLengthRatio = property(_getQuarterLengthToBeatLengthRatio)
 #
 #
-#     def quarterOffsetToBeat(self, currentQtrPosition = 0):
+#     def quarterOffsetToBeat(self, currentQtrPosition=0):
 #         return ((currentQtrPosition * self.quarterLengthToBeatLengthRatio) + 1)
 #
 
@@ -921,7 +919,7 @@ class MeterSequence(MeterTerminal):
     ### INITIALIZER ###
 
     def __init__(self, value=None, partitionRequest=None):
-        MeterTerminal.__init__(self)
+        super().__init__()
 
         self._numerator = None # rationalized
         self._denominator = None # lowest common multiple
@@ -1354,20 +1352,20 @@ class MeterSequence(MeterTerminal):
             opts.append(seq)
         # odd meters with common groupings
         if n == 5:
-            for group in [[2,3], [3,2]]:
+            for group in [[2, 3], [3, 2]]:
                 seq = []
                 for nMod in group:
                     seq.append('%s/%s' % (nMod, d))
                 opts.append(seq)
         if n == 7:
-            for group in [[2,2,3], [3,2,2], [2,3,2]]:
+            for group in [[2, 2, 3], [3, 2, 2], [2, 3, 2]]:
                 seq = []
                 for nMod in group:
                     seq.append('%s/%s' % (nMod, d))
                 opts.append(seq)
         # not really necessary but an example of a possibility
         if n == 10:
-            for group in [[2,2,3,3]]:
+            for group in [[2, 2, 3, 3]]:
                 seq = []
                 for nMod in group:
                     seq.append('%s/%s' % (nMod, d))
@@ -1442,7 +1440,7 @@ class MeterSequence(MeterTerminal):
         else: # assume it is a string
             mt = MeterTerminal(value)
 
-#         if isinstance(value, six.string_types):
+#         if isinstance(value, str):
 #             mt = MeterTerminal(value)
 #         elif isinstance(value, MeterTerminal): # may be a MeterSequence
 #             mt = value
@@ -1578,13 +1576,13 @@ class MeterSequence(MeterTerminal):
 
 
         >>> a = meter.MeterSequence('4/4')
-        >>> a.partitionByList([1,1,1,1])
+        >>> a.partitionByList([1, 1, 1, 1])
         >>> str(a)
         '{1/4+1/4+1/4+1/4}'
 
         This divides it into two equal parts:
 
-        >>> a.partitionByList([1,1])
+        >>> a.partitionByList([1, 1])
         >>> str(a)
         '{1/2+1/2}'
 
@@ -1608,7 +1606,7 @@ class MeterSequence(MeterTerminal):
         music21.meter.MeterException: Cannot set partition by ['3/4', '1/8', '5/8']
         '''
         # assume a list of terminal definitions
-        if isinstance(numeratorList[0], six.string_types):
+        if isinstance(numeratorList[0], str):
             test = MeterSequence()
             for mtStr in numeratorList:
                 test._addTerminal(mtStr)
@@ -1619,7 +1617,7 @@ class MeterSequence(MeterTerminal):
             else:
                 raise MeterException('Cannot set partition by %s' % numeratorList)
 
-        elif sum(numeratorList) in [self.numerator * x for x in range(1,9)]:
+        elif sum(numeratorList) in [self.numerator * x for x in range(1, 9)]:
             for i in range(1, 9):
                 if sum(numeratorList) == self.numerator * i:
                     optMatch = []
@@ -2014,7 +2012,7 @@ class MeterSequence(MeterTerminal):
         #environLocal.printDebug(['calling load in MeterSequence, got targetWeight', targetWeight])
         self._clearPartition()
 
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             ratioList, self.summedNumerator = slashMixedToFraction(value)
             for n, d in ratioList:
                 slashNotation = '%s/%s' % (n, d)
@@ -2105,8 +2103,8 @@ class MeterSequence(MeterTerminal):
                 totalRatio = self._numerator / float(self._denominator)
             except TypeError:
                 raise MeterException(
-                    "Something wrong with the type of " +
-                    "this numerator %s %s or this denominator %s %s" %
+                    'Something wrong with the type of '
+                    + 'this numerator %s %s or this denominator %s %s' %
                                      (self._numerator, type(self._numerator),
                                       self._denominator, type(self._denominator)))
 
@@ -2448,7 +2446,7 @@ class MeterSequence(MeterTerminal):
         3
 
 
-        >>> a.partition([1,2,1])
+        >>> a.partition([1, 2, 1])
         >>> len(a)
         3
         >>> a.offsetToIndex(2.9)
@@ -2807,7 +2805,7 @@ class TimeSignature(base.Music21Object):
     >>> tsCommon.symbol
     'common'
 
-    >>> tsCut = meter.TimeSignature("cut")
+    >>> tsCut = meter.TimeSignature('cut')
     >>> tsCut.beatCount
     2
     >>> tsCut.denominator
@@ -2879,13 +2877,13 @@ class TimeSignature(base.Music21Object):
         }
 
     def __init__(self, value=None, partitionRequest=None):
-        base.Music21Object.__init__(self)
+        super().__init__()
 
         if value is None:
             value = '{0}/{1}'.format(defaults.meterNumerator, defaults.meterDenominatorBeatType)
 
         self._overriddenBarDuration = None
-        self.symbol = ""
+        self.symbol = ''
         self.displaySequence = None
         self.beatSequence = None
         self.accentSequence = None
@@ -2902,7 +2900,7 @@ class TimeSignature(base.Music21Object):
         ## MSC: couldn't figure out what this does, so cut for now...
         ## whether the TimeSignature object is inherited from ??
         #self.inherited = False
-        self.symbol = "" # common, cut, single-number, normal
+        self.symbol = '' # common, cut, single-number, normal
 
         # a parameter to determine if the denominator is represented
         # as either a symbol (a note) or as a number
@@ -2948,7 +2946,7 @@ class TimeSignature(base.Music21Object):
         return self.__repr__()
 
     def __repr__(self):
-        return "<music21.meter.TimeSignature %s>" % self.ratioString
+        return '<music21.meter.TimeSignature %s>' % self.ratioString
 
     def ratioEqual(self, other):
         '''
@@ -3157,11 +3155,11 @@ class TimeSignature(base.Music21Object):
 
         # used for drawing the time signature symbol
         # this is the only one that can be  unlinked
-        if (isinstance(value, six.string_types)
+        if (isinstance(value, str)
                 and value.lower() in ('common', 'c')):
             value = '4/4'
             self.symbol = 'common'
-        elif (isinstance(value, six.string_types)
+        elif (isinstance(value, str)
                 and value.lower() in ('cut', 'allabreve')):
             # allaBreve is the capella version
             value = '2/2'
@@ -3173,7 +3171,7 @@ class TimeSignature(base.Music21Object):
 
         # get simple representation; presently, only slashToslashToTuple
         # supports the fast/slow indication
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             valTuplet = slashToTuple(value)
             if valTuplet is not None:
                 tempoIndication = valTuplet.tempoIndication
@@ -3372,7 +3370,7 @@ class TimeSignature(base.Music21Object):
         'Simple'
         >>> ts.beatCount = 123
         Traceback (most recent call last):
-        TimeSignatureException: cannot partion beat with provided value: 123
+        music21.meter.TimeSignatureException: cannot partion beat with provided value: 123
 
         >>> ts = meter.TimeSignature('3/4')
         >>> ts.beatCount = 6
@@ -3402,7 +3400,7 @@ class TimeSignature(base.Music21Object):
         3
         >>> ts.beatDuration.quarterLength
         1.0
-        >>> ts.beatCount = [1,1,1,1,1,1]
+        >>> ts.beatCount = [1, 1, 1, 1, 1, 1]
         >>> ts.beatCount
         6
         >>> ts.beatDuration.quarterLength
@@ -3452,7 +3450,7 @@ class TimeSignature(base.Music21Object):
         >>> ts = meter.TimeSignature('2/4+3/16')
         >>> ts.beatDuration
         Traceback (most recent call last):
-        TimeSignatureException: non-uniform beat unit: [2.0, 0.75]
+        music21.meter.TimeSignatureException: non-uniform beat unit: [2.0, 0.75]
         '''
         post = []
         if len(self.beatSequence) == 1:
@@ -3490,7 +3488,8 @@ class TimeSignature(base.Music21Object):
         >>> ts = meter.TimeSignature('13/8', 13)
         >>> ts.beatDivisionCount
         Traceback (most recent call last):
-        TimeSignatureException: cannot determine beat backgrond when each beat is not partitioned
+        music21.meter.TimeSignatureException: cannot determine beat backgrond
+            when each beat is not partitioned
         '''
         # first, find if there is more than one beat and if all beats are uniformly partitioned
         post = []
@@ -3618,16 +3617,17 @@ class TimeSignature(base.Music21Object):
 
     def getBeams(self, srcList, measureStartOffset=0.0):
         '''
-        Given a qLen position and an iterable of Duration objects
-        or music21Objects, return a list of Beams object.  The iterable can be a list (of
-        durations or elements) or a Stream (preferably flat) from which Durations will be
+        Given a qLen position and an iterable music21Objects, return a list of Beams object.
+
+        The iterable can be a list (of elements) or a Stream (preferably flat)
+        or a :class:`~music21.stream.iterator.StreamIterator` from which Durations
+        and information about note vs. rest will be
         extracted.
 
-        Duration objects are assumed to be adjoining; offsets are not used.
+        Objects are assumed to be adjoining; offsets are not used, except for
+        measureStartOffset()
 
-        This can be modified to take lists of rests and notes
-
-        Must process a list at time, because we cannot tell when a beam ends
+        Must process a list/Stream at time, because we cannot tell when a beam ends
         unless we see the context of adjoining durations.
 
 
@@ -3636,7 +3636,7 @@ class TimeSignature(base.Music21Object):
         >>> a.beamSequence[1] = a.beamSequence[1].subdivide(2)
         >>> a.beamSequence
         <MeterSequence {{1/8+1/8}+{1/8+1/8}}>
-        >>> b = [duration.Duration('16th')] * 8
+        >>> b = [note.Note(type='16th') for _ in range(8)]
         >>> c = a.getBeams(b)
         >>> len(c) == len(b)
         True
@@ -3651,7 +3651,7 @@ class TimeSignature(base.Music21Object):
          <music21.beam.Beams <music21.beam.Beam 1/stop>/<music21.beam.Beam 2/stop>>]
 
         >>> a = meter.TimeSignature('6/8')
-        >>> b = [duration.Duration('eighth')] * 6
+        >>> b = [note.Note(type='eighth') for _ in range(6)]
         >>> c = a.getBeams(b)
         >>> print(c)
         [<music21.beam.Beams <music21.beam.Beam 1/start>>,
@@ -3661,230 +3661,176 @@ class TimeSignature(base.Music21Object):
          <music21.beam.Beams <music21.beam.Beam 1/continue>>,
          <music21.beam.Beams <music21.beam.Beam 1/stop>>]
 
-        Make sure this works the same:
-
-        >>> b = [note.Note(type='eighth')] * 6
-        >>> d = a.getBeams(b)
-        >>> c == d
-        True
-
         >>> fourFour = meter.TimeSignature('4/4')
-        >>> d = duration.Duration
-        >>> dList = [d('eighth'), d('quarter'), d('eighth'),
-        ...          d('eighth'), d('quarter'), d('eighth')]
-        >>> beamList = fourFour.getBeams(dList)
+        >>> nList = [note.Note(type=d) for d in ('eighth', 'quarter', 'eighth',
+        ...                                      'eighth', 'quarter', 'eighth')]
+        >>> beamList = fourFour.getBeams(nList)
         >>> print(beamList)
         [None, None, None, None, None, None]
 
 
         Pickup measure support included by taking in an additional measureStartOffset argument.
 
-
-        >>> threeFour = meter.TimeSignature("3/4")
-        >>> dList = [d('eighth'), d('eighth'), d('eighth')]
-        >>> beamList = threeFour.getBeams(dList, measureStartOffset=1.5)
+        >>> threeFour = meter.TimeSignature('3/4')
+        >>> nList = [note.Note(type='eighth') for _ in range(3)]
+        >>> beamList = threeFour.getBeams(nList, measureStartOffset=1.5)
         >>> print(beamList)
         [<music21.beam.Beams <music21.beam.Beam 1/start>>,
          <music21.beam.Beams <music21.beam.Beam 1/continue>>,
          <music21.beam.Beams <music21.beam.Beam 1/stop>>]
         '''
         if isinstance(srcList, base.Music21Object):
-            durList = []
-            for n in srcList:
-                durList.append(n.duration)
+            srcList = list(srcList)
             srcStream = srcList
         elif srcList and isinstance(srcList[0], base.Music21Object):
-            # assume all are objects:
-            durList = [n.duration for n in srcList]
-            srcStream = None
-        else:
-            # a list of durations
-            durList = srcList
-            srcStream = None
+            # make into a stream to get proper offsets:
+            # for eventually removing measureStartOffset
+            from music21 import stream
+            srcStream = stream.Measure()
+            srcStream.append(srcList)
 
-        if len(durList) <= 1:
-            raise MeterException('length of durList must be 2 or greater, not %s' % len(durList))
+        if len(srcList) <= 1:
+            return [None for _ in srcList]
 
-        beamsList = [] # hold completed Beams objects
-        for i in range(len(durList)):
-            # if a dur cannot be beamable under any circumstance, replace
-            # it with None; this includes Rests
-            dur = durList[i]
-            if dur.type not in beamableDurationTypes:
-                beamsList.append(None) # placeholder
-            elif srcStream is not None and srcStream[i].isRest is True:
-                beamsList.append(None) # placeholder
-            else:
-                # we have a beamable duration
-                b = beam.Beams()
-                # set the necessary number of internal beamsList, that is,
-                # one for each horizontal line in the beams group
-                # this does not set type or direction
-                b.fill(dur.type)
-                beamsList.append(b)
+        beamsList = TimeSignature._naiveBeams(srcList) # hold maximum Beams objects
+        beamsList = TimeSignature._removeSandwichedUnbeamables(beamsList)
 
-        #environLocal.printDebug(['beamsList', beamsList])
-        # iter over each beams line, from top to bottom (1 thourgh 5)
-        for depth in range(len(beamableDurationTypes)):
-            # increment to count from 1 not 0
+        def fixBeamsOneElementDepth(i, el, depth):
+            beams = beamsList[i]
+            if beams is None:
+                return
+
             beamNumber = depth + 1
-            # assume we are always starting at offset w/n this meter (Jose)
-            pos = measureStartOffset
-            for i in range(len(durList)):
+            # see if there is a component defined for this beam number
+            # if not, continue
+            if beamNumber not in beams.getNumbers():
+                return
 
-                dur = durList[i]
-                beams = beamsList[i]
+            dur = el.duration
+            pos = el.offset + measureStartOffset
 
-                if beams is None: # if a place holder
-                    pos += dur.quarterLength
-                    continue
+            start = opFrac(pos)
+            end = opFrac(pos + dur.quarterLength)
+            startNext = end
 
-                # see if there is a component defined for this beam number
-                # if not, continue
-                if beamNumber not in beams.getNumbers():
-                    pos += dur.quarterLength
-                    continue
+            isLast = (i == len(srcList) - 1)
+            isFirst = (i == 0)
 
-                start = opFrac(pos)
-                end = opFrac(pos + dur.quarterLength)
-                startNext = opFrac(pos + dur.quarterLength)
-                #endPrevious = pos
+            beamNext = beamsList[i + 1] if not isLast else None
+            beamPrevious = beamsList[i - 1] if not isFirst else None
 
-                if i == len(durList) - 1: # last
-                    #durNext = None
-                    beamNext = None
-                else:
-                    #durNext = durList[i + 1]
-                    beamNext = beamsList[i + 1]
 
-                if i == 0: # first note in measure
-                    #durPrevious = None
-                    beamPrevious = None
-                else:
-                    #durPrevious = durList[i - 1]
-                    beamPrevious = beamsList[i - 1]
+            # get an archetype of the MeterSequence for this level
+            # level is depth, starting at zero
+            archetype = self.beamSequence.getLevel(depth)
+            # span is the quarter note duration points for each partition
+            # at this level
+            archetypeSpanStart, archetypeSpanEnd = archetype.offsetToSpan(start)
+            #environLocal.printDebug(['at level, got archetype span', depth,
+            #                         archetypeSpan])
 
-                if beamNext is None and beamPrevious is None:
-                    # sandwiched between two unbeamables = no beams
-                    # delete beams, increment position, and continue loop
+            if beamNext is None: # last note or before a non-beamable note (half, whole, etc.)
+                archetypeSpanNextStart = 0.0
+            else:
+                archetypeSpanNextStart = archetype.offsetToSpan(startNext)[0]
+
+            # watch for a special case where a duration completely fills
+            # the archetype; this generally should not be beamed
+            if (start == archetypeSpanStart
+                    and end == archetypeSpanEnd):
+                # increment position and continue loop
+                beamsList[i] = None # replace with None!
+                return
+
+            # determine beamType
+            if isFirst: # if the first, we always start
+                beamType = 'start'
+                # get a partial beam if we cannot continue this
+                if (beamNext is None or beamNumber not in beamNext.getNumbers()):
+                    beamType = 'partial-right'
+
+            elif isLast: # last is always stop
+                beamType = 'stop'
+                # get a partial beam if we cannot come form a beam
+                if (beamPrevious is None or beamNumber not in beamPrevious.getNumbers()):
+                    # environLocal.warn(['triggering partial left where a stop normally falls'])
+                    beamType = 'partial-left'
+
+            # here on we know that it is neither the first nor last
+
+            # if last beam was not defined, we need to either
+            # start or have a partial left beam
+            # or, if beam number was not active in last beams
+            elif beamPrevious is None or beamNumber not in beamPrevious.getNumbers():
+                if beamNumber == 1 and beamNext is None:
                     beamsList[i] = None
-                    pos += dur.quarterLength
-                    continue
+                    return
+                elif beamNext is None and beamNumber > 1:
+                    beamType = 'partial-left'
 
+                elif (startNext >= archetypeSpanEnd):
+                    # case of where we need a partial left:
+                    # if the next start value is outside of this span (or at the
+                    # the greater boundary of this span), and we did not have a
+                    # beam or beam number in the previous beam
 
-                # get an archetype of the MeterSequence for this level
-                # level is depth, starting at zero
-                archetype = self.beamSequence.getLevel(depth)
-                # span is the quarter note duration points for each partition
-                # at this level
-                archetypeSpan = archetype.offsetToSpan(start)
-                #environLocal.printDebug(['at level, got archetype span', depth,
-                #                         archetypeSpan])
-                if beamNext is None: # last note or before a non-beamable note (half, whole, etc.)
-                    archetypeSpanNext = None
+                    # may need to check: beamNext is not None and
+                    #   beamNumber in beamNext.getNumbers()
+                    # note: it is critical that we check archetypeSpan here
+                    # not archetypeSpanNext
+                    #environLocal.printDebug(['matching partial left'])
+                    beamType = 'partial-left'
                 else:
-                    archetypeSpanNext = archetype.offsetToSpan(startNext)
-
-                # watch for a special case where a duration completely fills
-                # the archetype; this generally should not be beamed
-                if (start == archetypeSpan[0]
-                        and end == archetypeSpan[1]):
-                    # increment position and continue loop
-                    beamsList[i] = None # replace with None!
-                    pos += dur.quarterLength
-                    continue
-
-                # determine beamType
-                if i == 0: # if the first, we always start
-                    beamType = 'start'
-                    # get a partial beam if we cannot continue this
-                    if (beamNext is None
-                            or beamNumber not in beamNext.getNumbers()):
-                        beamType = 'partial-right'
-
-                elif i == len(durList) - 1: # last is always stop
-                    beamType = 'stop'
-                    # get a partial beam if we cannot come form a beam
-                    if (beamPrevious is None
-                            or beamNumber not in beamPrevious.getNumbers()):
-                        #environLocal.printDebug(
-                        #   ['triggering partial left where a stop normally falls'])
-                        beamType = 'partial-left'
-
-                # here on we know that it is neither the first nor last
-
-                # if last beam was not defined, we need to either
-                # start or have a partial left beam
-                # or, if beam number was not active in last beams
-                elif beamPrevious is None or beamNumber not in beamPrevious.getNumbers():
-                    if beamNumber == 1 and beamNext is None:
-                        beamsList[i] = None
-                        pos += dur.quarterLength
-                        continue
-                    elif beamNext is None and beamNumber > 1:
-                        beamType = 'partial-left'
-
-                    elif startNext >= archetypeSpan[1]:
-                        # case of where we need a partial left:
-                        # if the next start value is outside of this span (or at the
-                        # the greater boundary of this span), and we did not have a
-                        # beam or beam number in the previous beam
-
-                        # may need to check: beamNext is not None and
-                        #   beamNumber in beamNext.getNumbers()
-                        # note: it is critical that we check archetypeSpan here
-                        # not archetypeSpanNext
-                        #environLocal.printDebug(['matching partial left'])
-                        beamType = 'partial-left'
-                    else:
-                        beamType = 'start'
-
-
-                # last beams was active, last beamNumber was active,
-                # and it was stopped or was a partial-left
-                elif (beamPrevious is not None
-                      and beamNumber in beamPrevious.getNumbers()
-                      and beamPrevious.getTypeByNumber(beamNumber) in ['stop', 'partial-left']
-                      and beamNext is not None):
                     beamType = 'start'
 
 
-                # last note had beams but stopped, next note cannot be beamed to
-                # was active, last beamNumber was active,
-                # and it was stopped or was a partial-left
-                elif (beamPrevious is not None
-                      and beamNumber in beamPrevious.getNumbers()
-                      and beamPrevious.getTypeByNumber(beamNumber) in ['stop', 'partial-left']
-                      and beamNext is None):
-                    beamType = 'partial-left'  # will be deleted later in the script
+            # last beams was active, last beamNumber was active,
+            # and it was stopped or was a partial-left
+            elif (beamPrevious is not None
+                  and beamNumber in beamPrevious.getNumbers()
+                  and beamPrevious.getTypeByNumber(beamNumber) in ['stop', 'partial-left']
+                  and beamNext is not None):
+                beamType = 'start'
 
-                # if no beam is defined next (we know this already)
-                # then must stop
-                elif (beamNext is None
-                      or beamNumber not in beamNext.getNumbers()):
-                    beamType = 'stop'
 
-                # the last cases are when to stop, or when to continue
-                # when we know we have a beam next
+            # last note had beams but stopped, next note cannot be beamed to
+            # was active, last beamNumber was active,
+            # and it was stopped or was a partial-left
+            elif (beamPrevious is not None
+                  and beamNumber in beamPrevious.getNumbers()
+                  and beamPrevious.getTypeByNumber(beamNumber) in ['stop', 'partial-left']
+                  and beamNext is None):
+                beamType = 'partial-left'  # will be deleted later in the script
 
-                # we continue if the next beam is in the same beaming archetype
-                # as this one.
-                # if endNext is outside of the archetype span,
-                # not sure what to do
-                elif startNext < archetypeSpan[1]:
-                    #environLocal.printDebug(['continue match: durtype, startNext, archetypeSpan',
-                    #   dur.type, startNext, archetypeSpan])
-                    beamType = 'continue'
 
-                # we stop if the next beam is not in the same beaming archetype
-                # and (as shown above) a valid beam number is not previous
-                elif startNext >= archetypeSpanNext[0]:
-                    beamType = 'stop'
+            # if no beam is defined next (we know this already)
+            # then must stop
+            elif (beamNext is None
+                  or beamNumber not in beamNext.getNumbers()):
+                beamType = 'stop'
 
-                else:
-                    raise TimeSignatureException('cannot match beamType')
+            # the last cases are when to stop, or when to continue
+            # when we know we have a beam next
 
-                # debugging information displays:
+            # we continue if the next beam is in the same beaming archetype
+            # as this one.
+            # if endNext is outside of the archetype span,
+            # not sure what to do
+            elif startNext < archetypeSpanEnd:
+                #environLocal.printDebug(['continue match: durtype, startNext, archetypeSpan',
+                #   dur.type, startNext, archetypeSpan])
+                beamType = 'continue'
+
+            # we stop if the next beam is not in the same beaming archetype
+            # and (as shown above) a valid beam number is not previous
+            elif startNext >= archetypeSpanNextStart:
+                beamType = 'stop'
+
+            else:
+                raise TimeSignatureException('cannot match beamType')
+
+
+            # debugging information displays:
 #                 if beamPrevious is not None:
 #                     environLocal.printDebug(['beamPrevious', beamPrevious,
 #                     'beamPrevious.getNumbers()', beamPrevious.getNumbers(),
@@ -3894,23 +3840,223 @@ class TimeSignature(base.Music21Object):
 #                         environLocal.printDebug(['beamPrevious type',
 #                            beamPrevious.getByNumber(beamNumber).type])
 
-                #environLocal.printDebug(['beamNumber, start, archetypeSpan, beamType',
-                # beamNumber, start, dur.type, archetypeSpan, beamType])
+            #environLocal.printDebug(['beamNumber, start, archetypeSpan, beamType',
+            # beamNumber, start, dur.type, archetypeSpan, beamType])
 
-                beams.setByNumber(beamNumber, beamType)
+            beams.setByNumber(beamNumber, beamType)
 
-                # increment position and continue loop
-                pos += dur.quarterLength
 
-        ## clear elements that have partial beams with no full beams:
+        #environLocal.printDebug(['beamsList', beamsList])
+        # iter over each beams line, from top to bottom (1 thourgh 5)
+        for depth in range(len(beamableDurationTypes)):
+            # increment to count from 1 not 0
+            # assume we are always starting at offset w/n this meter (Jose)
+            for i, el in enumerate(srcStream):
+                fixBeamsOneElementDepth(i, el, depth)
 
+        beamsList = TimeSignature._sanitizePartialBeams(beamsList)
+        beamsList = TimeSignature._mergeConnectingPartialBeams(beamsList)
+
+        return beamsList
+
+    @staticmethod
+    def _naiveBeams(srcList):
+        '''
+        Given a list or iterator of elements, return a list of None or Beams for
+        each element: None if the element is a quarter or larger or
+        if the element is a Rest, and the fullest possible set of beams
+        for the duration if it is a beamable.  Each beam object has type of None
+
+        staticmethod, does not need instance:
+
+        >>> durList = [0, -1, -2, -3]
+        >>> srcList = [note.Note(quarterLength=2**x) for x in durList]
+        >>> srcList.append(note.Rest(type='32nd'))
+        >>> meter.TimeSignature._naiveBeams(srcList)
+        [None,
+         <music21.beam.Beams <music21.beam.Beam 1/None>>,
+         <music21.beam.Beams <music21.beam.Beam 1/None>/<music21.beam.Beam 2/None>>,
+         <music21.beam.Beams <music21.beam.Beam 1/None>/<music21.beam.Beam
+                     2/None>/<music21.beam.Beam 3/None>>,
+         None]
+        '''
+        beamsList = []
+        for el in srcList:
+            # if a dur cannot be beamable under any circumstance, replace
+            # it with None; this includes Rests
+            if el.duration.type not in beamableDurationTypes:
+                beamsList.append(None) # placeholder
+            elif el.isRest is True:
+                beamsList.append(None) # placeholder
+            else:
+                # we have a beamable duration
+                b = beam.Beams()
+                # set the necessary number of internal beamsList, that is,
+                # one for each horizontal line in the beams group
+                # this does not set type or direction
+                b.fill(el.duration.type)
+                beamsList.append(b)
+        return beamsList
+
+    @staticmethod
+    def _removeSandwichedUnbeamables(beamsList):
+        '''
+        Go through the naiveBeamsList and remove beams from objects surrounded
+        by None objects -- you can't beam to nothing!
+
+        Modifies beamsList in place
+
+        >>> N = note.Note
+        >>> R = note.Rest
+        >>> e = 'eighth'
+        >>> nList = [N(type=e), R(type=e), N(type=e), N(type=e),
+        ...          R(type=e), N(type=e), R(type=e), N(type=e)]
+        >>> beamsList = meter.TimeSignature._naiveBeams(nList)
+        >>> beamsList
+        [<music21.beam.Beams <music21.beam.Beam 1/None>>,
+         None,
+         <music21.beam.Beams <music21.beam.Beam 1/None>>,
+         <music21.beam.Beams <music21.beam.Beam 1/None>>,
+         None,
+         <music21.beam.Beams <music21.beam.Beam 1/None>>,
+         None,
+         <music21.beam.Beams <music21.beam.Beam 1/None>>]
+
+        >>> beamsList2 = meter.TimeSignature._removeSandwichedUnbeamables(beamsList)
+        >>> beamsList2 is beamsList
+        True
+        >>> beamsList2
+        [None,
+         None,
+         <music21.beam.Beams <music21.beam.Beam 1/None>>,
+         <music21.beam.Beams <music21.beam.Beam 1/None>>,
+         None,
+         None,
+         None,
+         None]
+        '''
+        beamLast = None
+        for i in range(len(beamsList)):
+            if i != len(beamsList) - 1:
+                beamNext = beamsList[i + 1]
+            else:
+                beamNext = None
+
+            if beamLast is None and beamNext is None:
+                beamsList[i] = None
+
+            beamLast = beamsList[i]
+
+        return beamsList
+
+    @staticmethod
+    def _sanitizePartialBeams(beamsList):
+        '''
+        It is possible at a late stage to have beams that only consist of partials
+        or beams with a 'start' followed by 'partial/left' or possibly 'stop' followed
+        by 'partial/right'; beams entirely consisting of partials are removed
+        and the direction of irrational partials is fixed.
+        '''
         for i in range(len(beamsList)):
             if beamsList[i] is None:
                 continue
             allTypes = beamsList[i].getTypes()
+            ## clear elements that have partial beams with no full beams:
             if 'start' not in allTypes and 'stop' not in allTypes and 'continue' not in allTypes:
                 # nothing but partials
                 beamsList[i] = None
+                continue
+            ## make sure a partial-left does not follow a start or a partial-right does not
+            ## follow a stop
+            hasStart = False
+            hasStop = False
+            for b in beamsList[i].beamsList:
+                if b.type == 'start':
+                    hasStart = True
+                    continue
+                if b.type == 'stop':
+                    hasStop = True
+                    continue
+                if hasStart and b.type == 'partial' and b.direction == 'left':
+                    b.direction = 'right'
+                elif hasStop and b.type == 'partial' and b.direction == 'right':
+                    b.direction = 'left'
+
+        return beamsList
+
+
+    @staticmethod
+    def _mergeConnectingPartialBeams(beamsList):
+        '''
+        Partial-right followed by partial-left must also be connected, even if otherwise
+        over a archetypeSpan, such as 16th notes 2 and 3 in a quarter note span where
+        16ths are not beamed by default.
+        '''
+        ## sanitize two partials in a row:
+        for i in range(len(beamsList) - 1):
+            bThis = beamsList[i]
+            bNext = beamsList[i + 1]
+            if not bThis or not bNext:
+                continue
+
+            bThisNum = bThis.getNumbers()
+            if not bThisNum:
+                continue
+
+            for thisNum in bThisNum:
+                thisBeam = bThis.getByNumber(thisNum)
+                if thisBeam.type != 'partial' or thisBeam.direction != 'right':
+                    continue
+
+                if thisNum not in bNext.getNumbers():
+                    continue
+
+                nextBeam = bNext.getByNumber(thisNum)
+                if nextBeam.type == 'partial' and nextBeam.direction == 'right':
+                    continue
+                if nextBeam.type in ('continue', 'stop'):
+                    environLocal.warn(
+                        'Found a messed up beam pair {}, {}, at index {} of \n{}'.format(
+                            bThis, bNext, i, beamsList))
+                    continue #
+
+
+                thisBeam.type = 'start'
+                thisBeam.direction = None
+                if nextBeam.type == 'partial':
+                    nextBeam.type = 'stop'
+                elif nextBeam.type == 'start':
+                    nextBeam.type = 'continue'
+
+                nextBeam.direction = None
+
+        # now fix partial-lefts that follow stops:
+        for i in range(1, len(beamsList)):
+            bThis = beamsList[i]
+            bPrev = beamsList[i - 1]
+            if not bThis or not bPrev:
+                continue
+
+            bThisNum = bThis.getNumbers()
+            if not bThisNum:
+                continue
+
+            for thisNum in bThisNum:
+                thisBeam = bThis.getByNumber(thisNum)
+                if thisBeam.type != 'partial' or thisBeam.direction != 'left':
+                    continue
+
+                if thisNum not in bPrev.getNumbers():
+                    continue
+
+                prevBeam = bPrev.getByNumber(thisNum)
+                if prevBeam.type != 'stop':
+                    continue
+
+                thisBeam.type = 'stop'
+                thisBeam.direction = None
+                prevBeam.type = 'continue'
+
 
         return beamsList
 
@@ -3947,7 +4093,7 @@ class TimeSignature(base.Music21Object):
 
 
         >>> a = meter.TimeSignature('3/4', 3)
-        >>> a.accentSequence.partition([2,1])
+        >>> a.accentSequence.partition([2, 1])
         >>> a.accentSequence
         <MeterSequence {2/4+1/4}>
         >>> a.getAccent(0)
@@ -4029,10 +4175,59 @@ class TimeSignature(base.Music21Object):
             return 0.0 # or raise exception?  add doc test
         for el in streamIn:
             elWeight = self.getAccentWeight(
-                el._getMeasureOffsetOrMeterModulusOffset(self),
+                self.getMeasureOffsetOrMeterModulusOffset(el),
                 forcePositionMatch=True, permitMeterModulus=False)
             totalWeight += elWeight
         return totalWeight/totalObjects
+
+
+    def getMeasureOffsetOrMeterModulusOffset(self, el):
+        '''
+        Return the measure offset based on a Measure, if it exists,
+        otherwise based on meter modulus of the TimeSignature.
+
+        >>> m = stream.Measure()
+        >>> ts1 = meter.TimeSignature('3/4')
+        >>> m.insert(0, ts1)
+        >>> n1 = note.Note()
+        >>> m.insert(2, n1)
+        >>> ts1.getMeasureOffsetOrMeterModulusOffset(n1)
+        2.0
+
+        Exceeding the range of the Measure gets a modulus
+
+        >>> n2 = note.Note()
+        >>> m.insert(4.0, n2)
+        >>> ts1.getMeasureOffsetOrMeterModulusOffset(n2)
+        1.0
+
+        Can be applied to Notes in a Stream with a TimeSignature.
+
+        >>> ts2 = meter.TimeSignature('5/4')
+        >>> s2 = stream.Stream()
+        >>> s2.insert(0, ts2)
+        >>> n3 = note.Note()
+        >>> s2.insert(3, n3)
+        >>> ts2.getMeasureOffsetOrMeterModulusOffset(n3)
+        3.0
+
+        >>> n4 = note.Note()
+        >>> s2.insert(5, n4)
+        >>> ts2.getMeasureOffsetOrMeterModulusOffset(n4)
+        0.0
+        '''
+        mOffset = el._getMeasureOffset()
+        tsMeasureOffset = self._getMeasureOffset(includeMeasurePadding=False)
+        if (mOffset + tsMeasureOffset) < self.barDuration.quarterLength:
+            return mOffset
+        else:
+            # must get offset relative to not just start of Stream, but the last
+            # time signature
+            post = ((mOffset - tsMeasureOffset) % self.barDuration.quarterLength)
+            #environLocal.printDebug(['result', post])
+            return post
+
+
 
     def getAccentWeight(self, qLenPos, level=0, forcePositionMatch=False,
         permitMeterModulus=False):
@@ -4234,7 +4429,7 @@ class TimeSignature(base.Music21Object):
         >>> c = corpus.parse('bwv1.6')
         >>> for m in c.parts[0].getElementsByClass('Measure'):
         ...     ts = m.timeSignature or m.getContextByClass('TimeSignature')
-        ...     print("%s %s" % (m.number, ts.getOffsetFromBeat(4.5) - m.paddingLeft))
+        ...     print('%s %s' % (m.number, ts.getOffsetFromBeat(4.5) - m.paddingLeft))
         0 0.5
         1 3.5
         2 3.5
@@ -4396,15 +4591,15 @@ class SenzaMisuraTimeSignature(base.Music21Object):
     <music21.meter.SenzaMisuraTimeSignature 0 >
     '''
     def __init__(self, text=None):
-        super(SenzaMisuraTimeSignature, self).__init__()
+        super().__init__()
         self.text = text
 
     def __repr__(self):
-        head = "<music21.meter.SenzaMisuraTimeSignature"
+        head = '<music21.meter.SenzaMisuraTimeSignature'
         if self.text is None:
-            return head + ">"
+            return head + '>'
         else:
-            return head + " " + self.text + " >"
+            return head + ' ' + self.text + ' >'
 
 
 # TODO: Implement or delete...
@@ -4425,7 +4620,7 @@ class SenzaMisuraTimeSignature(base.Music21Object):
 #------------------------------------------------------------------------------
 
 
-class TestExternal(unittest.TestCase):
+class TestExternal(unittest.TestCase): # pragma: no cover
     def runTest(self):
         pass
 
@@ -4532,9 +4727,11 @@ class Test(unittest.TestCase):
         self.assertNotEqual(c, d)
 
     def testGetBeams(self):
+        from music21 import note
         a = TimeSignature('6/8')
-        b = ([duration.Duration('16th')] * 4  +
-             [duration.Duration('eighth')] * 1) * 2
+        durList = [16, 16, 16, 16, 8, 16, 16, 16, 16, 8]
+
+        b = [note.Note(quarterLength=4/d) for d in durList]
         c = a.getBeams(b)
         match = '''[<music21.beam.Beams <music21.beam.Beam 1/start>/<music21.beam.Beam 2/start>>,
         <music21.beam.Beams <music21.beam.Beam 1/continue>/<music21.beam.Beam 2/continue>>,
@@ -4560,13 +4757,13 @@ class Test(unittest.TestCase):
                     a[h][i][j] = a[h][i][j].subdivide(2)
 
         # matching with starts result in a lerdahl jackendoff style depth
-        match = [4,1,2,1,3,1,2,1]
+        match = [4, 1, 2, 1, 3, 1, 2, 1]
         for x in range(8):
             pos = x * .5
             test = a.offsetToDepth(pos, align='start')
             self.assertEqual(test, match[x])
 
-        match = [1,2,1,3,1,2,1]
+        match = [1, 2, 1, 3, 1, 2, 1]
         for x in range(7):
             pos = (x * .5) + .5
             test = a.offsetToDepth(pos, align='end')
@@ -4574,7 +4771,7 @@ class Test(unittest.TestCase):
             self.assertEqual(test, match[x])
 
         # can quantize by lowest value
-        match = [4,1,2,1,3,1,2,1]
+        match = [4, 1, 2, 1, 3, 1, 2, 1]
         for x in range(8):
             pos = (x * .5) + .25
             test = a.offsetToDepth(pos, align='quantize')
@@ -4780,33 +4977,6 @@ class Test(unittest.TestCase):
             ts1._setDefaultAccentWeights(3) # going to a lower level here
             self.assertEqual([mt.weight for mt in ts1.accentSequence], match)
 
-    def testJSONStorage(self):
-        from music21 import meter
-        from music21 import freezeThaw
-        from music21 import test
-
-        ts = meter.TimeSignature('3/4')
-        freezer = freezeThaw.JSONFreezer(ts)
-        self.assertMultiLineEqual(
-            freezeThaw.JSONFreezer(ts).prettyJson,
-            test.dedent('''
-                {
-                    "__attr__": {
-                        "ratioString": "3/4"
-                    },
-                    "__class__": "music21.meter.TimeSignature",
-                    "__version__": [
-                        ''' + str(base.VERSION[0]) + ''',
-                        ''' + str(base.VERSION[1]) + ''',
-                        ''' + str(base.VERSION[2]) + '''
-                    ]
-                }
-                ''',
-                ))
-
-        tsNew = meter.TimeSignature()
-        freezeThaw.JSONThawer(tsNew).json = freezer.json
-        self.assertEqual(tsNew.ratioString, '3/4')
 
     def testMusicxmlDirectOut(self):
         # test rendering musicxml directly from meter
@@ -4853,13 +5023,16 @@ class Test(unittest.TestCase):
         self.assertEqual(str(ts.beatSequence), '{{1/8+1/8+1/8}+{1/8+1/8+1/8}}')
 
     def testMixedDurationsBeams(self):
+        from music21 import note
         fourFour = TimeSignature('4/4')
-        d = duration.Duration
-        dList = [d('eighth'), d('quarter'), d('eighth'), d('eighth'), d('quarter'), d('eighth')]
+        n = note.Note
+        dList = [n(type='eighth'), n(type='quarter'), n(type='eighth'),
+                 n(type='eighth'), n(type='quarter'), n(type='eighth')]
         beamList = fourFour.getBeams(dList)
         self.assertEqual(beamList, [None] * 6)
 
-        dList = [d('eighth'), d('quarter'), d('eighth'), d('eighth'), d('eighth'), d('quarter')]
+        dList = [n(type='eighth'), n(type='quarter'), n(type='eighth'),
+                 n(type='eighth'), n(type='eighth'), n(type='quarter')]
         beamList = fourFour.getBeams(dList)
         self.assertEqual([repr(b) for b in beamList],
                          ['None', 'None', 'None',
@@ -4882,7 +5055,7 @@ class Test(unittest.TestCase):
         bm = converter.parse("tinyNotation: 2/4 b16 c' b a g f# g r")
         bm2 = bm.makeNotation()
         beamList = [n.beams for n in bm2.flat.notes]
-        beamListRepr = [str(i) + " " + repr(beamList[i]) for i in range(len(beamList))]
+        beamListRepr = [str(i) + ' ' + repr(beamList[i]) for i in range(len(beamList))]
         self.maxDiff = 2000
         self.assertEqual(beamListRepr, [
             '0 <music21.beam.Beams <music21.beam.Beam 1/start>/<music21.beam.Beam 2/start>>',
@@ -4890,9 +5063,11 @@ class Test(unittest.TestCase):
             '2 <music21.beam.Beams <music21.beam.Beam 1/continue>/<music21.beam.Beam 2/start>>',
             '3 <music21.beam.Beams <music21.beam.Beam 1/stop>/<music21.beam.Beam 2/stop>>',
             '4 <music21.beam.Beams <music21.beam.Beam 1/start>/<music21.beam.Beam 2/start>>',
-            '5 <music21.beam.Beams <music21.beam.Beam 1/continue>/<music21.beam.Beam 2/stop>>',
-            '6 <music21.beam.Beams <music21.beam.Beam 1/stop>/<music21.beam.Beam 2/partial/left>>',
+            '5 <music21.beam.Beams <music21.beam.Beam 1/continue>/<music21.beam.Beam 2/continue>>',
+            '6 <music21.beam.Beams <music21.beam.Beam 1/stop>/<music21.beam.Beam 2/stop>>',
             ])
+
+
 
     def testBestTimeSignature(self):
         from music21 import converter, stream
@@ -4911,7 +5086,7 @@ class Test(unittest.TestCase):
         '''
         from music21 import corpus
         fautIl = corpus.parse('demos/incorrect_time_signature_pv')
-        for m in fautIl.recurse().getElementsByClass("Measure"):
+        for m in fautIl.recurse().getElementsByClass('Measure'):
             m.timeSignature = m.bestTimeSignature()
         p1 = fautIl.parts[1]
         tsReps = []
@@ -4998,7 +5173,7 @@ class Test(unittest.TestCase):
 _DOC_ORDER = [TimeSignature]
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import music21
     music21.mainTest(Test) #, runTest='testCompoundSameDenominator')
 

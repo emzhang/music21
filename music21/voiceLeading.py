@@ -20,20 +20,21 @@ The list of objects included here are:
 
 * :class:`~music21.voiceLeading.VoiceLeadingQuartet` : two by two matrix of notes
 
-* :class:`~music21.voiceLeading.Verticality` : vertical context in a score, 
+* :class:`~music21.voiceLeading.Verticality` : vertical context in a score,
     composed of any music21 objects
-* :class:`~music21.voiceLeading.VerticalityNTuplet` : group of three 
+* :class:`~music21.voiceLeading.VerticalityNTuplet` : group of three
     contiguous verticality objects
 * :class:`~music21.voiceLeading.VerticalityTriplet` : three vertical slices
 
 * :class:`~music21.voiceLeading.NObjectLinearSegment` : n (any number) of music21 objects
 * :class:`~music21.voiceLeading.NNoteLinearSegment` : n (any number) of notes
 * :class:`~music21.voiceLeading.ThreeNoteLinearSegment` : three notes in the same part of a score
-* :class:`~music21.voiceLeading.NChordLinearSegment` : 
+* :class:`~music21.voiceLeading.NChordLinearSegment` :
     preliminary implementation of n(any number) chords
 * :class:`~music21.voiceLeading.TwoChordLinearSegment` : 2 chord objects
 
 '''
+import enum
 import unittest
 
 from music21 import base
@@ -44,12 +45,7 @@ from music21 import pitch
 from music21 import key
 from music21 import note
 from music21 import chord
-from music21.ext import six
 
-try:
-    import enum # @UnresolvedImport
-except ImportError:
-    from music21.ext import enum # enum34 backport
 
 #from music21 import harmony can't do this either
 #from music21 import roman Can't import roman because of circular
@@ -79,13 +75,13 @@ class VoiceLeadingQuartet(base.Music21Object):
     Necessary for classifying types of voice-leading motion
     '''
 
-    _DOC_ATTR = {'vIntervals': '''list of the two harmonic intervals present, 
+    _DOC_ATTR = {'vIntervals': '''list of the two harmonic intervals present,
                      vn1n1 to v2n1 and v1n2 to v2n2''',
-                 'hIntervals': '''list of the two melodic intervals present, 
+                 'hIntervals': '''list of the two melodic intervals present,
                      v1n1 to v1n2 and v2n1 to v2n2'''}
 
-    def __init__(self, v1n1=None, v1n2=None, v2n1=None, v2n2=None, analyticKey=key.Key('C')):
-        base.Music21Object.__init__(self)
+    def __init__(self, v1n1=None, v1n2=None, v2n1=None, v2n2=None, analyticKey=None):
+        super().__init__()
         if not intervalCache:
             # populate interval cache if not done yet
             # more efficient than doing it as Class level variables
@@ -124,9 +120,8 @@ class VoiceLeadingQuartet(base.Music21Object):
     def _getKey(self):
         return self._key
 
-
     def _setKey(self, keyValue):
-        if isinstance(keyValue, six.string_types):
+        if isinstance(keyValue, str):
             try:
                 keyValue = key.Key(key.convertKeyStringToMusic21KeyString(keyValue))
             except:
@@ -139,17 +134,17 @@ class VoiceLeadingQuartet(base.Music21Object):
                     raise AttributeError
             except AttributeError:
                 raise VoiceLeadingQuartetException(
-                    'got a key signature that is not a string or music21 Key ' + 
-                    'object: %s' % keyValue)
+                    'got a key signature that is not a string or music21 Key '
+                    + 'object: %s' % keyValue)
         self._key = keyValue
 
     key = property(_getKey, _setKey, doc='''
         set the key of this voiceleading quartet, for use in theory analysis routines
-        such as closesIncorrectly. The default key is C major
+        such as closesIncorrectly. Can be None
 
         >>> vlq = voiceLeading.VoiceLeadingQuartet('D', 'G', 'B', 'G')
-        >>> vlq.key
-        <music21.key.Key of C major>
+        >>> vlq.key is None
+        True
         >>> vlq.key = 'G'
         >>> vlq.key
         <music21.key.Key of G major>
@@ -158,8 +153,8 @@ class VoiceLeadingQuartet(base.Music21Object):
     def _setVoiceNote(self, value, which):
         if value is None:
             setattr(self, which, None)
-        elif isinstance(value, six.string_types):
-            setattr(self, which, note.Note(value)) 
+        elif isinstance(value, str):
+            setattr(self, which, note.Note(value))
         else:
             try:
                 if 'Note' in value.classes:
@@ -178,7 +173,7 @@ class VoiceLeadingQuartet(base.Music21Object):
 
     def _setv1n1(self, value):
         self._setVoiceNote(value, '_v1n1')
-        
+
     v1n1 = property(_getv1n1, _setv1n1, doc='''
         set note1 for voice 1
 
@@ -199,7 +194,6 @@ class VoiceLeadingQuartet(base.Music21Object):
         >>> vl = voiceLeading.VoiceLeadingQuartet('C', 'D', 'E', 'F')
         >>> vl.v1n2
         <music21.note.Note D>
-
         ''')
 
 
@@ -239,7 +233,7 @@ class VoiceLeadingQuartet(base.Music21Object):
 
     def motionType(self):
         '''
-        returns the type of motion from the MotionType Enum object 
+        returns the type of motion from the MotionType Enum object
         that exists in this voice leading quartet
 
         >>> for mt in voiceLeading.MotionType:
@@ -301,7 +295,6 @@ class VoiceLeadingQuartet(base.Music21Object):
         >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
         >>> vl.noMotion()
         False
-
         '''
         for iV in self.hIntervals:
             if iV.name != "P1":
@@ -312,7 +305,6 @@ class VoiceLeadingQuartet(base.Music21Object):
         '''
         Returns true if one voice remains the same and another moves.  i.e.,
         noMotion must be False if obliqueMotion is True.
-
 
         >>> n1 = note.Note('G4')
         >>> n2 = note.Note('G4')
@@ -329,7 +321,6 @@ class VoiceLeadingQuartet(base.Music21Object):
         >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
         >>> vl.obliqueMotion()
         False
-
         '''
         if self.noMotion():
             return False
@@ -346,7 +337,6 @@ class VoiceLeadingQuartet(base.Music21Object):
         Returns true if the two voices both move in the same direction.
         Parallel Motion will also return true, as it is a special case of
         similar motion. If there is no motion, returns False.
-
 
         >>> n1 = note.Note('G4')
         >>> n2 = note.Note('G4')
@@ -377,7 +367,8 @@ class VoiceLeadingQuartet(base.Music21Object):
                 return False
 
     def parallelMotion(self, requiredInterval=None):
-        '''Returns True if both voices move with the same interval or an
+        '''
+        Returns True if both voices move with the same interval or an
         octave duplicate of the interval.  If requiredInterval is given
         then returns True only if the parallel interval is that simple interval.
 
@@ -421,7 +412,7 @@ class VoiceLeadingQuartet(base.Music21Object):
             if requiredInterval is None:
                 return True
             else:
-                if isinstance(requiredInterval, six.string_types):
+                if isinstance(requiredInterval, str):
                     requiredInterval = interval.Interval(requiredInterval)
 
                 if self.vIntervals[0].simpleName == requiredInterval.simpleName:
@@ -436,11 +427,11 @@ class VoiceLeadingQuartet(base.Music21Object):
         >>> n2 = note.Note('G4')
         >>> m1 = note.Note('G4')
         >>> m2 = note.Note('G4')
-        
+
         No motion, so False:
-        
+
         >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
-        >>> vl.contraryMotion() 
+        >>> vl.contraryMotion()
         False
 
         Oblique motion, so False:
@@ -498,7 +489,8 @@ class VoiceLeadingQuartet(base.Music21Object):
         >>> vl.inwardContraryMotion()
         False
         '''
-        return self.contraryMotion() and self.hIntervals[0].direction == 1
+        return (self.contraryMotion()
+                and self.hIntervals[0].direction == interval.Direction.ASCENDING)
 
     def inwardContraryMotion(self):
         '''
@@ -514,7 +506,8 @@ class VoiceLeadingQuartet(base.Music21Object):
         >>> vl.outwardContraryMotion()
         False
         '''
-        return self.contraryMotion() and self.hIntervals[0].direction == -1
+        return (self.contraryMotion()
+                and self.hIntervals[0].direction == interval.Direction.DESCENDING)
 
     def antiParallelMotion(self, simpleName=None):
         '''Returns True if the simple interval before is the same as the simple
@@ -565,7 +558,7 @@ class VoiceLeadingQuartet(base.Music21Object):
                 if simpleName is None:
                     return True
                 else:
-                    if isinstance(simpleName, six.string_types):
+                    if isinstance(simpleName, str):
                         if self.vIntervals[0].simpleName == simpleName:
                             return True
                         else:
@@ -579,7 +572,8 @@ class VoiceLeadingQuartet(base.Music21Object):
                 return False
 
     def parallelInterval(self, thisInterval):
-        '''Returns true if there is a parallel motion or antiParallel motion of
+        '''
+        Returns true if there is a parallel motion or antiParallel motion of
         this type (thisInterval should be an Interval object)
 
         >>> n11 = note.Note("C4")
@@ -613,15 +607,18 @@ class VoiceLeadingQuartet(base.Music21Object):
 
         if not (self.parallelMotion() or self.antiParallelMotion()):
             return False
+
+        if isinstance(thisInterval, str):
+            thisInterval = interval.Interval(thisInterval)
+
+        if self.vIntervals[0].semiSimpleName == thisInterval.semiSimpleName:
+            return True
         else:
-            if self.vIntervals[0].semiSimpleName == thisInterval.semiSimpleName:
-                return True
-            else:
-                return False
+            return False
 
     def parallelFifth(self):
         '''
-        Returns true if the motion is a parallel Perfect Fifth 
+        Returns true if the motion is a parallel Perfect Fifth
         (or antiparallel) or Octave duplication
 
         >>> voiceLeading.VoiceLeadingQuartet(
@@ -652,11 +649,14 @@ class VoiceLeadingQuartet(base.Music21Object):
         return self.parallelInterval(self.fifth)
 
     def parallelOctave(self):
-        '''Returns True if the motion is a parallel Perfect Octave...
+        '''
+        Returns True if the motion is a parallel Perfect Octave...
         a concept so abhorrent we shudder to illustrate it with an example, but alas, we must:
 
-        >>> N = note.Note # to make these examples shorter
-        
+        We will make the examples shorter with this abbreviation:
+
+        >>> N = note.Note
+
         >>> vlq = voiceLeading.VoiceLeadingQuartet(N("C4"), N("D4"), N("C5"), N("D5"))
         >>> vlq.parallelOctave()
         True
@@ -676,8 +676,11 @@ class VoiceLeadingQuartet(base.Music21Object):
         return self.parallelInterval(self.octave)
 
     def parallelUnison(self):
-        '''Returns true if the motion is a parallel Perfect Unison (and not
+        '''
+        Returns true if the motion is a parallel Perfect Unison (and not
         Perfect Octave, etc.)
+
+        We will make the examples shorter with this abbreviation:
 
         >>> N = note.Note
         >>> voiceLeading.VoiceLeadingQuartet(N("C4"), N("D4"), N("C4"), N("D4")).parallelUnison()
@@ -713,7 +716,7 @@ class VoiceLeadingQuartet(base.Music21Object):
         Returns boolean.
         '''
 
-        return self.parallelOctave() or self.parallelUnison()
+        return self.parallelUnison() or self.parallelOctave()
 
     def hiddenInterval(self, thisInterval):
         '''N.b. -- this method finds ALL hidden intervals,
@@ -746,6 +749,9 @@ class VoiceLeadingQuartet(base.Music21Object):
         elif not self.similarMotion():
             return False
         else:
+            if isinstance(thisInterval, str):
+                thisInterval = interval.Interval(thisInterval)
+
             if self.vIntervals[1].simpleName == thisInterval.simpleName:
                 return True
             else:
@@ -763,14 +769,14 @@ class VoiceLeadingQuartet(base.Music21Object):
         '''
         return self.hiddenInterval(self.octave)
 
-    def improperResolution(self):
+    def isProperResolution(self):
         '''
         Checks whether the voice-leading quartet resolves correctly according to standard
-        counterpoint rules. If the first harmony is dissonant (d5, A4, or m7) it checks
+        counterpoint rules. If the first harmony is dissonant (P4, d5, A4, or m7) it checks
         that these are correctly resolved. If the first harmony is consonant, True is returned.
 
         The key parameter should be specified to check for motion in the bass from specific
-        note degrees. Default key is C Major.
+        note degrees. If it is not set, then no checking for scale degrees takes place.
 
         Diminished Fifth: in by contrary motion to a third, with 7 resolving up to 1 in the bass
         Augmented Fourth: out by contrary motion to a sixth, with chordal seventh resolving
@@ -782,70 +788,125 @@ class VoiceLeadingQuartet(base.Music21Object):
         >>> m1 = note.Note('E4')
         >>> m2 = note.Note('F4')
         >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
-        >>> vl.improperResolution() #d5
+        >>> vl.isProperResolution() # d5 resolves inward
         True
+        >>> m2.pitch.name = 'D'
+        >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
+        >>> vl.isProperResolution() # d5 resolves outward
+        False
+        >>> vl.key = 'B-'
+        >>> vl.isProperResolution() # not on scale degrees that need resolution
+        True
+
 
         >>> n1 = note.Note('E5')
         >>> n2 = note.Note('F5')
         >>> m1 = note.Note('B-4')
         >>> m2 = note.Note('A4')
         >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
-        >>> vl.improperResolution() #A4
+        >>> vl.isProperResolution() # A4 resolves outward
         True
+        >>> m2.pitch.nameWithOctave = 'D5'
+        >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
+        >>> vl.isProperResolution() # A4 resolves inward
+        False
+        >>> vl.key = 'B-'
+        >>> vl.isProperResolution() # A4 not on scale degrees that need resolution
+        True
+        >>> vl.key = 'F'
+        >>> vl.isProperResolution() # A4 on scale degrees that need resolution
+        False
 
         >>> n1 = note.Note('B-4')
         >>> n2 = note.Note('A4')
         >>> m1 = note.Note('C4')
         >>> m2 = note.Note('F4')
         >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
-        >>> vl.improperResolution() #m7
+        >>> vl.isProperResolution() # m7
         True
-
-        >>> n1 = note.Note('C4')
-        >>> n2 = note.Note('D4')
-        >>> m1 = note.Note('F4')
-        >>> m2 = note.Note('G4')
+        >>> m2.pitch.nameWithOctave = 'F3'
         >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
-        >>> vl.improperResolution() #not dissonant, true returned
+        >>> vl.isProperResolution() # m7 with similar motion
         False
+        >>> vl.key = 'B-'
+        >>> vl.isProperResolution() # m7 not on scale degrees that need resolution
+        True
+        >>> vl.key = 'F'
+        >>> vl.isProperResolution() # m7 on scale degrees that need resolution
+        False
+
+        P4 on the initial harmony must move down.
+
+        >>> n1 = note.Note('F5')
+        >>> n2 = note.Note('G5')
+        >>> m1 = note.Note('C4')
+        >>> m2 = note.Note('C4')
+        >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
+        >>> vl.isProperResolution() # P4 must move down or remain static
+        False
+        >>> n2.step = 'E'
+        >>> vl = voiceLeading.VoiceLeadingQuartet(n1, n2, m1, m2)
+        >>> vl.isProperResolution() # P4 can move down by step or leap
+        True
 
         >>> vl = voiceLeading.VoiceLeadingQuartet('B-4', 'A4', 'C2', 'F2')
         >>> vl.key = key.Key('F')
-        >>> vl.improperResolution() # not dissonant, true returned
-        False
+        >>> vl.isProperResolution() # not dissonant, True returned
+        True
 
         Returns boolean.
         '''
         if self.noMotion():
-            return False
+            return True
 
-        scale = self.key.getScale()
-
-        if self.vIntervals[0].simpleName == 'd5':
-            return not (scale.getScaleDegreeFromPitch(self.v2n1) == 7
-                        and scale.getScaleDegreeFromPitch(self.v2n2) == 1
-                        and self.inwardContraryMotion() 
-                        and self.vIntervals[1].generic.simpleUndirected == 3)
-
-        elif self.vIntervals[0].simpleName == 'A4':
-            return not (scale.getScaleDegreeFromPitch(self.v2n1) == 4
-                        and scale.getScaleDegreeFromPitch(self.v2n2) == 3 
-                        and self.outwardContraryMotion() 
-                        and self.vIntervals[1].generic.simpleUndirected == 6)
-
-        elif self.vIntervals[0].simpleName == 'm7':
-            return not (scale.getScaleDegreeFromPitch(self.v2n1) == 5
-                        and scale.getScaleDegreeFromPitch(self.v2n2) == 1
-                        and self.inwardContraryMotion() 
-                        and self.vIntervals[1].generic.simpleUndirected == 3)
+        if self.key:
+            scale = self.key.getScale()
+            n1degree = scale.getScaleDegreeFromPitch(self.v2n1)
+            n2degree = scale.getScaleDegreeFromPitch(self.v2n2)
         else:
-            return False
+            scale = None
+            n1degree = None
+            n2degree = None
+
+        firstHarmony = self.vIntervals[0].simpleName
+        secondHarmony = self.vIntervals[1].generic.simpleUndirected
+
+        if firstHarmony == 'P4':
+            if self.v1n1 >= self.v1n2:
+                return True
+            else:
+                return False
+        elif firstHarmony == 'd5':
+            if scale and n1degree != 7:
+                return True
+            if scale and n2degree != 1:
+                return False
+            return (self.inwardContraryMotion()
+                        and secondHarmony == 3)
+
+        elif firstHarmony == 'A4':
+            if scale and n1degree != 4:
+                return True
+            if scale and n2degree != 3:
+                return False
+            return (self.outwardContraryMotion()
+                        and secondHarmony == 6)
+
+        elif firstHarmony == 'm7':
+            if scale and n1degree != 5:
+                return True
+            if scale and n2degree != 1:
+                return False
+            return (self.inwardContraryMotion()
+                        and secondHarmony == 3)
+        else:
+            return True
 
     def leapNotSetWithStep(self):
         '''
-        returns true if there is a leap or skip in once voice then the other voice must 
+        returns true if there is a leap or skip in once voice then the other voice must
         be a step or unison.
-        if neither part skips then False is returned. Returns False if the two voices 
+        if neither part skips then False is returned. Returns False if the two voices
         skip thirds in contrary motion.
 
         >>> n1 = note.Note('G4')
@@ -871,8 +932,8 @@ class VoiceLeadingQuartet(base.Music21Object):
         if self.noMotion():
             return False
 
-        if (self.hIntervals[0].generic.undirected == 3 
-                and self.hIntervals[1].generic.undirected == 3 
+        if (self.hIntervals[0].generic.undirected == 3
+                and self.hIntervals[1].generic.undirected == 3
                 and self.contraryMotion()):
             return False
 
@@ -888,10 +949,10 @@ class VoiceLeadingQuartet(base.Music21Object):
     def opensIncorrectly(self):
         '''
         RENAME TODO
-        
+
         In the style of 16th century Counterpoint (not Bach Chorale style)
 
-        Returns true if the opening or second harmonic interval is PU, P8, or P5, 
+        Returns true if the opening or second harmonic interval is PU, P8, or P5,
         to accommodate an anacrusis.
         also checks to see if opening establishes tonic or dominant harmony (uses
         :meth:`~music21.roman.identifyAsTonicOrDominant`
@@ -934,9 +995,9 @@ class VoiceLeadingQuartet(base.Music21Object):
         '''
         In the style of 16th century Counterpoint (not Bach Chorale style)
 
-        returns true if closing harmonic interval is a P8 or PU and the interval 
+        returns true if closing harmonic interval is a P8 or PU and the interval
         approaching the close is
-        6 - 8, 10 - 8, or 3 - U. Must be in contrary motion, and if in minor key, 
+        6 - 8, 10 - 8, or 3 - U. Must be in contrary motion, and if in minor key,
         the leading tone resolves to the tonic.
 
         >>> vl = voiceLeading.VoiceLeadingQuartet('C#', 'D', 'E', 'D')
@@ -964,12 +1025,12 @@ class VoiceLeadingQuartet(base.Music21Object):
                 raisedMinorCorrectly = self.key.getScaleDegreeFromPitch(self.v1n2) == 1
         else:
             raisedMinorCorrectly = True
-        preclosings = [6,3]
+        preclosings = [6, 3]
         closingPitches = [self.v1n2.pitch.name, self.v2n2.name]
-        return not ( self.vIntervals[0].generic.simpleUndirected in preclosings 
-                     and self.vIntervals[1].generic.simpleUndirected == 1 
-                     and raisedMinorCorrectly 
-                     and self.key.pitchFromDegree(1).name in closingPitches 
+        return not ( self.vIntervals[0].generic.simpleUndirected in preclosings
+                     and self.vIntervals[1].generic.simpleUndirected == 1
+                     and raisedMinorCorrectly
+                     and self.key.pitchFromDegree(1).name in closingPitches
                      and self.contraryMotion())
 
 class VoiceLeadingQuartetException(exceptions21.Music21Exception):
@@ -978,7 +1039,7 @@ class VoiceLeadingQuartetException(exceptions21.Music21Exception):
 
 def getVerticalityFromObject(music21Obj, scoreObjectIsFrom, classFilterList=None):
     '''
-    returns the :class:`~music21.voiceLeading.Verticality` object given a score, 
+    returns the :class:`~music21.voiceLeading.Verticality` object given a score,
     and a music21 object within this score
     (under development)
 
@@ -987,43 +1048,43 @@ def getVerticalityFromObject(music21Obj, scoreObjectIsFrom, classFilterList=None
     >>> c = corpus.parse('bach/bwv66.6')
     >>> n1 = c.flat.getElementsByClass(note.Note)[0]
     >>> voiceLeading.getVerticalityFromObject(n1, c)
-    <music21.voiceLeading.Verticality 
-        contentDict={0: [<music21.instrument.Instrument P1: Soprano: Instrument 1>, 
-                         <music21.clef.TrebleClef>, 
-                         <music21.key.Key of f# minor>, 
-                         <music21.meter.TimeSignature 4/4>, 
-                         <music21.note.Note C#>], 
-              1: [<music21.instrument.Instrument P2: Alto: Instrument 2>, 
-                  <music21.clef.TrebleClef>, 
-                  <music21.key.Key of f# minor>, 
-                  <music21.meter.TimeSignature 4/4>, 
+    <music21.voiceLeading.Verticality
+        contentDict={0: [<music21.instrument.Instrument P1: Soprano: Instrument 1>,
+                         <music21.clef.TrebleClef>,
+                         <music21.key.Key of f# minor>,
+                         <music21.meter.TimeSignature 4/4>,
+                         <music21.note.Note C#>],
+              1: [<music21.instrument.Instrument P2: Alto: Instrument 2>,
+                  <music21.clef.TrebleClef>,
+                  <music21.key.Key of f# minor>,
+                  <music21.meter.TimeSignature 4/4>,
                   <music21.note.Note E>],
-              2: [<music21.instrument.Instrument P3: Tenor: Instrument 3>, 
-                  <music21.clef.BassClef>, 
-                  <music21.key.Key of f# minor>, 
-                  <music21.meter.TimeSignature 4/4>, 
-                  <music21.note.Note A>], 
-              3: [<music21.instrument.Instrument P4: Bass: Instrument 4>, 
-                  <music21.clef.BassClef>, 
-                  <music21.key.Key of f# minor>, 
-                  <music21.meter.TimeSignature 4/4>, 
+              2: [<music21.instrument.Instrument P3: Tenor: Instrument 3>,
+                  <music21.clef.BassClef>,
+                  <music21.key.Key of f# minor>,
+                  <music21.meter.TimeSignature 4/4>,
+                  <music21.note.Note A>],
+              3: [<music21.instrument.Instrument P4: Bass: Instrument 4>,
+                  <music21.clef.BassClef>,
+                  <music21.key.Key of f# minor>,
+                  <music21.meter.TimeSignature 4/4>,
                   <music21.note.Note A>]}>
 
     for getting things at the beginning of scores, probably better to use a classFilterList:
 
-    >>> voiceLeading.getVerticalityFromObject(n1, c, 
+    >>> voiceLeading.getVerticalityFromObject(n1, c,
     ...                      classFilterList=[note.Note, chord.Chord, note.Rest])
-    <music21.voiceLeading.Verticality contentDict={0: [<music21.note.Note C#>], 
-              1: [<music21.note.Note E>], 
-              2: [<music21.note.Note A>], 
+    <music21.voiceLeading.Verticality contentDict={0: [<music21.note.Note C#>],
+              1: [<music21.note.Note E>],
+              2: [<music21.note.Note A>],
               3: [<music21.note.Note A>]}>
     '''
     offsetOfObject =  music21Obj.getOffsetBySite(scoreObjectIsFrom.flat)
 
     contentDict = {}
     for partNum, partObj in enumerate(scoreObjectIsFrom.parts):
-        elementStream = partObj.flat.getElementsByOffset(offsetOfObject, 
-                                                         mustBeginInSpan=False, 
+        elementStream = partObj.flat.getElementsByOffset(offsetOfObject,
+                                                         mustBeginInSpan=False,
                                                          classList=classFilterList)
         for el in elementStream.elements:
             if partNum in contentDict:
@@ -1038,21 +1099,21 @@ class Verticality(base.Music21Object):
     A vertical slice object provides more accessible information about
     vertical moments in a score. A vertical slice is instantiated by passing in a dictionary of
     the form {partNumber : [ music21Objects ] }
-    To create vertical slices out of a score, call 
+    To create vertical slices out of a score, call
     by :meth:`~music21.theoryAnalzyer.getVerticalities`
 
-    Vertical slices are useful to provide direct and easy access to objects in a part. 
+    Vertical slices are useful to provide direct and easy access to objects in a part.
     A list of vertical
-    slices, although similar to the list of chords from a chordified score, 
+    slices, although similar to the list of chords from a chordified score,
     provides easier access to partnumber
-    information and identity of objects in the score. Plus, the objects in a 
+    information and identity of objects in the score. Plus, the objects in a
     vertical slice points directly
-    to the objects in the score, so modifying a vertical slice taken from a 
+    to the objects in the score, so modifying a vertical slice taken from a
     score is the same as modyfing the elements
     of the vertical slice in the score directly.
 
 
-    >>> vs1 = voiceLeading.Verticality({0:[note.Note('A4'), harmony.ChordSymbol('Cm')], 
+    >>> vs1 = voiceLeading.Verticality({0:[note.Note('A4'), harmony.ChordSymbol('Cm')],
     ...                                 1: [note.Note('F2')]})
     >>> vs1.getObjectsByClass(note.Note)
     [<music21.note.Note A>, <music21.note.Note F>]
@@ -1060,24 +1121,24 @@ class Verticality(base.Music21Object):
     <music21.note.Note A>
     '''
     _DOC_ATTR = {
-    'contentDict': '''Dictionary representing contents of vertical slices. 
+    'contentDict': '''Dictionary representing contents of vertical slices.
         the keys of the dictionary
-        are the part numbers and the element at each key is a list of 
+        are the part numbers and the element at each key is a list of
         music21 objects (allows for multiple voices
         in a single part)'''
     }
 
     def __init__(self, contentDict):
-        base.Music21Object.__init__(self)
+        super().__init__()
         for partNum, element in contentDict.items():
             if not isinstance(element, list):
                 contentDict[partNum] = [element]
 
         self.contentDict = contentDict
-        
+
     def isConsonant(self):
         '''
-        evaluates whether this vertical slice moment is consonant or dissonant 
+        evaluates whether this vertical slice moment is consonant or dissonant
         according to the common-practice
         consonance rules. Method generates chord of all simultaneously sounding pitches, then calls
         :meth:`~music21.chord.isConsonant`
@@ -1101,7 +1162,7 @@ class Verticality(base.Music21Object):
 
     def getChord(self):
         '''
-        extracts all simultaneously sounding pitches (from chords, notes, harmony objects, etc.) 
+        extracts all simultaneously sounding pitches (from chords, notes, harmony objects, etc.)
         and returns
         as a chord. Pretty much returns the vertical slice to a chordified output.
 
@@ -1109,8 +1170,8 @@ class Verticality(base.Music21Object):
         >>> vs1 = voiceLeading.Verticality({0:N('A4'), 1:chord.Chord(['B', 'C', 'A']), 2:N('A')})
         >>> vs1.getChord()
         <music21.chord.Chord A4 B C A A>
-        >>> voiceLeading.Verticality({0:N('A3'), 
-        ...                           1:chord.Chord(['F3', 'D4', 'A4']), 
+        >>> voiceLeading.Verticality({0:N('A3'),
+        ...                           1:chord.Chord(['F3', 'D4', 'A4']),
         ...                           2:harmony.ChordSymbol('Am')}).getChord()
         <music21.chord.Chord A3 F3 D4 A4 A2 C3 E3>
         '''
@@ -1127,7 +1188,7 @@ class Verticality(base.Music21Object):
 
     def makeAllSmallestDuration(self):
         '''
-        locates the smallest duration of all elements in the vertical slice 
+        locates the smallest duration of all elements in the vertical slice
         and assigns this duration
         to each element
 
@@ -1146,7 +1207,7 @@ class Verticality(base.Music21Object):
 
     def makeAllLargestDuration(self):
         '''
-        locates the largest duration of all elements in the vertical slice 
+        locates the largest duration of all elements in the vertical slice
         and assigns this duration
         to each element
 
@@ -1223,12 +1284,12 @@ class Verticality(base.Music21Object):
 
     def getObjectsByPart(self, partNum, classFilterList=None ):
         '''
-        returns the list of music21 objects associated with a given part number 
+        returns the list of music21 objects associated with a given part number
         (if more than one). returns
         the single object if only one. Optionally specify which
         type of objects to return with classFilterList
 
-        >>> vs1 = voiceLeading.Verticality({0:[note.Note('A4'), harmony.ChordSymbol('C')], 
+        >>> vs1 = voiceLeading.Verticality({0:[note.Note('A4'), harmony.ChordSymbol('C')],
         ...                                 1:[note.Note('C')]})
         >>> vs1.getObjectsByPart(0, classFilterList=['Harmony'])
         <music21.harmony.ChordSymbol C>
@@ -1256,22 +1317,22 @@ class Verticality(base.Music21Object):
 
     def getObjectsByClass(self, classFilterList, partNums=None):
         '''
-        returns a list of all objects in the vertical slice of a type contained 
+        returns a list of all objects in the vertical slice of a type contained
         in the classFilterList. Optionally
         specify partnumbers to only search for matching objects
 
         >>> N = note.Note
-        >>> vs1 = voiceLeading.Verticality({0: [N('A4'), harmony.ChordSymbol('C')], 
-        ...                                 1: [N('C')], 
+        >>> vs1 = voiceLeading.Verticality({0: [N('A4'), harmony.ChordSymbol('C')],
+        ...                                 1: [N('C')],
         ...                                 2: [N('B'), N('F#')]})
         >>> vs1.getObjectsByClass('Note')
-        [<music21.note.Note A>, <music21.note.Note C>, 
+        [<music21.note.Note A>, <music21.note.Note C>,
          <music21.note.Note B>, <music21.note.Note F#>]
-        >>> vs1.getObjectsByClass('Note', [1,2])
+        >>> vs1.getObjectsByClass('Note', [1, 2])
         [<music21.note.Note C>, <music21.note.Note B>, <music21.note.Note F#>]
 
         '''
-        if not common.isIterable( classFilterList):
+        if not common.isIterable(classFilterList):
             classFilterList = [classFilterList]
         retList = []
         for part, objList in self.contentDict.items():
@@ -1299,20 +1360,20 @@ class Verticality(base.Music21Object):
     objects = property(_getObjects, doc='''
         return a list of all the music21 objects in the vertical slice
 
-        >>> vs1 = voiceLeading.Verticality({0:[harmony.ChordSymbol('C'), note.Note('A4'),], 
+        >>> vs1 = voiceLeading.Verticality({0:[harmony.ChordSymbol('C'), note.Note('A4'),],
         ...                                 1:[note.Note('C')]})
         >>> vs1.objects
         [<music21.harmony.ChordSymbol C>, <music21.note.Note A>, <music21.note.Note C>]
         ''')
 
-    def getStream(self, streamVSCameFrom = None):
+    def getStream(self, streamVSCameFrom=None):
         '''
         returns the stream representation of this vertical slice. Optionally pass in
         the full stream that this verticality was extracted from, and correct key, meter, and time
         signatures will be included
         (under development)
 
-        >>> vs1 = voiceLeading.Verticality({0:[harmony.ChordSymbol('C'), note.Note('A4'),], 
+        >>> vs1 = voiceLeading.Verticality({0:[harmony.ChordSymbol('C'), note.Note('A4'),],
         ...                                 1:[note.Note('C')]})
         >>> len(vs1.getStream().flat.getElementsByClass(note.Note))
         2
@@ -1350,13 +1411,13 @@ class Verticality(base.Music21Object):
         '''
         returns the overall offset of the vertical slice. Typically, this would just be the
         offset of each object in the vertical slice, and each object would have the same offset.
-        However, if the duration of one object in the slice is different than the duration 
+        However, if the duration of one object in the slice is different than the duration
         of another,
-        and that other starts after the first, but the first is still sounding, then the 
+        and that other starts after the first, but the first is still sounding, then the
         offsets would be
-        different. In this case, specify leftAlign=True to return the lowest valued-offset 
+        different. In this case, specify leftAlign=True to return the lowest valued-offset
         of all the objects
-        in the vertical slice. If you prefer the offset of the right-most starting object, 
+        in the vertical slice. If you prefer the offset of the right-most starting object,
         then specify leftAlign=False
 
         >>> s = stream.Score()
@@ -1425,11 +1486,11 @@ class Verticality(base.Music21Object):
 
 class VerticalityNTuplet(base.Music21Object):
     '''
-    a collection of n number of vertical slices. These objects are useful when 
+    a collection of n number of vertical slices. These objects are useful when
     analyzing counterpoint
     motion and music theory elements such as passing tones'''
     def __init__(self, listofVerticalities):
-        base.Music21Object.__init__(self)
+        super().__init__()
 
         self.verticalities = listofVerticalities
         self.nTupletNum = len(listofVerticalities)
@@ -1451,7 +1512,7 @@ class VerticalityNTuplet(base.Music21Object):
 class VerticalityTriplet(VerticalityNTuplet):
     '''a collection of three vertical slices'''
     def __init__(self, listofVerticalities):
-        VerticalityNTuplet.__init__(self, listofVerticalities)
+        super().__init__(listofVerticalities)
 
         self.tnlsDict = {} #defaultdict(int) #Three Note Linear Segments
         self._calcTNLS()
@@ -1460,7 +1521,7 @@ class VerticalityTriplet(VerticalityNTuplet):
         '''
         calculates the three note linear segments if only three vertical slices provided
         '''
-        for partNum in range(0, min(len(self.verticalities[0].getObjectsByClass(note.Note)),
+        for partNum in range(min(len(self.verticalities[0].getObjectsByClass(note.Note)),
                                     len(self.verticalities[1].getObjectsByClass(note.Note)),
                                     len(self.verticalities[2].getObjectsByClass(note.Note)))
                              ):
@@ -1473,11 +1534,11 @@ class VerticalityTriplet(VerticalityNTuplet):
     def hasPassingTone(self, partNumToIdentify, unaccentedOnly=False):
         '''
         return true if this vertical slice triplet contains a passing tone
-        music21 currently identifies passing tones by analyzing both horizontal motion 
+        music21 currently identifies passing tones by analyzing both horizontal motion
         and vertical motion.
-        It first checks to see if the note could be a passing tone based on the notes 
+        It first checks to see if the note could be a passing tone based on the notes
         linearly adjacent to it.
-        It then checks to see if the note's vertical context is dissonant, while the 
+        It then checks to see if the note's vertical context is dissonant, while the
         vertical slices
         to the left and right are consonant
 
@@ -1514,11 +1575,11 @@ class VerticalityTriplet(VerticalityNTuplet):
     def hasNeighborTone(self, partNumToIdentify, unaccentedOnly=False):
         '''
         return true if this vertical slice triplet contains a neighbor tone
-        music21 currently identifies neighbor tones by analyzing both horizontal motion 
+        music21 currently identifies neighbor tones by analyzing both horizontal motion
         and vertical motion.
-        It first checks to see if the note could be a neighbor tone based on the notes 
+        It first checks to see if the note could be a neighbor tone based on the notes
         linearly adjacent to it.
-        It then checks to see if the note's vertical context is dissonant, 
+        It then checks to see if the note's vertical context is dissonant,
         while the vertical slices
         to the left and right are consonant
 
@@ -1559,12 +1620,12 @@ class NNoteLinearSegment(base.Music21Object):
 
     '''
     def __init__(self, noteList):
-        base.Music21Object.__init__(self)
+        super().__init__()
         self._noteList = []
         for value in noteList:
             if value is None:
                 self._noteList.append(None)
-            elif isinstance(value, six.string_types):
+            elif isinstance(value, str):
                 self._noteList.append(note.Note(value))
             else:
                 try:
@@ -1579,7 +1640,7 @@ class NNoteLinearSegment(base.Music21Object):
     noteList = property(_getNoteList, doc='''
         >>> n = voiceLeading.NNoteLinearSegment(['A', 'B5', 'C', 'F#'])
         >>> n.noteList
-        [<music21.note.Note A>, <music21.note.Note B>, 
+        [<music21.note.Note A>, <music21.note.Note B>,
          <music21.note.Note C>, <music21.note.Note F#>]
         ''')
 
@@ -1599,11 +1660,11 @@ class NNoteLinearSegment(base.Music21Object):
         calculates the melodic intervals and returns them as a list,
         with the interval at 0 being the interval between the first and second note.
 
-        >>> linSeg = voiceLeading.NNoteLinearSegment([note.Note('A'), note.Note('B'), 
+        >>> linSeg = voiceLeading.NNoteLinearSegment([note.Note('A'), note.Note('B'),
         ...            note.Note('C'), note.Note('D')])
         >>> linSeg.melodicIntervals
-        [<music21.interval.Interval M2>, 
-         <music21.interval.Interval M-7>, 
+        [<music21.interval.Interval M2>,
+         <music21.interval.Interval M-7>,
          <music21.interval.Interval M2>]
         '''
         )
@@ -1658,17 +1719,18 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
     4
 
     '''
-    _DOC_ORDER = ['couldBePassingTone', 
-                  'couldBeDiatonicPassingTone', 
+    _DOC_ORDER = ['couldBePassingTone',
+                  'couldBeDiatonicPassingTone',
                   'couldBeChromaticPassingTone',
                   'couldBeNeighborTone',
                   'couldBeDiatonicNeighborTone',
                   'couldBeChromaticNeighborTone']
-    def __init__(self, noteListorn1=None, n2 = None, n3 = None):
-        if isinstance(noteListorn1, (list, tuple)):
-            NNoteLinearSegment.__init__(self, noteListorn1)
+
+    def __init__(self, noteListOrN1=None, n2=None, n3=None):
+        if common.isIterable(noteListOrN1):
+            super().__init__(noteListOrN1)
         else:
-            NNoteLinearSegment.__init__(self, [noteListorn1,n2,n3])
+            super().__init__([noteListOrN1, n2, n3])
 
     def _getN1(self):
         return self.noteList[0]
@@ -1691,7 +1753,7 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
     def _correctNoteInput(self, value):
         if value is None:
             return None
-        elif isinstance(value, six.string_types):
+        elif isinstance(value, str):
             return note.Note(value)
         else:
             try:
@@ -1753,7 +1815,7 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
 
     def color(self, color='red', noteList=(2,)):
         '''
-        color all the notes in noteList (1,2,3). Default is to color only the second note red
+        color all the notes in noteList (1, 2, 3). Default is to color only the second note red
         '''
         if 1 in noteList:
             self.n1.color = color
@@ -1765,7 +1827,7 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
     def _isComplete(self):
         #if not (self.n1 and self.n2 and self.n3):
 
-        return (self.n1 is not None) and (self.n2 is not None) and (self.n3 is not None) 
+        return (self.n1 is not None) and (self.n2 is not None) and (self.n3 is not None)
         #if any of these are none, it isn't complete
 
     def couldBePassingTone(self):
@@ -1835,11 +1897,11 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
         >>> tls.couldBeDiatonicPassingTone()
         True
         '''
-        return (self._isComplete() 
-                and self.iLeftToRight.generic.isSkip 
-                and self.iLeft.generic.undirected == 2 
-                and self.iRight.generic.undirected == 2 
-                and self.iLeft.generic.undirected * self.iRight.generic.undirected == 4 
+        return (self._isComplete()
+                and self.iLeftToRight.generic.isSkip
+                and self.iLeft.generic.undirected == 2
+                and self.iRight.generic.undirected == 2
+                and self.iLeft.generic.undirected * self.iRight.generic.undirected == 4
                 and self.iLeft.direction * self.iRight.direction == 1)
 
 
@@ -1869,13 +1931,13 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
         False
         '''
 
-        return (self._isComplete() 
-                and ((self.iLeft.generic.undirected == 2 
+        return (self._isComplete()
+                and ((self.iLeft.generic.undirected == 2
                             or self.iLeft.generic.undirected == 1)
-                     and (self.iRight.generic.undirected == 2 
+                     and (self.iRight.generic.undirected == 2
                             or self.iRight.generic.undirected == 1)
                      and self.iLeft.generic.undirected * self.iRight.generic.undirected == 2
-                     and self.iLeft.isChromaticStep 
+                     and self.iLeft.isChromaticStep
                      and self.iRight.isChromaticStep
                      and self.iLeft.direction * self.iRight.direction == 1))
 
@@ -1918,10 +1980,10 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
         False
         '''
 
-        return (self._isComplete() 
-            and self.n1.nameWithOctave == self.n3.nameWithOctave 
-            and self.iLeft.chromatic.undirected == 2 
-            and self.iRight.chromatic.undirected == 2 
+        return (self._isComplete()
+            and self.n1.nameWithOctave == self.n3.nameWithOctave
+            and self.iLeft.chromatic.undirected == 2
+            and self.iRight.chromatic.undirected == 2
             and self.iLeft.direction * self.iRight.direction == -1)
 
 
@@ -1939,13 +2001,13 @@ class ThreeNoteLinearSegment(NNoteLinearSegment):
         >>> voiceLeading.ThreeNoteLinearSegment('C#3', 'D3', 'D-3').couldBeChromaticNeighborTone()
         False
         '''
-        return (self._isComplete() 
-            and (self.n1.nameWithOctave == self.n3.nameWithOctave 
-                 and self.iLeft.isChromaticStep 
-                 and self.iRight.isChromaticStep 
+        return (self._isComplete()
+            and (self.n1.nameWithOctave == self.n3.nameWithOctave
+                 and self.iLeft.isChromaticStep
+                 and self.iRight.isChromaticStep
                  and (self.iLeft.direction * self.iRight.direction ==  -1)))
 
-### Below: beginnings of an implementation for any object segments, 
+### Below: beginnings of an implementation for any object segments,
 ### such as two chord linear segments
 ### currently only used by theoryAnalyzer
 
@@ -1955,7 +2017,7 @@ class NChordLinearSegmentException(exceptions21.Music21Exception):
 class NObjectLinearSegment(base.Music21Object):
 
     def __init__(self, objectList):
-        base.Music21Object.__init__(self)
+        super().__init__()
         self.objectList = objectList
 
     def __repr__(self):
@@ -1965,7 +2027,7 @@ class NObjectLinearSegment(base.Music21Object):
 
 class NChordLinearSegment(NObjectLinearSegment):
     def __init__(self, chordList):
-        NObjectLinearSegment.__init__(self, chordList)
+        super().__init__(chordList)
         self._chordList = []
         for value in chordList:
             if value is None:
@@ -1987,12 +2049,12 @@ class NChordLinearSegment(NObjectLinearSegment):
     chordList = property(_getChordList, doc='''
         returns a list of all chord symbols in this linear segment
 
-        >>> n = voiceLeading.NChordLinearSegment([harmony.ChordSymbol('Am'), 
-        ...                                       harmony.ChordSymbol('F7'), 
+        >>> n = voiceLeading.NChordLinearSegment([harmony.ChordSymbol('Am'),
+        ...                                       harmony.ChordSymbol('F7'),
         ...                                       harmony.ChordSymbol('G9')])
         >>> n.chordList
-        [<music21.harmony.ChordSymbol Am>, 
-         <music21.harmony.ChordSymbol F7>, 
+        [<music21.harmony.ChordSymbol Am>,
+         <music21.harmony.ChordSymbol F7>,
          <music21.harmony.ChordSymbol G9>]
 
 
@@ -2004,15 +2066,15 @@ class NChordLinearSegment(NObjectLinearSegment):
 class TwoChordLinearSegment(NChordLinearSegment):
     def __init__(self, chordList, chord2=None):
         if isinstance(chordList, (list, tuple)):
-            NChordLinearSegment.__init__(self, chordList)
+            super().__init__(chordList)
         else:
-            NChordLinearSegment.__init__(self, [chordList,chord2])
+            super().__init__([chordList,chord2])
 
     def rootInterval(self):
         '''
         returns the chromatic interval between the roots of the two chord symbols
 
-        >>> h = voiceLeading.TwoChordLinearSegment([harmony.ChordSymbol('C'), 
+        >>> h = voiceLeading.TwoChordLinearSegment([harmony.ChordSymbol('C'),
         ...                                         harmony.ChordSymbol('G')])
         >>> h.rootInterval()
         <music21.interval.ChromaticInterval 7>
@@ -2023,7 +2085,7 @@ class TwoChordLinearSegment(NChordLinearSegment):
         '''
         returns the chromatic interval between the basses of the two chord symbols
 
-        >>> h = voiceLeading.TwoChordLinearSegment(harmony.ChordSymbol('C/E'), 
+        >>> h = voiceLeading.TwoChordLinearSegment(harmony.ChordSymbol('C/E'),
         ...                                        harmony.ChordSymbol('G'))
         >>> h.bassInterval()
         <music21.interval.ChromaticInterval 3>
@@ -2107,7 +2169,7 @@ class Test(unittest.TestCase):
         assert d.hiddenInterval(interval.Interval("AA4")) is False
 
 
-class TestExternal(unittest.TestCase):
+class TestExternal(unittest.TestCase): # pragma: no cover
     def runTest(self):
         pass
 

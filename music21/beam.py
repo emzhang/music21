@@ -6,7 +6,7 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21
 #               Project
 # License:      LGPL or BSD, see license.txt
 #------------------------------------------------------------------------------
@@ -78,14 +78,14 @@ import unittest
 from music21 import common
 from music21 import exceptions21
 from music21 import duration
+from music21 import style
 from music21.common import EqualSlottedObjectMixin
-
 
 class BeamException(exceptions21.Music21Exception):
     pass
 
 
-class Beam(EqualSlottedObjectMixin):
+class Beam(EqualSlottedObjectMixin, style.StyleMixin):
     '''
     A Beam is an object representation of one single beam, that is, one
     horizontal line connecting two notes together (or less commonly a note to a
@@ -108,14 +108,14 @@ class Beam(EqualSlottedObjectMixin):
     >>> b3 = beam.Beam(number=1, type='partial', direction='left')
     >>> b3
     <music21.beam.Beam 1/partial/left>
-    
+
     >>> b4 = beam.Beam('partial', 'left')
     >>> b4.number = 1
     >>> b4
     <music21.beam.Beam 1/partial/left>
 
     All attributes must be the same for equality:
-    
+
     >>> b3 == b4
     True
 
@@ -129,6 +129,7 @@ class Beam(EqualSlottedObjectMixin):
 
     __slots__ = (
         'direction',
+        'id',
         'independentAngle',
         'number',
         'type',
@@ -137,12 +138,14 @@ class Beam(EqualSlottedObjectMixin):
     ### INITIALIZER ###
     # pylint: disable=redefined-builtin
     def __init__(self, type=None, direction=None, number=None):  # type is okay @ReservedAssignment
+        super().__init__()
         self.type = type  # start, stop, continue, partial
         self.direction = direction  # left or right for partial
         self.independentAngle = None
         # represents which beam line referred to
         # 8th, 16th, etc represented as 1, 2, ...
         self.number = number
+        self.id = id(self)
 
     ### SPECIAL METHODS ###
     def __repr__(self):
@@ -168,7 +171,7 @@ class Beams(EqualSlottedObjectMixin):
     >>> n.beams.fill(2, 'start')
     >>> len(n.beams)
     2
-    
+
     >>> for thisBeam in n.beams:
     ...     thisBeam.type
     'start'
@@ -184,10 +187,11 @@ class Beams(EqualSlottedObjectMixin):
     __slots__ = (
         'beamsList',
         'feathered',
+        'id',
         )
 
     _DOC_ATTR = {
-        'feathered': 'Boolean determining if this is a feathered beam or not ' + 
+        'feathered': 'Boolean determining if this is a feathered beam or not ' +
             '(does nothing for now).',
         }
 
@@ -196,6 +200,7 @@ class Beams(EqualSlottedObjectMixin):
     def __init__(self):
         self.beamsList = []
         self.feathered = False
+        self.id = id(self)
 
     ### SPECIAL METHODS ###
 
@@ -222,25 +227,37 @@ class Beams(EqualSlottedObjectMixin):
         >>> beams.append('start')
         >>> beams.beamsList
         [<music21.beam.Beam 1/start>]
-        
+
         >>> beams.append('partial', 'right')
         >>> beams.beamsList
         [<music21.beam.Beam 1/start>, <music21.beam.Beam 2/partial/right>]
 
+
+        A beam object can also be specified:
+
+        >>> beams = beam.Beams()
+        >>> beam1 = beam.Beam(type='start', number=1)
+        >>> beams.append(beam1)
+        >>> beams.beamsList
+        [<music21.beam.Beam 1/start>]
         '''
-        obj = Beam(type, direction)
-        obj.number = len(self.beamsList) + 1
+        if isinstance(type, str):
+            obj = Beam(type, direction)
+            obj.number = len(self.beamsList) + 1
+        else:
+            obj = type
+
         self.beamsList.append(obj)
 
     def fill(self, level=None, type=None): # type is okay @ReservedAssignment
         '''
         A quick way of setting the beams list for a particular duration, for
-        instance, fill("16th") will clear the current list of beams in the
-        Beams object and add two beams.  fill(2) will do the same (though note
+        instance, `fill('16th')` will clear the current list of beams in the
+        Beams object and add two beams.  `fill(2)` will do the same (though note
         that that is an int, not a string).
 
         It does not do anything to the direction that the beams are going in,
-        or by default.  Either set type here or call setAll() on the Beams
+        or by default.  Either set type here or call `setAll()` on the Beams
         object afterwards.
 
         Both "eighth" and "8th" work.  Adding more than six beams (i.e. things
@@ -302,8 +319,8 @@ class Beams(EqualSlottedObjectMixin):
             count = 6
         else:
             raise BeamException('cannot fill beams for level %s' % level)
-        for i in range(1, count+1):
-            if i == 0: 
+        for i in range(1, count + 1):
+            if i == 0:
                 raise BeamException('level zero does not exist for this range')
             obj = Beam()
             obj.number = i
@@ -462,7 +479,7 @@ class Test(unittest.TestCase):
 _DOC_ORDER = [Beams, Beam]
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import music21
     music21.mainTest(Test)
-    
+

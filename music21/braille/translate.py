@@ -30,7 +30,7 @@ Keywords:
   on all :class:`~music21.stream.Measure`, :class:`~music21.stream.Part`, and
   :class:`~music21.stream.PartStaff` instances. Copies of those objects are then
   used to transcribe the music. If True, the transcription is done "as is."
-  This is useful for strict transcription because 
+  This is useful for strict transcription because
   sometimes :meth:`~music21.stream.Stream.makeNotation`
   introduces some unwanted artifacts in the music. However, the music needs
   to be organized into measures for transcription to work.
@@ -44,52 +44,47 @@ the reader in a meaningful manner and to give him convenient reference points to
 memorization" (BMTM, 71). Some of these keywords are changed automatically in context.
 
 
-* **cancelOutgoingKeySig** (True): If True, whenever a key signature change is 
+* **cancelOutgoingKeySig** (True): If True, whenever a key signature change is
     encountered, the new signature should be preceded by the old one.
-* **descendingChords** (True): If True, then chords are spelled around the highest note. 
-    If False, then chords are spelled around the lowest note. This keyword is 
+* **descendingChords** (True): If True, then chords are spelled around the highest note.
+    If False, then chords are spelled around the lowest note. This keyword is
     overriden by any valid clefs present in the music.
-* **dummyRestLength** (None) For a given positive integer n, adds n "dummy rests" 
-    near the beginning of a segment. Designed for test purposes, as the rests 
+* **dummyRestLength** (None) For a given positive integer n, adds n "dummy rests"
+    near the beginning of a segment. Designed for test purposes, as the rests
     are used to demonstrate measure division at the end of braille lines.
-* **maxLineLength** (40): The maximum amount of braille characters 
+* **maxLineLength** (40): The maximum amount of braille characters
     that should be present in a line of braille.
-* **segmentBreaks** ([]): A list consisting of (measure number, offset start) 
+* **segmentBreaks** ([]): A list consisting of (measure number, offset start)
     tuples indicating where the music should be broken into segments.
-* **showClefSigns** (False): If True, then clef signs are displayed. 
-    Since braille does not use clefs or staves to represent music, they would 
+* **showClefSigns** (False): If True, then clef signs are displayed.
+    Since braille does not use clefs or staves to represent music, they would
     instead be shown for referential or historical purposes.
-* **showFirstMeasureNumber** (True): If True, then a measure number is shown 
+* **showFirstMeasureNumber** (True): If True, then a measure number is shown
     following the heading (if applicable) and preceding the music.
-* **showHand** (None): If set to "right" or "left", the corresponding 
-    hand sign is shown before the music. In keyboard music, 
+* **showHand** (None): If set to "right" or "left", the corresponding
+    hand sign is shown before the music. In keyboard music,
     the hand signs are shown automatically.
-* **showHeading** (True): If True, then a braille heading is created above 
-    the initial segment. A heading consists 
+* **showHeading** (True): If True, then a braille heading is created above
+    the initial segment. A heading consists
     of an initial :class:`~music21.key.KeySignature`, :class:`~music21.meter.TimeSignature`,
-    :class:`~music21.tempo.TempoText`, and :class:`~music21.tempo.MetronomeMark`, 
+    :class:`~music21.tempo.TempoText`, and :class:`~music21.tempo.MetronomeMark`,
     or any subset thereof. The heading
     is centered above the music automatically.
-* **showLongSlursAndTiesTogether** (False), **showShortSlursAndTiesTogether** (False): 
-    If False, then the slur on either side of the phrase is reduced by the amount 
-    that ties are present. If True, then slurs and ties are shown together 
+* **showLongSlursAndTiesTogether** (False), **showShortSlursAndTiesTogether** (False):
+    If False, then the slur on either side of the phrase is reduced by the amount
+    that ties are present. If True, then slurs and ties are shown together
     (i.e. the note can have both a slur and a tie).
-* **slurLongPhraseWithBrackets** (True): If True, then the slur of a 
-    long phrase (4+ consecutive notes) is brailled using the bracket slur. 
+* **slurLongPhraseWithBrackets** (True): If True, then the slur of a
+    long phrase (4+ consecutive notes) is brailled using the bracket slur.
     If False, the double slur is used instead.
-* **suppressOctaveMarks** (True): If True, then all octave marks are suppressed. 
+* **suppressOctaveMarks** (True): If True, then all octave marks are suppressed.
     Designed for test purposes, as octave marks were not presented in BMTM until Chapter 7.
-* **upperFirstInNoteFingering** (True): If True, then whenever 
-    there is a choice fingering (i.e. 5|4), the upper 
+* **upperFirstInNoteFingering** (True): If True, then whenever
+    there is a choice fingering (i.e. 5|4), the upper
     number is transcribed before the lower number. If False, the reverse is the case.
 """
 import re
 import unittest
-
-try: # gives Py2 the zip of Py3
-    from future_builtins import zip # pylint: disable=redefined-builtin
-except ImportError:
-    pass
 
 
 from music21 import exceptions21
@@ -99,17 +94,12 @@ from music21 import stream
 from music21.braille.basic import wordToBraille
 from music21.braille.lookup import alphabet
 from music21.braille import segment
-from music21.ext import six
-
-# pylint: disable=redefined-builtin    
-if six.PY3:
-    unicode = str # @ReservedAssignment
 
 
 #------------------------------------------------------------------------------
 
 def objectToBraille(music21Obj, **keywords):
-    u"""
+    """
 
     Translates an arbitrary object to braille.
 
@@ -155,7 +145,7 @@ def objectToBraille(music21Obj, **keywords):
         return measureToBraille(music21Measure, **keywords)
 
 def streamToBraille(music21Stream, **keywords):
-    u"""
+    """
     Translates a :class:`~music21.stream.Stream` to braille.
     """
     if isinstance(music21Stream, stream.Part):
@@ -172,7 +162,7 @@ def streamToBraille(music21Stream, **keywords):
     raise BrailleTranslateException("Stream cannot be translated to Braille.")
 
 def scoreToBraille(music21Score, **keywords):
-    u"""
+    """
     Translates a :class:`~music21.stream.Score` to braille.
     """
     allBrailleLines = []
@@ -181,19 +171,19 @@ def scoreToBraille(music21Score, **keywords):
     for p in music21Score.getElementsByClass(stream.Part):
         braillePart = partToBraille(p, **keywords)
         allBrailleLines.append(braillePart)
-    return u"\n".join(allBrailleLines)
+    return "\n".join(allBrailleLines)
 
 def metadataToString(music21Metadata, returnBrailleUnicode=False):
-    u"""
+    """
     >>> from music21.braille import translate
     >>> corelli = corpus.parse("monteverdi/madrigal.3.1.rntxt")
-    >>> mdObject = corelli.getElementsByClass('Metadata')[0] 
+    >>> mdObject = corelli.getElementsByClass('Metadata')[0]
     >>> mdObject.__class__
     <class 'music21.metadata.Metadata'>
     >>> print(translate.metadataToString(mdObject))
     Alternative Title: 3.1
     Title: La Giovinetta Pianta
-    
+
     >>> print(translate.metadataToString(mdObject, returnBrailleUnicode=True))
     ⠠⠁⠇⠞⠑⠗⠝⠁⠞⠊⠧⠑⠀⠠⠞⠊⠞⠇⠑⠒⠀⠼⠉⠲⠁
     ⠠⠞⠊⠞⠇⠑⠒⠀⠠⠇⠁⠀⠠⠛⠊⠕⠧⠊⠝⠑⠞⠞⠁⠀⠠⠏⠊⠁⠝⠞⠁
@@ -202,15 +192,15 @@ def metadataToString(music21Metadata, returnBrailleUnicode=False):
     for key in music21Metadata._workIds:
         value = music21Metadata._workIds[key]
         if value is not None:
-            n = u" ".join(re.findall(r"([A-Z]*[a-z]+)", key))
-            outString = u"{0}: {1}".format(n.title(), value)
+            n = " ".join(re.findall(r"([A-Z]*[a-z]+)", key))
+            outString = "{0}: {1}".format(n.title(), value)
             if returnBrailleUnicode:
                 outTemp = []
                 for word in outString.split():
                     outTemp.append(wordToBraille(word))
                 outString = alphabet[' '].join(outTemp)
             allBrailleLines.append(outString)
-    return u'\n'.join(sorted(allBrailleLines))
+    return '\n'.join(sorted(allBrailleLines))
 
 def opusToBraille(music21Opus, **keywords):
     """
@@ -219,12 +209,12 @@ def opusToBraille(music21Opus, **keywords):
     allBrailleLines = []
     for score in music21Opus.getElementsByClass(stream.Score):
         allBrailleLines.append(scoreToBraille(score, **keywords))
-    return u"\n\n".join(allBrailleLines)
+    return "\n\n".join(allBrailleLines)
 
 def measureToBraille(music21Measure, **keywords):
-    u"""
+    """
     Translates a :class:`~music21.stream.Measure` to braille.
-    
+
     >>> p = stream.Part()
     >>> p.append(note.Note('C4', type='whole'))
     >>> p.makeMeasures(inPlace=True)
@@ -233,13 +223,13 @@ def measureToBraille(music21Measure, **keywords):
         {0.0} <music21.clef.TrebleClef>
         {0.0} <music21.meter.TimeSignature 4/4>
         {0.0} <music21.note.Note C>
-        {4.0} <music21.bar.Barline style=final>    
+        {4.0} <music21.bar.Barline style=final>
     >>> print(braille.translate.objectToBraille(p))
     ⠀⠀⠼⠙⠲⠀⠀
     ⠼⠁⠀⠐⠽⠣⠅
     >>> print(braille.translate.measureToBraille(p.measure(1)))
     ⠼⠙⠲⠀⠐⠽⠣⠅
-    
+
     """
     (inPlace, unused_debug) = _translateArgs(**keywords)
     if 'showHeading' not in keywords:
@@ -257,7 +247,7 @@ def measureToBraille(music21Measure, **keywords):
 def partToBraille(music21Part, **keywords):
     """
     Translates a :class:`~music21.stream.Part` to braille.
-    
+
     This is one of two (w/ keyboardPartsToBraille) main routines.  Runs segment.findSegments
     and then for each segment runs transcribe on it.
     """
@@ -269,31 +259,23 @@ def partToBraille(music21Part, **keywords):
     allBrailleText = []
     for brailleSegment in allSegments:
         transcription = brailleSegment.transcribe()
-        
+
         if not debug:
             allBrailleText.append(transcription)
         else:
-            if six.PY2:
-                bsStr = str(brailleSegment)
-                bsUni = bsStr.decode('utf-8')
-                allBrailleText.append(bsUni)
-            else:
-                allBrailleText.append(str(brailleSegment))
+            allBrailleText.append(str(brailleSegment))
 
     from music21.braille.basic import beamStatus
     for x in list(beamStatus): # coerce to list first so that dictionary does not change size
         del beamStatus[x]      # while iterating.
 
-    if six.PY2 and debug:
-        return u"\n".join(allBrailleText)
-    else:
-        return u"\n".join([unicode(bt) for bt in allBrailleText])
+    return "\n".join([str(bt) for bt in allBrailleText])
 
 
 
 def keyboardPartsToBraille(keyboardScore, **keywords):
     """
-    Translates a Score object containing two :class:`~music21.stream.Part` instances to braille, 
+    Translates a Score object containing two :class:`~music21.stream.Part` instances to braille,
     an upper part and a lower
     part. Assumes that the two parts are aligned and well constructed. Bar over bar format is used.
     """
@@ -311,7 +293,7 @@ def keyboardPartsToBraille(keyboardScore, **keywords):
         lowerPartToTranscribe = staffLower.makeNotation(cautionaryNotImmediateRepeat=False)
     rhSegments = segment.findSegments(upperPartToTranscribe, setHand='right', **keywords)
     lhSegments = segment.findSegments(lowerPartToTranscribe, setHand='left', **keywords)
-    
+
     allBrailleText = []
     for (rhSegment, lhSegment) in zip(rhSegments, lhSegments):
         bg = segment.BrailleGrandSegment()
@@ -320,29 +302,21 @@ def keyboardPartsToBraille(keyboardScore, **keywords):
 
         for lhGroupingKey in lhSegment:
             bg[lhGroupingKey] = lhSegment[lhGroupingKey]
-        
+
         bg.transcribe()
         if not debug:
             allBrailleText.append(bg.brailleText)
         else:
-            if six.PY2:
-                bsStr = str(bg)
-                bsUni = bsStr.decode('utf-8')
-                allBrailleText.append(bsUni)
-            else:
-                allBrailleText.append(str(bg))
-    
-    if six.PY2 and debug:
-        return u"\n".join(allBrailleText)
-    else:
-        return u"\n".join([unicode(bt) for bt in allBrailleText])
+            allBrailleText.append(str(bg))
+
+    return "\n".join([str(bt) for bt in allBrailleText])
 
 
 def _translateArgs(**keywords):
     '''
     Returns a tuple of inPlace (default False) and debug (default False)
     from a set of keywords:
-    
+
     >>> braille.translate._translateArgs()
     (False, False)
     >>> braille.translate._translateArgs(debug=True)

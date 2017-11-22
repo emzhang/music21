@@ -11,9 +11,6 @@
 '''
 Various tools and utilities to find correlations between disparate objects in a Stream.
 '''
-from __future__ import division, print_function, absolute_import
-
-
 import unittest
 from collections import OrderedDict
 
@@ -24,7 +21,7 @@ from music21 import chord
 from music21 import dynamics
 
 from music21 import environment
-_MOD = 'correlate.py'
+_MOD = 'analysis.correlate'
 environLocal = environment.Environment(_MOD)
 
 
@@ -38,20 +35,20 @@ class CorrelateException(exceptions21.Music21Exception):
 
 
 #-------------------------------------------------------------------------------
-class ActivityMatch(object):
+class ActivityMatch:
     '''Given a Stream, find if one object is active while another is also active.
 
-    Plotting routines to graph the output of dedicated methods in this class are available. 
+    Plotting routines to graph the output of dedicated methods in this class are available.
 
-    :class:`~music21.graph.PlotScatterPitchSpaceDynamicSymbol` and 
-    :class:`~music21.graph.PlotScatterWeightedPitchSpaceDynamicSymbol` 
-    employs the :meth:`~music21.analysis.correlate.ActivityMatch.pitchToDynamic` method. 
-    
+    :class:`~music21.graph.plot.ScatterPitchSpaceDynamicSymbol` and
+    :class:`~music21.graph.plot.ScatterWeightedPitchSpaceDynamicSymbol`
+    employs the :meth:`~music21.analysis.correlate.ActivityMatch.pitchToDynamic` method.
+
     Sample output is as follows:
 
-    .. image:: images/PlotScatterWeightedPitchSpaceDynamicSymbol.*
+    .. image:: images/ScatterWeightedPitchSpaceDynamicSymbol.*
         :width: 600
-    
+
     '''
 
     def __init__(self, streamObj):
@@ -67,7 +64,7 @@ class ActivityMatch(object):
         returns an ordered list of dictionaries, in the form
         {'src': obj, 'dst': [objs]}
 
-        '''        
+        '''
         if objNameSrc is None:
             objNameSrc = (note.Note, chord.Chord)
         if objNameDst is None:
@@ -93,11 +90,11 @@ class ActivityMatch(object):
 
             for entry in post:
                 # here, we are only looking if start times match
-                if (entry['src'].offset >= dstStart 
+                if (entry['src'].offset >= dstStart
                         and entry['src'].offset <= dstEnd):
                     # this is match; add a reference to the element
-                    entry['dst'].append(element)            
-                
+                    entry['dst'].append(element)
+
         self.data = post
         #environLocal.printDebug(['_findActive', self.data])
         return self.data
@@ -107,8 +104,8 @@ class ActivityMatch(object):
         '''
         Create an analysis of pitch to dynamic symbol.
 
-        If `dataPoints` is True, all data matches between source and destination are returned. 
-        If False, 3 point weighted coordinates are created for each unique match. 
+        If `dataPoints` is True, all data matches between source and destination are returned.
+        If False, 3 point weighted coordinates are created for each unique match.
 
         No dynamics here.
 
@@ -116,8 +113,8 @@ class ActivityMatch(object):
         >>> am = analysis.correlate.ActivityMatch(s.parts[0].flat)
         >>> am.pitchToDynamic()
         Traceback (most recent call last):
-        CorrelateException: cannot create correlation an object that is not found in the 
-        Stream: <class 'music21.dynamics.Dynamic'>
+        music21.analysis.correlate.CorrelateException: cannot create correlation:
+            an object that is not found in the Stream: <class 'music21.dynamics.Dynamic'>
 
         Many dynamics
 
@@ -127,7 +124,7 @@ class ActivityMatch(object):
         >>> len(data)
         39
         >>> data[0]
-        [83.0, 7]
+        (83.0, 7)
         '''
         objNameSrc = (note.Note, chord.Chord)
         #objNameSrc = note.Note
@@ -136,7 +133,7 @@ class ActivityMatch(object):
         for objName in [objNameSrc, objNameDst]:
             dstCheck = self.streamObj.flat.getElementsByClass(objName)
             if not dstCheck:
-                raise CorrelateException('cannot create correlation an object ' +
+                raise CorrelateException('cannot create correlation: an object ' +
                                          'that is not found in the Stream: %s' % objName)
 
         self._findActive(objNameSrc, objNameDst)
@@ -154,7 +151,7 @@ class ActivityMatch(object):
             #if hasattr(entrySrc, 'pitches'): # a chord
             if entrySrc.isChord:
                 sub = [n for n in entrySrc]
-            else:   
+            else:
                 sub = [entrySrc]
 
             for entrySrc in sub:
@@ -164,7 +161,7 @@ class ActivityMatch(object):
                     if x is None or y is None:
                         pass
                     else:
-                        pairs.append([x, y])
+                        pairs.append((x, y))
 
         # if requesting data points, just return all points
         if dataPoints:
@@ -172,8 +169,7 @@ class ActivityMatch(object):
 
         # find unique coords and count instances
         dictionary = OrderedDict()
-        for coord in pairs: 
-            coord = tuple(coord)
+        for coord in pairs:
             if coord not in dictionary:
                 dictionary[coord] = 0
             dictionary[coord] += 1

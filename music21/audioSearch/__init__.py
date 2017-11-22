@@ -15,17 +15,17 @@ Base routines used throughout audioSearching and score-folling.
 
 Requires numpy, scipy, and matplotlib.
 '''
-from __future__ import division, print_function
-
 __all__ = ['transcriber', 'recording', 'scoreFollower']
 
 import copy
 import math
 import os
+import pathlib
 import wave
+import warnings
 import unittest
 
-# cannot call this base, because when audioSearch.__init__.py 
+# cannot call this base, because when audioSearch.__init__.py
 # imports * from base, it overwrites audioSearch!
 from music21 import base as base
 from music21 import common
@@ -40,10 +40,8 @@ from music21 import stream
 from music21.audioSearch import recording
 from music21.audioSearch import transcriber
 
-from music21.ext import six
-
 from music21 import environment
-_MOD = 'audioSearch/base.py'
+_MOD = 'audioSearch'
 environLocal = environment.Environment(_MOD)
 
 audioChunkLength = 1024
@@ -75,14 +73,14 @@ def histogram(data, bins):
     '''
     maxValue = max(data)
     minValue = min(data)
-    lengthEachBin = (maxValue-minValue) / bins
+    lengthEachBin = (maxValue - minValue) / bins
 
     container = []
     for i in range(int(bins)):
         container.append(0)
     for i in data:
         count = 1
-        while i > minValue + count*lengthEachBin:
+        while i > minValue + count * lengthEachBin:
             count += 1
         container[count - 1] += 1
 
@@ -90,7 +88,7 @@ def histogram(data, bins):
     binsLimits.append(minValue)
     count = 1
     for i in range(int(bins)):
-        binsLimits.append(minValue+count*lengthEachBin)
+        binsLimits.append(minValue + count * lengthEachBin)
         count +=1
     return container, binsLimits
 
@@ -104,11 +102,10 @@ def autocorrelationFunction(recordedSignal, recordSampleRateIn):
 
 
     >>> import wave
-    >>> import os
     >>> import numpy  # you need to have numpy, scipy, and matplotlib installed to use this
 
-    >>> wv = wave.open(common.getSourceFilePath() + os.path.sep + 
-    ...        'audioSearch' + os.path.sep + 'test_audio.wav', 'r')
+    >>> wv = wave.open(str(common.getSourceFilePath() /
+    ...                     'audioSearch' / 'test_audio.wav'), 'r')
     >>> data = wv.readframes(1024)
     >>> samps = numpy.fromstring(data, dtype=numpy.int16)
     >>> finalResult = audioSearch.autocorrelationFunction(samps, 44100)
@@ -116,15 +113,19 @@ def autocorrelationFunction(recordedSignal, recordSampleRateIn):
     >>> print(finalResult)
     143.6276...
     '''
-    if ('numpy' in base._missingImport or 
-            'scipy' in base._missingImport or 
+    if ('numpy' in base._missingImport or
+            'scipy' in base._missingImport or
             'matplotlib' in base._missingImport):
         #len(_missingImport) > 0:
-        raise AudioSearchException("Cannot run autocorrelationFunction without all of " + 
+        raise AudioSearchException("Cannot run autocorrelationFunction without all of " +
                 "numpy, scipy, and matplotlib installed.  Missing %s" % base._missingImport)
     import numpy
-    try:   
-        from scipy.signal import fftconvolve # @UnresolvedImport
+    try:
+        with warnings.catch_warnings(): # scipy.signal gives ImportWarning...
+            warnings.simplefilter('ignore', ImportWarning)
+            # numpy warns scipy that oldnumeric will be dropped soon.
+            warnings.simplefilter('ignore', DeprecationWarning)
+            from scipy.signal import fftconvolve # @UnresolvedImport
     except ImportError:
         raise AudioSearchException(
             "autocorrelationFunction needs scipy -- the only part of music21 that needs it")
@@ -167,7 +168,7 @@ def prepareThresholds(useScale=None):
 
     >>> pitchThresholds, pitches = audioSearch.prepareThresholds(scale.MajorScale('A3'))
     >>> for i in range(len(pitchThresholds)):
-    ...    print("%s < %.2f < %s" % (pitches[i], pitchThresholds[i], pitches[i+1]))
+    ...    print("%s < %.2f < %s" % (pitches[i], pitchThresholds[i], pitches[i + 1]))
     A3 < 0.86 < B3
     B3 < 0.53 < C#4
     C#4 < 0.16 < D4
@@ -213,7 +214,7 @@ def interpolation(correlation, peak):
     '''
     if peak == 0 or peak == len(correlation) - 1:
         return peak
-    
+
     vertex = (correlation[peak - 1] - correlation[peak + 1]) / (
                 correlation[peak - 1] - 2.0 * correlation[peak] + correlation[peak + 1])
     vertex = vertex * 0.5 + peak
@@ -247,7 +248,7 @@ def normalizeInputFrequency(inputPitchFrequency, thresholds=None, pitches=None):
     if ((thresholds is None and pitches is not None)
          or (thresholds is not None and pitches is None)):
         raise AudioSearchException(
-            "Cannot normalize input frequency if thresholds are given and " + 
+            "Cannot normalize input frequency if thresholds are given and " +
             "pitches are not, or vice-versa")
     elif thresholds is None:
         (thresholds, pitches) = prepareThresholds()
@@ -281,9 +282,7 @@ def pitchFrequenciesToObjects(detectedPitchesFreq, useScale=None):
 
     TODO: only return the former.  The latter can be generated in other ways.
 
-    >>> import os
-    >>> sep = os.path.sep
-    >>> readPath = common.getSourceFilePath() + sep + 'audioSearch' + sep + 'test_audio.wav'
+    >>> readPath = common.getSourceFilePath() / 'audioSearch' / 'test_audio.wav'
     >>> freqFromAQList = audioSearch.getFrequenciesFromAudioFile(waveFilename=readPath)
 
     >>> detectedPitchesFreq = audioSearch.detectPitchFrequencies(
@@ -360,8 +359,7 @@ def getFrequenciesFromAudioFile(waveFilename='xmas.wav'):
     >>> audioSearch.audioChunkLength
     1024
 
-    >>> import os
-    >>> readPath = os.path.join(common.getSourceFilePath(), 'audioSearch', 'test_audio.wav')
+    >>> readPath = common.getSourceFilePath() / 'audioSearch' / 'test_audio.wav'
     >>> freq = audioSearch.getFrequenciesFromAudioFile(waveFilename=readPath)
     >>> print(freq)
     [143.627689055..., 99.083545201..., 211.004784688..., 4700.313479623..., ...]
@@ -374,7 +372,7 @@ def getFrequenciesFromAudioFile(waveFilename='xmas.wav'):
     storedWaveSampleList = []
     environLocal.printDebug("* reading entire file from disk")
     try:
-        wv = wave.open(waveFilename, 'r')
+        wv = wave.open(str(waveFilename), 'r')
     except IOError:
         raise AudioSearchException("Cannot open %s for reading, does not exist" % waveFilename)
 
@@ -398,13 +396,12 @@ def getFrequenciesFromPartialAudioFile(waveFilenameOrHandle='temp', length=10.0,
     extracted either from the microphone or from an already recorded song.
     It uses a period of time defined by the variable "length" in seconds.
 
-    It returns a list with the frequencies, a variable with the file descriptor, 
+    It returns a list with the frequencies, a variable with the file descriptor,
     and the end sample position.
 
     >>> #_DOCS_SHOW readFile = 'pachelbel.wav'
-    >>> import os #_DOCS_HIDE
     >>> sp = common.getSourceFilePath() #_DOCS_HIDE
-    >>> readFile = os.path.join(sp, 'audioSearch', 'test_audio.wav') #_DOCS_HIDE
+    >>> readFile = sp / 'audioSearch' / 'test_audio.wav' #_DOCS_HIDE
     >>> fTup  = audioSearch.getFrequenciesFromPartialAudioFile(readFile, length=1.0)
     >>> frequencyList, pachelbelFileHandle, currentSample = fTup
     >>> for i in range(5):
@@ -419,7 +416,7 @@ def getFrequenciesFromPartialAudioFile(waveFilenameOrHandle='temp', length=10.0,
 
     Now read the next 1 second...
 
-    >>> fTup = audioSearch.getFrequenciesFromPartialAudioFile(pachelbelFileHandle, length=1.0, 
+    >>> fTup = audioSearch.getFrequenciesFromPartialAudioFile(pachelbelFileHandle, length=1.0,
     ...                                                       startSample=currentSample)
     >>> frequencyList, pachelbelFileHandle, currentSample = fTup
     >>> for i in range(5):
@@ -438,9 +435,12 @@ def getFrequenciesFromPartialAudioFile(waveFilenameOrHandle='temp', length=10.0,
     import numpy
 
     if waveFilenameOrHandle == 'temp':
-        waveFilenameOrHandle = environLocal.getRootTempDir() + os.path.sep + 'temp.wav'
+        waveFilenameOrHandle = environLocal.getRootTempDir() / 'temp.wav'
 
-    if isinstance(waveFilenameOrHandle, six.string_types):
+    if isinstance(waveFilenameOrHandle, pathlib.Path):
+        waveFilenameOrHandle = str(waveFilenameOrHandle)
+
+    if isinstance(waveFilenameOrHandle, str):
         # waveFilenameOrHandle is a filename
         waveFilename = waveFilenameOrHandle
         try:
@@ -472,7 +472,7 @@ def getFrequenciesFromPartialAudioFile(waveFilenameOrHandle='temp', length=10.0,
 def detectPitchFrequencies(freqFromAQList, useScale=None):
     '''
     Detects the pitches of the notes from a list of frequencies, using thresholds which
-    depend on the useScale option. If useScale is None, 
+    depend on the useScale option. If useScale is None,
     the default value is the Major Scale beginning C4.
 
     Returns the frequency of each pitch after normalizing them.
@@ -507,14 +507,16 @@ def smoothFrequencies(detectedPitchesFreq, smoothLevels=7, inPlace=True):
 
     The second pitch below is obviously too low.  It will be smoothed out...
 
-    >>> inputPitches = [440, 220, 440, 440, 442, 443, 441, 470, 440, 441, 440, 
-    ...                 442, 440, 440, 440, 397, 440, 440, 440, 442, 443, 441, 
+    >>> inputPitches = [440, 220, 440, 440, 442, 443, 441, 470, 440, 441, 440,
+    ...                 442, 440, 440, 440, 397, 440, 440, 440, 442, 443, 441,
     ...                 440, 440, 440, 440, 440, 442, 443, 441, 440, 440]
     >>> result = audioSearch.smoothFrequencies(inputPitches)
     >>> print(result)
-    [409, 409, 409, 428, 435, 438, 442, 444, 441, 441, 441, 
-     441, 434, 433, 432, 431, 437, 438, 439, 440, 440, 440, 
+    [409, 409, 409, 428, 435, 438, 442, 444, 441, 441, 441,
+     441, 434, 433, 432, 431, 437, 438, 439, 440, 440, 440,
      440, 440, 440, 441, 441, 441, 441, 441, 441, 441]
+
+    TODO: rename inPlace because that's not really what it does...
     '''
     dpf = detectedPitchesFreq
     if inPlace:
@@ -561,8 +563,7 @@ def joinConsecutiveIdenticalPitches(detectedPitchObjects):
 
     N.B. the returned list is NOT a :class:`~music21.stream.Stream`.
 
-    >>> import os
-    >>> readPath = os.path.join(common.getSourceFilePath(), 'audioSearch', 'test_audio.wav')
+    >>> readPath = common.getSourceFilePath() / 'audioSearch' / 'test_audio.wav'
     >>> freqFromAQList = audioSearch.getFrequenciesFromAudioFile(waveFilename=readPath)
     >>> chrome = scale.ChromaticScale('C4')
     >>> detectedPitchesFreq = audioSearch.detectPitchFrequencies(freqFromAQList, useScale=chrome)
@@ -575,9 +576,9 @@ def joinConsecutiveIdenticalPitches(detectedPitchObjects):
     >>> len(notesList)
     24
     >>> print(notesList)
-    [<music21.note.Rest rest>, <music21.note.Note C>, <music21.note.Note C>, 
+    [<music21.note.Rest rest>, <music21.note.Note C>, <music21.note.Note C>,
      <music21.note.Note D>, <music21.note.Note E>, <music21.note.Note F>,
-     <music21.note.Note G>, <music21.note.Note A>, <music21.note.Note B>, 
+     <music21.note.Note G>, <music21.note.Note A>, <music21.note.Note B>,
      <music21.note.Note C>, ...]
     >>> print(durationList)
     [71, 6, 14, 23, 34, 40, 27, 36, 35, 15, 17, 15, 6, 33, 22, 13, 16, 39, 35, 38, 27, 27, 26, 8]
@@ -608,7 +609,7 @@ def joinConsecutiveIdenticalPitches(detectedPitchObjects):
             if good >= 6:
                 valid_note = True
 
-                # if we've gone 15 or more samples without getting something constant, 
+                # if we've gone 15 or more samples without getting something constant,
                 # assume it's a rest
                 if bad >= 15:
                     durationList.append(bad)
@@ -620,7 +621,7 @@ def joinConsecutiveIdenticalPitches(detectedPitchObjects):
             durationList.append(good)
             total_notes = total_notes + 1
             ### doesn't this unnecessarily create a note that it doesn't need?
-            ### notesList.append(detectedPitchObjects[j-1].frequency) should work
+            ### notesList.append(detectedPitchObjects[j - 1].frequency) should work
             n = note.Note()
             n.pitch = detectedPitchObjects[j - 1]
             notesList.append(n)
@@ -636,7 +637,7 @@ def quantizeDuration(length):
     '''
     round an approximately transcribed quarterLength to a better one in
     music21.
-    
+
     Should be replaced by a full-featured routine in midi or stream.
 
     See :meth:`~music21.stream.Stream.quantize` for more information
@@ -797,11 +798,10 @@ def decisionProcess(partsList, notePrediction, beginningData,
 
     >>> scNotes = corpus.parse('luca/gloria').parts[0].flat.notes.stream()
     >>> scoreStream = scNotes
-    >>> import os #_DOCS_HIDE
     >>> sfp = common.getSourceFilePath() #_DOCS_HIDE
-    >>> readPath = sfp + os.path.sep + 'audioSearch' + os.path.sep + 'test_audio.wav' #_DOCS_HIDE
+    >>> readPath = sfp / 'audioSearch' / 'test_audio.wav' #_DOCS_HIDE
     >>> freqFromAQList = audioSearch.getFrequenciesFromAudioFile(waveFilename=readPath) #_DOCS_HIDE
-    
+
     >>> tf = 'test_audio.wav'
     >>> #_DOCS_SHOW freqFromAQList = audioSearch.getFrequenciesFromAudioFile(waveFilename=tf)
     >>> chrome = scale.ChromaticScale('C4')
@@ -810,7 +810,7 @@ def decisionProcess(partsList, notePrediction, beginningData,
     >>> (detectedPitches, listplot) = audioSearch.pitchFrequenciesToObjects(
     ...                                             detectedPitchesFreq, useScale=chrome)
     >>> (notesList, durationList) = audioSearch.joinConsecutiveIdenticalPitches(detectedPitches)
-    >>> transcribedScore, qle = audioSearch.notesAndDurationsToStream(notesList, durationList, 
+    >>> transcribedScore, qle = audioSearch.notesAndDurationsToStream(notesList, durationList,
     ...                                             scNotes=scNotes, qle=None)
     >>> hop = 6
     >>> tn_recording = 24
@@ -832,9 +832,9 @@ def decisionProcess(partsList, notePrediction, beginningData,
     ...          listOfParts, notePrediction, beginningData, lastNotePosition, countdown)
     >>> print(positionInList)
     0
-    
+
     The countdown result is 1 because the song used is completely different from the score!!
-    
+
     >>> print(countdown)
     1
     '''
@@ -848,19 +848,19 @@ def decisionProcess(partsList, notePrediction, beginningData,
 
     dist = math.fabs(beginningData[0] - notePrediction)
     for i in range(len(partsList)):
-        if ((partsList[i].matchProbability >= 0.9 * partsList[0].matchProbability) 
+        if ((partsList[i].matchProbability >= 0.9 * partsList[0].matchProbability)
                 and (beginningData[int(partsList[i].id)] > lastNotePosition)): #let's take a 90%
             if math.fabs(beginningData[int(partsList[i].id)] - notePrediction) < dist:
                 dist = math.fabs(beginningData[int(partsList[i].id)] - notePrediction)
                 position = i
                 environLocal.printDebug("NICE")
 
-    #print("ERRORS", position, len(partsList), lastNotePosition, 
+    #print("ERRORS", position, len(partsList), lastNotePosition,
     #      partsList[position].matchProbability , beginningData[int(partsList[position].id)])
     if position < len(partsList) and beginningData[int(partsList[position].id)] <= lastNotePosition:
         environLocal.printDebug(" error ? %d, %d" % (
                             beginningData[int(partsList[position].id)], lastNotePosition))
-    if partsList[position].matchProbability < 0.6 or len(partsList) == 1: 
+    if partsList[position].matchProbability < 0.6 or len(partsList) == 1:
         #the latter for the all-rest case
         environLocal.printDebug("Are you sure you are playing the right song?")
         countdown = countdown + 1
@@ -872,16 +872,16 @@ def decisionProcess(partsList, notePrediction, beginningData,
         countdown += 1
         environLocal.printDebug("Excessive distance....? dist=%d" % dist)
 
-    elif ((firstNotePage != None and lastNotePage != None) 
-          and ((beginningData[int(partsList[position].id)] < firstNotePage 
-                or beginningData[int(partsList[position].id)] > lastNotePage) 
+    elif ((firstNotePage != None and lastNotePage != None)
+          and ((beginningData[int(partsList[position].id)] < firstNotePage
+                or beginningData[int(partsList[position].id)] > lastNotePage)
                and countdown < 2)):
         countdown += 1
         environLocal.printDebug('playing in a not shown part')
     else:
         countdown = 0
-    environLocal.printDebug(['****????**** DECISION PROCESS: dist from expected:', dist, 
-                             'beginning data:', beginningData[int(partsList[i].id)], 
+    environLocal.printDebug(['****????**** DECISION PROCESS: dist from expected:', dist,
+                             'beginning data:', beginningData[int(partsList[i].id)],
                              'lastNotePos', lastNotePosition])
     return position, countdown
 

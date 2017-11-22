@@ -8,11 +8,9 @@
 # Copyright:    Copyright © 2017 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #-------------------------------------------------------------------------------
-from __future__ import division, print_function, absolute_import
-
 import collections
 
-_MOD = 'analysis/pitchAnalysis.py'
+_MOD = 'analysis.pitchAnalysis'
 
 def pitchAttributeCount(s, pitchAttr='name'):
     '''
@@ -33,10 +31,10 @@ def pitchAttributeCount(s, pitchAttr='name'):
      7: 13
      9: 17
     11: 14
-    
-    
+
+
     List in most common order:
-    
+
     >>> nameCount = analysis.pitchAnalysis.pitchAttributeCount(bach, 'name')
     >>> for n, count in nameCount.most_common(3):
     ...     print ("%2s: %2d" % (n, nameCount[n]))

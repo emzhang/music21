@@ -14,7 +14,6 @@ Tools for working with strings
 '''
 __all__ = [
            'whitespaceEqual',
-           'toUnicode',
            'getNumFromStr',
            'hyphenToCamelCase',
            'camelCaseToHyphen',
@@ -33,8 +32,6 @@ import time
 import string
 import unicodedata # @UnresolvedImport
 
-from music21.ext import six
-
 #-------------------------------------------------------------------------------
 WHITESPACE = re.compile(r'\s+')
 LINEFEED = re.compile('\n+')
@@ -48,9 +45,9 @@ def whitespaceEqual(a, b):
     >>> a = "    hello \nthere "
     >>> b = "hello there"
     >>> c = " bye there "
-    >>> common.whitespaceEqual(a,b)
+    >>> common.whitespaceEqual(a, b)
     True
-    >>> common.whitespaceEqual(a,c)
+    >>> common.whitespaceEqual(a, c)
     False
     '''
     a = WHITESPACE.sub('', a)
@@ -62,42 +59,9 @@ def whitespaceEqual(a, b):
     else: return False
 
 
-def toUnicode(usrStr):
-    '''Convert this tring to a unicode string; if already a unicode string, do nothing.
-
-    >>> common.toUnicode('test')
-    'test'
-    >>> common.toUnicode(u'test')
-    'test'
-    
-    Note: this method is NOT USED and could disappear
-    without notice.
-    
-    # TODO: Remove
-    
-    :rtype: str
-    '''
-    if six.PY3:
-        if not isinstance(usrStr, str):
-            try:
-                return usrStr.decode('utf-8')
-            except TypeError:
-                return usrStr
-        else:
-            return usrStr
-    else:
-        try:
-            # pylint: disable=undefined-variable
-            usrStr = unicode(usrStr, 'utf-8') # @UndefinedVariable  
-        # some documentation may already be in unicode; if so, a TypeException will be raised
-        except TypeError: #TypeError: decoding Unicode is not supported
-            pass
-        return usrStr
-
-
 def getNumFromStr(usrStr, numbers='0123456789'):
     '''
-    Given a string, extract any numbers. 
+    Given a string, extract any numbers.
     Return two strings, the numbers (as strings) and the remaining characters.
 
     >>> common.getNumFromStr('23a')
@@ -106,7 +70,7 @@ def getNumFromStr(usrStr, numbers='0123456789'):
     ('23954', 'asdfwer')
     >>> common.getNumFromStr('')
     ('', '')
-    
+
     :rtype: tuple(str)
     '''
     found = []
@@ -120,18 +84,15 @@ def getNumFromStr(usrStr, numbers='0123456789'):
     return ''.join(found), ''.join(remain)
 
 
-
-
-
 def hyphenToCamelCase(usrStr, replacement='-'):
     '''
     given a hyphen-connected-string, change it to
-    a camelCaseConnectedString.  
+    a camelCaseConnectedString.
 
     The replacement can be specified to be something besides a hyphen.
 
-    This code is from: 
-    
+    This code is from:
+
     http://stackoverflow.com/questions/4303492/
     how-can-i-simplify-this-conversion-from-underscore-to-camelcase-in-python
 
@@ -147,16 +108,16 @@ def hyphenToCamelCase(usrStr, replacement='-'):
     ''' + replacement + r'''
     (?=[a-zA-Z]) # followed by a letter
     ''', re.X) # @UndefinedVariable
-    
+
     tokens = PATTERN.split(usrStr)
     response = tokens.pop(0).lower()
     for remain in tokens:
         response += remain.capitalize()
     return response
-    
+
 def camelCaseToHyphen(usrStr, replacement='-'):
     '''
-    Given a camel-cased string, or a mixture of numbers and characters, 
+    Given a camel-cased string, or a mixture of numbers and characters,
     create a space separated string.
 
     The replacement can be specified to be something besides a hyphen, but only
@@ -169,13 +130,13 @@ def camelCaseToHyphen(usrStr, replacement='-'):
     'movement-name'
 
     First letter can be uppercase as well:
-    
+
     >>> common.camelCaseToHyphen('MovementName')
     'movement-name'
 
     >>> common.camelCaseToHyphen('movementNameName')
     'movement-name-name'
-    
+
     >>> common.camelCaseToHyphen('fileName', replacement='_')
     'file_name'
 
@@ -184,7 +145,7 @@ def camelCaseToHyphen(usrStr, replacement='-'):
     >>> common.camelCaseToHyphen('fileName', replacement='NotFound')
     Traceback (most recent call last):
     ValueError: Replacement must be a single character.
-    
+
     >>> common.camelCaseToHyphen('fileName', replacement='A')
     Traceback (most recent call last):
     ValueError: Replacement cannot be an uppercase character.
@@ -198,7 +159,7 @@ def camelCaseToHyphen(usrStr, replacement='-'):
 
 def spaceCamelCase(usrStr, replaceUnderscore=True, fixMeList=None):
     '''
-    Given a camel-cased string, or a mixture of numbers and characters, 
+    Given a camel-cased string, or a mixture of numbers and characters,
     create a space separated string.
 
     If replaceUnderscore is True (default) then underscores also become spaces (but without the _)
@@ -216,9 +177,9 @@ def spaceCamelCase(usrStr, replaceUnderscore=True, fixMeList=None):
     'opus 23402 no 219235'
     >>> common.spaceCamelCase('opus23402no219235').title()
     'Opus 23402 No 219235'
-    
+
     There is a small list called fixMeList that can fix mistakes.
-    
+
     >>> common.spaceCamelCase('PMFC22')
     'PMFC 22'
 
@@ -232,10 +193,10 @@ def spaceCamelCase(usrStr, replaceUnderscore=True, fixMeList=None):
     numbers = '0123456789.'
     firstNum = False
     firstChar = False
-    isNumber = False  
+    isNumber = False
     lastIsNum = False
     post = []
-    
+
     # do not split these...
     if fixMeList is None:
         fixupList = ('PMFC',)
@@ -274,7 +235,7 @@ def spaceCamelCase(usrStr, replaceUnderscore=True, fixMeList=None):
     for fixMe in fixupList:
         fixMeSpaced = ' '.join(fixMe)
         postStr = postStr.replace(fixMeSpaced, fixMe)
-    
+
     if replaceUnderscore:
         postStr = postStr.replace('_', ' ')
     return postStr
@@ -298,7 +259,7 @@ def getMd5(value=None):
         m.update(value)
     except TypeError: # unicode...
         m.update(value.encode('UTF-8'))
-    
+
     return m.hexdigest()
 
 
@@ -318,21 +279,18 @@ def formatStr(msg, *arguments, **keywords):
         formatType = None
 
     msg = [msg] + list(arguments)
-    if six.PY3:
-        for i in range(len(msg)):
-            x = msg[i]
-            if isinstance(x, bytes): 
-                msg[i] = x.decode('utf-8')
-            if not isinstance(x, str):
+    for i in range(len(msg)):
+        x = msg[i]
+        if isinstance(x, bytes):
+            msg[i] = x.decode('utf-8')
+        if not isinstance(x, str):
+            try:
+                msg[i] = repr(x)
+            except TypeError:
                 try:
-                    msg[i] = repr(x)
-                except TypeError:
-                    try:
-                        msg[i] = x.decode('utf-8')
-                    except AttributeError:
-                        msg[i] = ""
-    else:
-        msg = [str(x) for x in msg]
+                    msg[i] = x.decode('utf-8')
+                except AttributeError:
+                    msg[i] = ""
     if formatType == 'block':
         return '\n*** '.join(msg)+'\n'
     else: # catch all others
@@ -343,23 +301,18 @@ def stripAccents(inputString):
     r'''
     removes accents from unicode strings.
 
-    >>> s = u'trés vite'
-    
-    >>> u'é' in s
+    >>> s = 'trés vite'
+
+    >>> 'é' in s
     True
-    
-    This works on Python2, but the doctest does not.
-    
-    >>> if ext.six.PY3:
-    ...     common.stripAccents(s)
-    ... else: 'tres vite'
+    >>> common.stripAccents(s)
     'tres vite'
     '''
     nfkd_form = unicodedata.normalize('NFKD', inputString)
-    return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
 def normalizeFilename(name):
-    u'''
+    '''
     take a name that might contain unicode characters, punctuation,
     or spaces and
     normalize it so that it is POSIX compliant (except for the limit
@@ -368,7 +321,7 @@ def normalizeFilename(name):
     Takes in a string or unicode string and returns a string (unicode in Py3)
     without any accented characters.
 
-    >>> common.normalizeFilename(u'03-Niccolò all’lessandra.not really.xml')
+    >>> common.normalizeFilename('03-Niccolò all’lessandra.not really.xml')
     '03-Niccolo_alllessandra_not_really.xml'
 
 
@@ -383,14 +336,8 @@ def normalizeFilename(name):
         extension = str(name[lenName - 4:])
         name = name[:lenName -4]
 
-    if isinstance(name, str) and six.PY2:
-        name = unicode(name) # @UndefinedVariable pylint: disable=undefined-variable
-
     name = stripAccents(name)
-    if six.PY2:
-        name = name.encode('ascii', 'ignore')
-    else:
-        name = name.encode('ascii', 'ignore').decode('UTF-8')
+    name = name.encode('ascii', 'ignore').decode('UTF-8')
     name = re.sub(r'[^\w-]', '_', name).strip()
     if extension is not None:
         name += extension
@@ -398,28 +345,13 @@ def normalizeFilename(name):
 
 def removePunctuation(s):
     '''
-    Remove all punctuation from a string -- very different in Py2 vs Py3
-    so moved out...
+    Remove all punctuation from a string.
 
     >>> common.removePunctuation("This, is! my (face).")
     'This is my face'
-
-    >>> common.removePunctuation(u"This, is! my (face).")
-    u'This is my face'
     '''
-    if six.PY2:
-        # pylint: disable=undefined-variable
-        wasUnicode = False
-        if isinstance(s, unicode): # @UndefinedVariable
-            s = s.encode('utf-8')
-            wasUnicode = True
-        out = s.translate(string.maketrans("", ""), string.punctuation) # @UndefinedVariable
-        if wasUnicode:
-            out = unicode(out, encoding='utf-8') # @UndefinedVariable
-    
-    else:
-        maketrans = str.maketrans("", "", string.punctuation)
-        out = s.translate(maketrans)
+    maketrans = str.maketrans("", "", string.punctuation)
+    out = s.translate(maketrans)
     return out
 
 

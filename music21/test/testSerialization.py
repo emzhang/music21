@@ -17,7 +17,7 @@ import music21 # needed to do fully-qualified isinstance name checking
 from music21 import freezeThaw
 
 from music21 import environment
-_MOD = "testSerialization.py"
+_MOD = "test.testSerialization"
 environLocal = environment.Environment(_MOD)
 
 
@@ -31,41 +31,6 @@ class Test(unittest.TestCase):
         '''Need a comment
         '''
         pass
-
-    def testBasicA(self):
-        from music21 import note
-        unused_t1 = note.Lyric('test')
-        #print t1.json
-
-        n1 = note.Note('G#3', quarterLength=3)
-        n1.lyric = 'testing'
-        self.assertEqual(n1.pitch.nameWithOctave, 'G#3')        
-        self.assertEqual(n1.quarterLength, 3.0)        
-        self.assertEqual(n1.lyric, 'testing')        
-        
-        n2 = note.Note()
-        
-        raw = freezeThaw.JSONFreezer(n1).json
-        freezeThaw.JSONThawer(n2).json = raw
-        
-        self.assertEqual(n2.pitch.nameWithOctave, 'G#3')    
-        self.assertEqual(n2.quarterLength, 3.0)        
-        #self.assertEqual(n2.lyric, 'testing')        
-
-            
-    def testBasicB(self):
-        from music21 import chord
-
-        c1 = chord.Chord(['c2', 'a4', 'e5'], quarterLength=1.25)
-        c2 = chord.Chord()
-
-        raw = freezeThaw.JSONFreezer(c1).json
-        freezeThaw.JSONThawer(c2).json = raw
-
-        
-        self.assertEqual(str(c1.pitches), '(<music21.pitch.Pitch C2>, <music21.pitch.Pitch A4>, <music21.pitch.Pitch E5>)')
-        self.assertEqual(c1.quarterLength, 1.25)
-
 
     def testBasicC(self):
         from music21 import stream, note, converter
@@ -113,7 +78,7 @@ class Test(unittest.TestCase):
         from music21 import corpus, converter
         s = corpus.parse('bwv66.6')
 
-        temp = converter.freezeStr(s, fmt='pickle')        
+        temp = converter.freezeStr(s, fmt='pickle')
         sPost = converter.thawStr(temp)
         #sPost.show()
         self.assertEqual(len(s.flat.notes), len(sPost.flat.notes))
@@ -125,16 +90,16 @@ class Test(unittest.TestCase):
 
     def testBasicF(self):
         from music21 import stream, note, converter, spanner
-        
+
         s = stream.Score()
         s.repeatAppend(note.Note('G4'), 5)
         for i, syl in enumerate(['se-', 'ri-', 'al-', 'iz-', 'ing']):
             s.notes[i].addLyric(syl)
         s.append(spanner.Slur(s.notes[0], s.notes[-1]))
-        
+
         # file writing
         #converter.freeze(s, fmt='pickle', fp='/_scratch/test.p')
-    
+
         data = converter.freezeStr(s, fmt='pickle')
         sPost = converter.thawStr(data)
         self.assertEqual(len(sPost.notes), 5)
@@ -163,7 +128,7 @@ class Test(unittest.TestCase):
         s.insert(0, p2)
         #s.show()
 
-        temp = converter.freezeStr(s, fmt='pickle')        
+        temp = converter.freezeStr(s, fmt='pickle')
         sPost = converter.thawStr(temp)
         self.assertEqual(len(sPost.parts), 2)
         self.assertEqual(len(sPost.parts[0].getElementsByClass('Measure')), 3)
@@ -176,16 +141,16 @@ class Test(unittest.TestCase):
 
         p1 = stream.Part()
         p1.repeatAppend(note.Note('C4'), 12)
-        p1.makeMeasures(inPlace = True)
+        p1.makeMeasures(inPlace=True)
         p2 = stream.Part()
         p2.repeatAppend(note.Note('G4'), 12)
-        p2.makeMeasures(inPlace = True)
+        p2.makeMeasures(inPlace=True)
         s = stream.Score()
         s.insert(0, p1)
         s.insert(0, p2)
         #s.show()
 
-        temp = converter.freezeStr(s, fmt='pickle')        
+        temp = converter.freezeStr(s, fmt='pickle')
         sPost = converter.thawStr(temp)
         self.assertEqual(len(sPost.parts), 2)
         self.assertEqual(len(sPost.parts[0].getElementsByClass('Measure')), 3)
@@ -224,7 +189,7 @@ class Test(unittest.TestCase):
         s = corpus.parse('corelli/opus3no1/1grave')
         sf = freezeThaw.StreamFreezer(s, fastButUnsafe=True)
         data = sf.writeStr()
-                
+
         #print time.time() # purePython: 9 sec; cPickle: 3.8 sec!
         unused_s2 = converter.thawStr(data)
         #print time.time()

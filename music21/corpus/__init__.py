@@ -36,12 +36,14 @@ And use `corpus.search` if you do not:
 >>> cb[0].parse()
 <music21.stream.Score 0x1050ce940>
 '''
-from __future__ import unicode_literals
+__all__ = ['chorales', 'corpora', 'manager',
+           # virtual
+           'work',
+           'parse']
 
 import re
 import os
 import unittest
-import zipfile
 
 from music21 import common
 from music21 import converter
@@ -51,13 +53,11 @@ from music21 import metadata
 from music21.corpus import chorales
 from music21.corpus import corpora
 from music21.corpus import manager
-from music21.corpus import virtual
+# from music21.corpus import virtual
 from music21.corpus import work
 
-from music21.musicxml import archiveTools
-
 from music21 import environment
-_MOD = "corpus.base.py"
+_MOD = 'corpus'
 environLocal = environment.Environment(_MOD)
 
 from music21.exceptions21 import CorpusException
@@ -78,8 +78,8 @@ def getCorePaths(fileExtensions=None, expandExtensions=True):
     extensions.
 
     >>> corpusFilePaths = corpus.getCorePaths()
-    >>> cpl = len(corpusFilePaths) 
-    >>> 2550 < cpl < 2600
+    >>> cpl = len(corpusFilePaths)
+    >>> 3000 < cpl < 4000
     True
 
     >>> kernFilePaths = corpus.getCorePaths('krn')
@@ -96,20 +96,20 @@ def getCorePaths(fileExtensions=None, expandExtensions=True):
         expandExtensions=expandExtensions,
         )
 
-def getVirtualPaths(fileExtensions=None, expandExtensions=True):
-    '''
-    Get all paths in the virtual corpus that match a known extension.
-
-    An extension of None will return all known extensions.
-
-    >>> len(corpus.getVirtualPaths()) > 6
-    True
-
-    '''
-    return corpora.VirtualCorpus().getPaths(
-        fileExtensions=fileExtensions,
-        expandExtensions=expandExtensions,
-        )
+# def getVirtualPaths(fileExtensions=None, expandExtensions=True):
+#     '''
+#     Get all paths in the virtual corpus that match a known extension.
+#
+#     An extension of None will return all known extensions.
+#
+#     >>> len(corpus.getVirtualPaths()) > 6
+#     True
+#
+#     '''
+#     return corpora.VirtualCorpus().getPaths(
+#         fileExtensions=fileExtensions,
+#         expandExtensions=expandExtensions,
+#         )
 
 def getLocalPaths(fileExtensions=None, expandExtensions=True):
     '''
@@ -159,10 +159,10 @@ def addPath(filePath, corpusName=None):
 def getPaths(
     fileExtensions=None,
     expandExtensions=True,
-    name=('local', 'core', 'virtual'),
+    name=('local', 'core'), # , 'virtual'
     ):
     '''
-    Get paths from core, virtual, and/or local corpora.
+    Get paths from core and/or local corpora.
     This is the public interface for getting all corpus
     paths with one function.
     '''
@@ -177,11 +177,11 @@ def getPaths(
             fileExtensions=fileExtensions,
             expandExtensions=expandExtensions,
             )
-    if 'virtual' in name:
-        paths += corpora.VirtualCorpus().getPaths(
-            fileExtensions=fileExtensions,
-            expandExtensions=expandExtensions,
-            )
+#     if 'virtual' in name:
+#         paths += corpora.VirtualCorpus().getPaths(
+#             fileExtensions=fileExtensions,
+#             expandExtensions=expandExtensions,
+#             )
     return paths
 
 
@@ -232,19 +232,6 @@ def getComposer(composerName, fileExtensions=None):
         )
 
 
-def getComposerDir(composerName):
-    '''
-    Given the name of a composer, get the path to the top-level directory of
-    that composer:
-
-    >>> import os
-    >>> a = corpus.getComposerDir('bach')
-    >>> a.endswith(os.path.join('corpus', os.sep, 'bach'))
-    True
-    '''
-    return corpora.CoreCorpus().getComposerDirectoryPath(composerName)
-
-
 @property
 def noCorpus():
     '''
@@ -270,11 +257,15 @@ def getWork(workName, movementNumber=None, fileExtensions=None):
     single match, a single file path. If no matches are found an Exception is
     raised.
 
+    returns a pathlib.Path object
+
     >>> import os
     >>> a = corpus.getWork('luca/gloria')
-    >>> a.endswith(os.path.sep.join([
-    ...     'luca', 'gloria.xml']))
-    True
+    >>> a.name
+    'gloria.xml'
+
+    >>> a.parent.name
+    'luca'
 
     >>> trecentoFiles = corpus.getWork('trecento')
     >>> len(trecentoFiles) > 100 and len(trecentoFiles) < 200
@@ -295,7 +286,7 @@ def parse(workName,
 
     Similar to the :meth:`~music21.converter.parse` method of converter (which
     takes in a filepath on the local hard drive), this method searches the
-    corpus (including the virtual corpus) for a work fitting the workName
+    corpus (including local corpora) for a work fitting the workName
     description and returns a :class:`music21.stream.Stream`.
 
     If `movementNumber` is defined, and a movement is included in the corpus,
@@ -335,82 +326,6 @@ def parse(workName,
         )
 
 
-
-#------------------------------------------------------------------------------
-# compression
-
-
-def compressAllXMLFiles(deleteOriginal=False):
-    '''
-    Takes all filenames in corpus.paths and runs
-    :meth:`music21.musicxml.archiveTools.compressXML` on each.  If the musicXML files are
-    compressed, the originals are deleted from the system.
-    '''
-    environLocal.warn("Compressing musicXML files...")
-    for filename in getPaths(fileExtensions=('.xml',)):
-        archiveTools.compressXML(filename, deleteOriginal=deleteOriginal)
-    environLocal.warn(
-        'Compression complete. '
-        'Run the main test suite, fix bugs if necessary,'
-        'and then commit modified directories in corpus.'
-        )
-
-
-
-#------------------------------------------------------------------------------
-# libraries
-
-
-# additional libraries to define
-
-
-def getBachChorales(fileExtensions='xml'):
-    r'''
-    Return the file name of all Bach chorales.
-
-    By default, only Bach Chorales in xml format are returned, because the
-    quality of the encoding and our parsing of those is superior.
-
-    N.B. Look at the module corpus.chorales for many better ways to work with
-    the chorales.
-
-    >>> a = corpus.getBachChorales()
-    >>> len(a) > 400
-    True
-
-    >>> a = corpus.getBachChorales('krn')
-    >>> len(a) > 10
-    False
-
-    >>> a = corpus.getBachChorales('xml')
-    >>> len(a) > 400
-    True
-
-    >>> #_DOCS_SHOW a[0]
-    >>> '/Users/cuthbert/Documents/music21/corpus/bach/bwv1.6.mxl' #_DOCS_HIDE
-    '/Users/cuthbert/Documents/music21/corpus/bach/bwv1.6.mxl'
-
-    '''
-    cc = corpora.CoreCorpus()
-    return cc.getBachChorales(fileExtensions=fileExtensions,)
-
-
-def getMonteverdiMadrigals(fileExtensions='xml'):
-    '''
-    Return a list of the filenames of all Monteverdi madrigals.
-
-    >>> a = corpus.getMonteverdiMadrigals()
-    >>> len(a) > 40
-    True
-
-    '''
-    return corpora.CoreCorpus().getMonteverdiMadrigals(
-        fileExtensions=fileExtensions,
-        )
-
-#------------------------------------------------------------------------------
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     import music21
     music21.mainTest()

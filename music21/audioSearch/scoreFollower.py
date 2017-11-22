@@ -10,22 +10,20 @@
 # Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #------------------------------------------------------------------------------
-
+import math
+import unittest
 
 from time import time
-import math
-import os
-import unittest
 
 from music21 import scale
 from music21 import search
 
 from music21 import environment
-_MOD = 'audioSearch/transcriber.py'
+_MOD = 'audioSearch.scoreFollower'
 environLocal = environment.Environment(_MOD)
 
 
-class ScoreFollower(object):
+class ScoreFollower:
 
     def __init__(self, scoreStream=None):
         self.scoreStream = scoreStream
@@ -33,7 +31,7 @@ class ScoreFollower(object):
             self.scoreNotesOnly = scoreStream.flat.notesAndRests.stream()
         else:
             self.scoreNotesOnly = None
-        self.waveFile = os.path.join(environLocal.getRootTempDir(), 'scoreFollowerTemp.wav')
+        self.waveFile = str(environLocal.getRootTempDir() / 'scoreFollowerTemp.wav')
         self.lastNotePostion = 0
         self.currentSample = 0
         self.totalFile = 0
@@ -112,8 +110,8 @@ class ScoreFollower(object):
         >>> ScF = scoreFollower.ScoreFollower(scoreStream=scNotes)
         >>> ScF.useMic = False
         >>> import os #_DOCS_HIDE
-        >>> ScF.waveFile = os.path.join(common.getSourceFilePath(), #_DOCS_HIDE
-        ...                 'audioSearch', 'test_audio.wav') #_DOCS_HIDE
+        >>> ScF.waveFile = str(common.getSourceFilePath() #_DOCS_HIDE
+        ...                 / 'audioSearch' / 'test_audio.wav') #_DOCS_HIDE
         >>> #_DOCS_SHOW ScF.waveFile = 'test_audio.wav'
         >>> ScF.seconds_recording = 10
         >>> ScF.useScale = scale.ChromaticScale('C4')
@@ -534,7 +532,7 @@ class ScoreFollower(object):
         number = int(listOfParts[position].id)
 
         if self.silencePeriod is True and self.silencePeriodCounter < 5:
-            # print(lastCountdown, self.countdown, lastNotePosition, 
+            # print(lastCountdown, self.countdown, lastNotePosition,
             #    beginningData[number], lengthData[number])
             environLocal.printDebug("All rest period")
             self.countdown -= 1
@@ -568,7 +566,7 @@ class ScoreFollower(object):
 #------------------------------------------------------------------------------
 
 
-class TestExternal(unittest.TestCase):
+class TestExternal(unittest.TestCase): # pragma: no cover
     pass
 
     def runTest(self):

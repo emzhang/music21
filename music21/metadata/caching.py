@@ -10,10 +10,9 @@
 #               Project
 # License:      LGPL or BSD, see license.txt
 #------------------------------------------------------------------------------
-
-
 import multiprocessing
 import os
+import pathlib
 import pickle
 import traceback
 import unittest
@@ -32,19 +31,20 @@ environLocal = environment.Environment(os.path.basename(__file__))
 class MetadataCacheException(exceptions21.Music21Exception):
     pass
 #------------------------------------------------------------------------------
-
-
-def cacheMetadata(corpusNames=('local', 'core', 'virtual'),
+def cacheMetadata(corpusNames=None,
                   useMultiprocessing=True,
                   verbose=False):
     '''
-    Cache metadata from corpora in `corpusNames` as local cache files:
+    Cache metadata from corpora in `corpusNames` as local cache files.
 
     Call as ``metadata.cacheMetadata()``
-
     '''
-    from music21 import corpus
-    from music21.corpus import corpora
+    from music21.corpus import manager
+
+    localCorporaNames = manager.listLocalCorporaNames(skipNone=True)
+
+    if corpusNames is None:
+        corpusNames = localCorporaNames[:] + ['local', 'core',] # + 'virtual']
 
     if not common.isIterable(corpusNames):
         corpusNames = (corpusNames,)
@@ -58,84 +58,58 @@ def cacheMetadata(corpusNames=('local', 'core', 'virtual'),
     # the core cache is based on local files stored in music21
     # virtual is on-line
     for corpusName in corpusNames:
-        if corpusName == 'core':
-            metadataBundle = corpora.CoreCorpus().metadataBundle
-            paths = corpus.getCorePaths()
-            useCorpus = True
-        elif corpusName == 'local':
-            metadataBundle = corpora.LocalCorpus().metadataBundle
-            paths = corpus.getLocalPaths()
-            useCorpus = False
-        elif corpusName == 'virtual':
-            metadataBundle = corpora.VirtualCorpus().metadataBundle
-            paths = corpus.getVirtualPaths()
-            useCorpus = False
-        else:
-            message = 'invalid corpus name provided: {0!r}'.format(corpusName)
-            raise MetadataCacheException(message)
-        message = 'metadata cache: starting processing of paths: {0}'.format(
-                len(paths))
-        if verbose is True:
-            environLocal.warn(message)
-        else:
-            environLocal.printDebug(message)
+        corpusObject = manager.fromName(corpusName)
+        failingFilePaths += corpusObject.cacheMetadata(useMultiprocessing, verbose, timer)
 
-        failingFilePaths += metadataBundle.addFromPaths(
-            paths,
-            useCorpus=useCorpus,
-            useMultiprocessing=useMultiprocessing,
-            verbose=verbose
-            )
-        message = 'cache: writing time: {0} md items: {1}'.format(
-            timer, len(metadataBundle))
-        if verbose is True:
-            environLocal.warn(message)
-        else:
-            environLocal.printDebug(message)
-        del metadataBundle
+
     message = 'cache: final writing time: {0} seconds'.format(timer)
     if verbose is True:
         environLocal.warn(message)
     else:
         environLocal.printDebug(message)
+
     for failingFilePath in failingFilePaths:
         message = 'path failed to parse: {0}'.format(failingFilePath)
         if verbose is True:
             environLocal.warn(message)
         else:
             environLocal.printDebug(message)
-            
+
 
 
 #------------------------------------------------------------------------------
 
 
-class MetadataCachingJob(object):
+class MetadataCachingJob:
     '''
     Parses one corpus path, and attempts to extract metadata from it:
 
     >>> from music21 import metadata
     >>> job = metadata.caching.MetadataCachingJob(
     ...     'bach/bwv66.6',
-    ...     useCorpus=True,
+    ...     parseUsingCorpus=True,
+    ...     corpusName='core',
     ...     )
+    >>> job.jobNumber
+    0
+    >>> job.corpusName
+    'core'
     >>> job.run()
     ((<music21.metadata.bundles.MetadataEntry: bach_bwv66_6>,), ())
     >>> results = job.getResults()
     >>> errors = job.getErrors()
-    
-    TODO: error list, nut just numbers needs to be reported back up.
-    
-    '''
 
+    TODO: error list, not just numbers needs to be reported back up.
+    '''
     ### INITIALIZER ###
 
-    def __init__(self, filePath, jobNumber=0, useCorpus=True):
-        self.filePath = filePath
+    def __init__(self, filePath, jobNumber=0, parseUsingCorpus=True, corpusName=None):
+        self.filePath = pathlib.Path(filePath)
         self.filePathErrors = []
         self.jobNumber = int(jobNumber)
         self.results = []
-        self.useCorpus = bool(useCorpus)
+        self.parseUsingCorpus = bool(parseUsingCorpus)
+        self.corpusName = corpusName
 
     def run(self):
         import gc
@@ -157,12 +131,10 @@ class MetadataCachingJob(object):
         from music21 import corpus
         parsedObject = None
         try:
-            if self.useCorpus is False:
-                parsedObject = converter.parse(
-                    self.filePath, forceSource=True)
+            if self.parseUsingCorpus is False:
+                parsedObject = converter.parse(self.filePath, forceSource=True)
             else:
-                parsedObject = corpus.parse(
-                    self.filePath, forceSource=True)
+                parsedObject = corpus.parse(str(self.filePath), forceSource=True)
         except Exception as e: # wide catch is fine. pylint: disable=broad-except
             environLocal.printDebug('parse failed: {0}, {1}'.format(
                 self.filePath, str(e)))
@@ -184,6 +156,7 @@ class MetadataCachingJob(object):
                 metadataEntry = metadata.bundles.MetadataEntry(
                     sourcePath=self.cleanFilePath,
                     metadataPayload=richMetadata,
+                    corpusName=self.corpusName,
                     )
                 self.results.append(metadataEntry)
             else:
@@ -194,6 +167,7 @@ class MetadataCachingJob(object):
                 metadataEntry = metadata.bundles.MetadataEntry(
                     sourcePath=self.cleanFilePath,
                     metadataPayload=None,
+                    corpusName=self.corpusName,
                     )
                 self.results.append(metadataEntry)
         except Exception: # wide catch is fine. pylint: disable=broad-except
@@ -208,7 +182,7 @@ class MetadataCachingJob(object):
         # is only a single source file
         try:
             for scoreNumber, score in enumerate(parsedObject.scores):
-                self.parseOpusScore(score, scoreNumber)
+                self.parseScoreInsideOpus(score, scoreNumber)
                 del score  # for memory conservation
         except Exception as exception: # wide catch is fine. pylint: disable=broad-except
             environLocal.warn(
@@ -225,7 +199,7 @@ class MetadataCachingJob(object):
             )
         self.results.append(metadataEntry)
 
-    def parseOpusScore(self, score, scoreNumber):
+    def parseScoreInsideOpus(self, score, scoreNumber):
         # scoreNumber is a zeroIndexed value.
         # score.metadata.number is the retrieval code; which is
         # probably 1 indexed, and might have gaps
@@ -275,10 +249,10 @@ class MetadataCachingJob(object):
 
     @property
     def cleanFilePath(self):
-        corpusPath = os.path.abspath(common.getCorpusFilePath())
-        if self.filePath.startswith(corpusPath):
-            cleanFilePath = common.relativepath(self.filePath, corpusPath)
-        else:
+        corpusPath = common.getCorpusFilePath()
+        try:
+            cleanFilePath = self.filePath.relative_to(corpusPath)
+        except ValueError:
             cleanFilePath = self.filePath
         return cleanFilePath
 
@@ -286,7 +260,7 @@ class MetadataCachingJob(object):
 #------------------------------------------------------------------------------
 
 
-class JobProcessor(object):
+class JobProcessor:
     '''
     Processes metadata-caching jobs, either serially (e.g. single-threaded) or
     in parallel, as a generator.
@@ -299,10 +273,14 @@ class JobProcessor(object):
     * the number of remaining jobs
 
     >>> jobs = []
-    >>> for corpusPath in corpus.getMonteverdiMadrigals()[:3]:
+    >>> mdb = corpus.corpora.CoreCorpus().search('monteverdi')[:3]
+    >>> paths = [x.sourcePath for x in mdb]
+
+    >>> for corpusPath in paths:
     ...     job = metadata.caching.MetadataCachingJob(
     ...         corpusPath,
-    ...         useCorpus=True,
+    ...         parseUsingCorpus=True,
+    ...         corpusName='core',
     ...         )
     ...     jobs.append(job)
     >>> jobGenerator = metadata.caching.JobProcessor.process_serial(jobs)
@@ -338,9 +316,9 @@ class JobProcessor(object):
 
         If `processCount` is none, use 1 fewer process than the number of
         available cores.
-        
+
         jobs is a list of :class:`~music21.metadata.MetadataCachingJob` objects.
-        
+
         '''
         processCount = processCount or common.cpus()  # @UndefinedVariable
         if processCount < 1:
@@ -348,7 +326,7 @@ class JobProcessor(object):
         remainingJobs = len(jobs)
         if processCount > remainingJobs: # do not start more processes than jobs...
             processCount = remainingJobs
-            
+
         environLocal.printDebug(
             'Processing {0} jobs in parallel, with {1} processes.'.format(
                 remainingJobs, processCount))
@@ -380,7 +358,7 @@ class JobProcessor(object):
         job_queue.close()
         for worker in workers:
             worker.join()
-        raise StopIteration
+        return # end generator
 
     @staticmethod
     def process_serial(jobs):
@@ -398,7 +376,7 @@ class JobProcessor(object):
                 'filePath': job.filePath,
                 'remainingJobs': remainingJobs,
                 }
-        raise StopIteration
+        return # end generator
 
 
 #------------------------------------------------------------------------------
@@ -413,7 +391,7 @@ class WorkerProcess(multiprocessing.Process): # @UndefinedVariable pylint: disab
     ### INITIALIZER ###
 
     def __init__(self, job_queue, result_queue):
-        super(WorkerProcess, self).__init__()
+        super().__init__()
         self.job_queue = job_queue
         self.result_queue = result_queue
 

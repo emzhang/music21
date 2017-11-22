@@ -24,9 +24,6 @@ import unittest
 from music21 import common
 from music21 import exceptions21
 
-from music21.ext import six
-if six.PY3:
-    unicode = str
 #------------------------------------------------------------------------------
 
 
@@ -37,7 +34,7 @@ environLocal = environment.Environment(os.path.basename(__file__))
 #------------------------------------------------------------------------------
 
 
-class Date(object):
+class Date:
     r'''
     A single date value, specified by year, month, day, hour, minute, and
     second. Note that this class has been created, instead of using Python's
@@ -82,7 +79,7 @@ class Date(object):
         self.hour = None
         self.minute = None
         self.second = None
-        
+
         # error: can be 'approximate', 'uncertain'
         # None is assumed to be certain
         self.yearError = None
@@ -136,8 +133,7 @@ class Date(object):
                     sub = fmt % value + Date.errorToSymbol(error)
                 else:
                     sub = fmt % value
-                if (six.PY3):
-                    sub = str(sub)
+                sub = str(sub)
                 msg.append(sub)
         return '/'.join(msg)
 
@@ -212,7 +208,7 @@ class Date(object):
         '''
         if isinstance(value, datetime.datetime):
             self.loadDatetime(value)
-        elif isinstance(value, six.string_types):
+        elif isinstance(value, str):
             self.loadStr(value)
         elif isinstance(value, Date):
             self.loadOther(value)
@@ -386,7 +382,7 @@ class Date(object):
 #------------------------------------------------------------------------------
 
 
-class DateSingle(object):
+class DateSingle:
     r'''
     Store a date, either as certain, approximate, or uncertain relevance.
 
@@ -501,7 +497,7 @@ class DateRelative(DateSingle):
 
     >>> dd = metadata.DateRelative('2009/12/31', 'certain')
     Traceback (most recent call last):
-    music21.exceptions21.MetadataException: Relevance value is not 
+    music21.exceptions21.MetadataException: Relevance value is not
         supported by this object: 'certain'
     '''
 
@@ -511,14 +507,14 @@ class DateRelative(DateSingle):
 
     ### INITIALIZER ###
 
-    def __init__(self, data='', relevance='after'):
-        DateSingle.__init__(self, data, relevance)
+    def __init__(self, data='', relevance='after'): # pylint: disable=useless-super-delegation
+        super().__init__(data, relevance)
 
     ### PUBLIC PROPERTIES ###
 
     def __str__(self):
         r = self.relevance
-        ds = super(DateRelative, self).__str__()
+        ds = super().__str__()
         if r == 'prior':
             return 'prior to ' + ds
         elif r == 'onorbefore':
@@ -541,7 +537,7 @@ class DateRelative(DateSingle):
     def relevance(self, value):
         if value == 'before':
             value = 'prior'
-        
+
         if value.lower() not in ('prior', 'after', 'onorbefore', 'onorafter'):
             raise exceptions21.MetadataException(
                 'Relevance value is not supported by this object: '
@@ -563,7 +559,7 @@ class DateBetween(DateSingle):
 
     >>> dd = metadata.DateBetween(['2009/12/31', '2010/1/28'], 'certain')
     Traceback (most recent call last):
-    music21.exceptions21.MetadataException: Relevance value is not 
+    music21.exceptions21.MetadataException: Relevance value is not
         supported by this object: 'certain'
     '''
 
@@ -576,7 +572,7 @@ class DateBetween(DateSingle):
     def __init__(self, data=None, relevance='between'):
         if data is None:
             data = []
-        super(DateBetween, self).__init__(data, relevance)
+        super().__init__(data, relevance)
 
     ### SPECIAL METHODS ###
 
@@ -641,7 +637,7 @@ class DateSelection(DateSingle):
     ...     'certain',
     ...     )
     Traceback (most recent call last):
-    music21.exceptions21.MetadataException: Relevance value is not 
+    music21.exceptions21.MetadataException: Relevance value is not
         supported by this object: 'certain'
     '''
 
@@ -651,8 +647,8 @@ class DateSelection(DateSingle):
 
     ### INITIALIZER ###
 
-    def __init__(self, data='', relevance='or'):
-        DateSingle.__init__(self, data, relevance)
+    def __init__(self, data='', relevance='or'): # pylint: disable=useless-super-delegation
+        super().__init__(data, relevance)
 
     ### SPECIAL METHODS ###
 
@@ -700,7 +696,7 @@ class DateSelection(DateSingle):
 #------------------------------------------------------------------------------
 
 
-class Text(object):
+class Text:
     r'''
     One unit of text data: a title, a name, or some other text data. Store the
     string and a language name or code. This object can be used and/or
@@ -709,6 +705,8 @@ class Text(object):
     >>> td = metadata.Text('concerto in d', 'en')
     >>> str(td)
     'concerto in d'
+    >>> td.language
+    'en'
     '''
 
     ### INITIALIZER ###
@@ -725,25 +723,17 @@ class Text(object):
     ### SPECIAL METHODS ###
 
     def __str__(self):
-        # print type(self._data)
-        if six.PY3:
-            if isinstance(self._data, bytes):
-                return self._data.decode('UTF-8')
-            elif not isinstance(self._data, str):
-                return str(self._data)
-            else:
-                return self._data
-        else:      
-            if isinstance(self._data, unicode): #unicode in PY2, str in PY3
-                # not sure if this should be wrapped in in str() call
-                return self._data.encode('utf-8')
-            elif not isinstance(self._data, str):
-                return str(self._data)
-            else:
-                return self._data
+        if isinstance(self._data, bytes):
+            return self._data.decode('UTF-8')
+        elif not isinstance(self._data, str):
+            return str(self._data)
+        else:
+            return self._data
 
-    def __unicode__(self):
-        return self.__str__().decode('utf-8')
+    def __repr__(self):
+        return '<music21.metadata.primitives.{} {}>'.format(
+                                self.__class__.__name__, str(self))
+
 
     ### PUBLIC PROPERTIES ###
 
@@ -770,12 +760,14 @@ class Text(object):
         r'''
         Return a string representation with normalized articles.
 
-        >>> td = metadata.Text('Ale is Dear, The', 'en')
+        >>> td = metadata.Text('Ale is Dear, The', language='en')
         >>> str(td)
         'Ale is Dear, The'
 
         >>> td.getNormalizedArticle()
         'The Ale is Dear'
+
+        The language will determine whether the article is moved:
 
         >>> td.language = 'de'
         >>> td.getNormalizedArticle()
@@ -784,11 +776,29 @@ class Text(object):
         from music21 import text
         return text.prependArticle(str(self), self._language)
 
+#------------------------------------------------------------------------------
+class Copyright(Text):
+    '''
+    A subclass of text that can also have a role
+
+    >>> copyleft = metadata.primitives.Copyright('Copyright 1969 Cuthbert',
+    ...                role='fictitious')
+    >>> copyleft
+    <music21.metadata.primitives.Copyright Copyright 1969 Cuthbert>
+    >>> copyleft.role
+    'fictitious'
+    >>> str(copyleft)
+    'Copyright 1969 Cuthbert'
+    '''
+    def __init__(self, data='', language=None, *, role=None):
+        super().__init__(data, language)
+        self.role = role
+
 
 #------------------------------------------------------------------------------
 
 
-class Contributor(object):
+class Contributor:
     r'''
     A person that contributed to a work. Can be a composer, lyricist, arranger,
     or other type of contributor.  In MusicXML, these are "creator" elements.
@@ -802,7 +812,7 @@ class Contributor(object):
 
     >>> td.relevance
     'contributor'
-    
+
     >>> td
     <music21.metadata.primitives.Contributor composer:Chopin, Fryderyk>
     '''
@@ -869,7 +879,7 @@ class Contributor(object):
             self._dateRange[1] = DateSingle(keywords['death'])
 
     def __repr__(self):
-        return '<music21.metadata.primitives.{} {}:{}>'.format(                                                           
+        return '<music21.metadata.primitives.{} {}:{}>'.format(
                                 self.__class__.__name__, self.role, self.name)
 
     ### PUBLIC METHODS ###
@@ -929,7 +939,7 @@ class Contributor(object):
 
     @name.setter
     def name(self, value):
-        # return first name
+        # set first name
         self._names = []  # reset
         self._names.append(Text(value))
 
@@ -945,12 +955,28 @@ class Contributor(object):
         ...     )
         >>> td.names
         ['Chopin, Fryderyk', 'Chopin, Frederick']
+
+        >>> td.names = ['Czerny', 'Spohr']
+        >>> td.names
+        ['Czerny', 'Spohr']
         '''
         # return first name
         msg = []
         for n in self._names:
             msg.append(str(n))
         return msg
+
+    @names.setter
+    def names(self, values):
+        if not common.isIterable(values):
+            raise exceptions21.MetadataException(
+                '.names must be a list -- do you mean .name instead?')
+        self._names = []  # reset
+        for n in values:
+            self._names.append(Text(n))
+
+
+
 
     @property
     def role(self):
@@ -966,6 +992,12 @@ class Contributor(object):
         >>> td.role = 'lor'
         >>> td.role
         'orchestrator'
+
+        Roles can be created on the fly:
+
+        >>> td.role = 'court jester'
+        >>> td.role
+        'court jester'
         '''
         return self._role
 
@@ -976,9 +1008,11 @@ class Contributor(object):
         elif value in self.roleAbbreviationsDict.keys():
             self._role = self.roleAbbreviationsDict[value]
         else:
-            raise exceptions21.MetadataException(
-                'Role value is not supported by this object: '
-                '{0!r}'.format(value))
+            self._role = value
+#         else:
+#             raise exceptions21.MetadataException(
+#                 'Role value is not supported by this object: '
+#                 '{0!r}'.format(value))
 
 
     @staticmethod
@@ -1037,16 +1071,11 @@ class Creator(Contributor):
 
     relevance = 'creator'
 
-    ### INITIALIZER ###
-
-    def __init__(self, *args, **keywords):
-        Contributor.__init__(self, *args, **keywords)
-
 
 #------------------------------------------------------------------------------
 
 
-class Imprint(object):
+class Imprint:
     r'''
     An object representation of imprint, or publication.
     '''
@@ -1067,13 +1096,6 @@ class Imprint(object):
 
 #------------------------------------------------------------------------------
 
-
-class Copyright(object):
-    r'''
-    An object representation of copyright.
-    '''
-    def __init__(self, *args, **keywords):
-        pass
 
 # !!!YEP: Publisher of electronic edition.
 # !!!YEC: Date and owner of electronic copyright.
@@ -1123,25 +1145,14 @@ class Test(unittest.TestCase):
         pass
 
     def testText(self):
-        from music21 import freezeThaw
         from music21 import metadata
-        import json
 
         text = metadata.primitives.Text('my text')
         text.language = 'en'
-        jsf = freezeThaw.JSONFreezer(text)
-        jsonDict = json.loads(jsf.json)
-        self.assertEqual(sorted(list(jsonDict['__attr__'].keys())), [u'_data', u'_language'])
-
-        textNew = metadata.primitives.Text()
-        jst = freezeThaw.JSONThawer(textNew)
-        jst.json = jsf.json
-
-        self.assertEqual(textNew._data, 'my text')
-        self.assertEqual(textNew._language, 'en')
+        self.assertEqual(text._data, 'my text')
+        self.assertEqual(text._language, 'en')
 
     def testContributor(self):
-        from music21 import freezeThaw
         from music21 import metadata
 
         contributor = metadata.primitives.Contributor(
@@ -1150,15 +1161,9 @@ class Test(unittest.TestCase):
             )
         self.assertEqual(contributor.role, 'composer')
         self.assertEqual(contributor.relevance, 'contributor')
-        jsonStr = freezeThaw.JSONFreezer(contributor).json
-        contributorNew = metadata.primitives.Contributor()
-        freezeThaw.JSONThawer(contributorNew).json = jsonStr
-        self.assertEqual(contributorNew.role, 'composer')
-        self.assertEqual(contributorNew.name, 'Gilles Binchois')
-        self.assertEqual(contributorNew.relevance, 'contributor')
+        self.assertEqual(contributor.name, 'Gilles Binchois')
 
     def testCreator(self):
-        from music21 import freezeThaw
         from music21 import metadata
 
         creator = metadata.primitives.Creator(
@@ -1167,78 +1172,40 @@ class Test(unittest.TestCase):
             )
         self.assertEqual(creator.role, 'composer')
         self.assertEqual(creator.relevance, 'creator')
-
-        jsonStr = freezeThaw.JSONFreezer(creator).json
-        creatorNew = metadata.primitives.Contributor()
-        freezeThaw.JSONThawer(creatorNew).json = jsonStr
-        self.assertEqual(creatorNew.role, 'composer')
-        self.assertEqual(creatorNew.name, 'Gilles Binchois')
-        self.assertEqual(creatorNew.relevance, 'creator')
+        self.assertEqual(creator.name, 'Gilles Binchois')
 
     def testDate(self):
-        from music21 import freezeThaw
         from music21 import metadata
 
         date1 = metadata.primitives.Date(year=1843, yearError='approximate')
         date2 = metadata.primitives.Date(year='1843?')
 
-        dateNew = metadata.primitives.Date()
+        self.assertEqual(date1.year, 1843)
+        self.assertEqual(date1.yearError, 'approximate')
 
-        jsonStr = freezeThaw.JSONFreezer(date1).json
-        freezeThaw.JSONThawer(dateNew).json = jsonStr
-
-        self.assertEqual(dateNew.year, 1843)
-        self.assertEqual(dateNew.yearError, 'approximate')
-
-        dateNew = metadata.primitives.Date()
-
-        jsonStr = freezeThaw.JSONFreezer(date2).json
-        freezeThaw.JSONThawer(dateNew).json = jsonStr
-
-        self.assertEqual(dateNew.year, '1843')
-        self.assertEqual(dateNew.yearError, 'uncertain')
+        self.assertEqual(date2.year, '1843')
+        self.assertEqual(date2.yearError, 'uncertain')
 
     def testDateSingle(self):
-        from music21 import freezeThaw
         from music21 import metadata
 
         dateSingle = metadata.primitives.DateSingle(
             '2009/12/31', 'approximate')
         self.assertEqual(str(dateSingle), '2009/12/31')
         self.assertEqual(len(dateSingle._data), 1)
-
-        dateSingleNew = metadata.primitives.DateSingle()
-        self.assertEqual(len(dateSingleNew._data), 1)
-
-        jsonStr = freezeThaw.JSONFreezer(dateSingle).json
-        freezeThaw.JSONThawer(dateSingleNew).json = jsonStr
-
-        self.assertEqual(len(dateSingleNew._data), 1)
-        self.assertEqual(dateSingleNew._relevance, 'approximate')
-        self.assertEqual(dateSingleNew._dataError, ['approximate'])
-        self.assertEqual(str(dateSingleNew), '2009/12/31')
+        self.assertEqual(dateSingle._relevance, 'approximate')
+        self.assertEqual(dateSingle._dataError, ['approximate'])
 
     def testDateRelative(self):
-        from music21 import freezeThaw
         from music21 import metadata
 
         dateRelative = metadata.primitives.DateRelative('2001/12/31', 'prior')
         self.assertEqual(str(dateRelative), 'prior to 2001/12/31')
         self.assertEqual(dateRelative.relevance, 'prior')
         self.assertEqual(len(dateRelative._data), 1)
-
-        dateSingleNew = metadata.primitives.DateSingle()
-
-        jsonStr = freezeThaw.JSONFreezer(dateRelative).json
-        freezeThaw.JSONThawer(dateSingleNew).json = jsonStr
-
-        self.assertEqual(len(dateSingleNew._data), 1)
-        self.assertEqual(dateSingleNew._relevance, 'prior')
-        self.assertEqual(dateSingleNew._dataError, [])
-        self.assertEqual(str(dateSingleNew), '2001/12/31')
+        self.assertEqual(dateRelative._dataError, [])
 
     def testDateBetween(self):
-        from music21 import freezeThaw
         from music21 import metadata
 
         dateBetween = metadata.primitives.DateBetween(
@@ -1248,18 +1215,8 @@ class Test(unittest.TestCase):
         self.assertEqual(dateBetween._dataError, [None, None])
         self.assertEqual(len(dateBetween._data), 2)
 
-        dateBetweenNew = metadata.primitives.DateBetween()
-
-        jsonStr = freezeThaw.JSONFreezer(dateBetween).json
-        freezeThaw.JSONThawer(dateBetweenNew).json = jsonStr
-
-        self.assertEqual(len(dateBetweenNew._data), 2)
-        self.assertEqual(dateBetweenNew._relevance, 'between')
-        self.assertEqual(dateBetweenNew._dataError, [None, None])
-        self.assertEqual(str(dateBetweenNew), '2009/12/31 to 2010/01/28')
 
     def testDateSelection(self):
-        from music21 import freezeThaw
         from music21 import metadata
 
         dateSelection = metadata.primitives.DateSelection(
@@ -1271,17 +1228,6 @@ class Test(unittest.TestCase):
         self.assertEqual(dateSelection.relevance, 'or')
         self.assertEqual(dateSelection._dataError, [None, None, None])
         self.assertEqual(len(dateSelection._data), 3)
-
-        dateSelectionNew = metadata.primitives.DateSelection()
-
-        jsonStr = freezeThaw.JSONFreezer(dateSelection).json
-        freezeThaw.JSONThawer(dateSelectionNew).json = jsonStr
-
-        self.assertEqual(len(dateSelectionNew._data), 3)
-        self.assertEqual(dateSelectionNew._relevance, 'or')
-        self.assertEqual(dateSelectionNew._dataError, [None, None, None])
-        self.assertEqual(str(dateSelectionNew),
-            '2009/12/31 or 2010/01/28 or 1894/01/28')
 
 
 #------------------------------------------------------------------------------

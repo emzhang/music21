@@ -7,7 +7,7 @@
 #               Josiah Wolf Oberholtzer
 #               Michael Scott Cuthbert
 #
-# Copyright:    Copyright © 2009, 2013, 2015 Michael Scott Cuthbert and the music21 Project
+# Copyright:    Copyright © 2009, 2013, 2015-17 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL or BSD, see license.txt
 #------------------------------------------------------------------------------
 '''
@@ -17,6 +17,7 @@ interface to searching corpora.
 New in v3 -- previously most were static methods on corpus.corpora.Corpus, but that
 seemed inappropriate since these work across corpora.
 '''
+import pathlib
 import os
 
 from music21 import common
@@ -30,7 +31,7 @@ from music21.exceptions21 import CorpusException
 _metadataBundles = {
     'core': None,
     'local': None,
-    'virtual': None,
+    # 'virtual': None,
     }
 
 #------------------------------------------------------------------------------
@@ -40,9 +41,6 @@ def fromName(name):
 
     >>> corpus.manager.fromName('core')
     <music21.corpus.corpora.CoreCorpus>
-
-    >>> corpus.manager.fromName('virtual')
-    <music21.corpus.corpora.VirtualCorpus>
 
     >>> corpus.manager.fromName('local')
     <music21.corpus.corpora.LocalCorpus: 'local'>
@@ -57,135 +55,92 @@ def fromName(name):
     >>> corpus.manager.fromName('testDummy')
     <music21.corpus.corpora.LocalCorpus: 'testDummy'>
     '''
+#     >>> corpus.manager.fromName('virtual')
+#     <music21.corpus.corpora.VirtualCorpus>
+
     if name == 'core':
         return corpora.CoreCorpus()
-    elif name == 'virtual':
-        return corpora.VirtualCorpus()
+#     elif name == 'virtual':
+#         return corpora.VirtualCorpus()
     elif name == 'local':
         return corpora.LocalCorpus()
     else:
         return corpora.LocalCorpus(name=name)
-
-def fromCacheName(name):
-    '''
-    Instantiate a specific corpus based on its `cacheName`:
-
-    These are the same as `fromName`.
-
-    >>> corpus.manager.fromCacheName('core')
-    <music21.corpus.corpora.CoreCorpus>
-
-    >>> corpus.manager.fromCacheName('virtual')
-    <music21.corpus.corpora.VirtualCorpus>
-
-    >>> corpus.manager.fromCacheName('local')
-    <music21.corpus.corpora.LocalCorpus: 'local'>
-
-    >>> corpus.manager.fromCacheName(None)
-    <music21.corpus.corpora.LocalCorpus: 'local'>
-
-    Other local corpora are different and prefaced by "local-":
-
-    >>> corpus.manager.fromCacheName('local-testDummy')
-    <music21.corpus.corpora.LocalCorpus: 'testDummy'>
-
-    Raises a corpus exception if
-    it is not an allowable cache name.
-
-    >>> corpus.manager.fromCacheName('testDummy')
-    Traceback (most recent call last):
-    music21.exceptions21.CorpusException: Cannot parse a cacheName of 'testDummy'
-    '''
-    if name == 'core':
-        return corpora.CoreCorpus()
-    elif name == 'virtual':
-        return corpora.VirtualCorpus()
-    elif name == 'local' or name is None:
-        return corpora.LocalCorpus()
-    elif name.startswith('local-'):
-        return corpora.LocalCorpus(name=name[6:])
-    else:
-        raise CorpusException("Cannot parse a cacheName of '{0}'".format(name))
 
 
 def iterateCorpora(returnObjects=True):
     '''
     a generator that iterates over the corpora (either as objects or as names)
     for use in pan corpus searching.
-    
-    This test will only show the first three, because it needs to run the same
+
+    This test will only show the first two, because it needs to run the same
     on every system:
-    
+
     >>> for i, corpusObject in enumerate(corpus.manager.iterateCorpora()):
     ...     print(corpusObject)
-    ...     if i == 2:
+    ...     if i == 1:
     ...        break
     <music21.corpus.corpora.CoreCorpus>
-    <music21.corpus.corpora.VirtualCorpus>
-    <music21.corpus.corpora.LocalCorpus: 'local'>    
+    <music21.corpus.corpora.LocalCorpus: 'local'>
 
     We can also get names instead... Note that the name of the main localcorpus is 'local' not
     None
 
     >>> for i, corpusName in enumerate(corpus.manager.iterateCorpora(returnObjects=False)):
     ...     print(corpusName)
-    ...     if i == 2:
+    ...     if i == 1:
     ...        break
     core
-    virtual
     local
-    
-    New in v.3 
+
+    New in v.3
     '''
     if returnObjects is True:
         yield corpora.CoreCorpus()
-        yield corpora.VirtualCorpus()
+        # yield corpora.VirtualCorpus()
         for cn in listLocalCorporaNames():
             yield corpora.LocalCorpus(cn)
     else:
         yield corpora.CoreCorpus().name
-        yield corpora.VirtualCorpus().name
+        # yield corpora.VirtualCorpus().name
         for cn in listLocalCorporaNames():
             if cn is None:
                 yield 'local'
             else:
                 yield cn
 
-# pylint: disable=redefined-builtin
 def getWork(workName,
             movementNumber=None,
             fileExtensions=None,
         ):
     '''
     this parse method is called from `corpus.parse()` and does nothing differently from it.
-    
+
     Searches all corpora for a file that matches the name and returns it parsed.
     '''
     addXMLWarning = False
-    workNameJoined = workName
-    mxlWorkName = workName
-    
+    workNameJoined = str(workName)
+    mxlWorkName = workNameJoined
+
     if workName in (None, ''):
         raise CorpusException(
             'a work name must be provided as an argument')
     if not common.isListLike(fileExtensions):
         fileExtensions = [fileExtensions]
-    if common.isIterable(workName):
-        workNameJoined = os.path.sep.join(workName)
 
-    if workNameJoined.endswith(".xml"):
+    if workNameJoined.endswith('.xml'):
         # might be compressed MXL file
-        mxlWorkName = os.path.splitext(workNameJoined)[0] + ".mxl"
+        mxlWorkName = os.path.splitext(workNameJoined)[0] + '.mxl'
         addXMLWarning = True
 
-    filePaths = None    
-    for corpusObject in iterateCorpora():    
+    filePaths = None
+    for corpusObject in iterateCorpora():
         workList = corpusObject.getWorkList(workName, movementNumber, fileExtensions)
         if not workList and addXMLWarning:
             workList = corpusObject.getWorkList(mxlWorkName, movementNumber, fileExtensions)
             if not workList:
                 continue
-        if len(workList) >= 1:
+        if workList:
             filePaths = workList
             break
 
@@ -199,9 +154,9 @@ def getWork(workName,
         raise CorpusException(warningMessage)
     else:
         if len(filePaths) == 1:
-            return filePaths[0]
+            return pathlib.Path(filePaths[0])
         else:
-            return filePaths
+            return [pathlib.Path(p) for p in filePaths]
 
 # pylint: disable=redefined-builtin
 def parse(workName,
@@ -228,12 +183,21 @@ def parse(workName,
     return streamObject
 
 def _addCorpusFilepathToStreamObject(streamObj, filePath):
+    '''
+    Adds an entry 'corpusFilepath' to the Stream object.
+
+    TODO: this should work for non-core-corpora
+    TODO: this should be in the metadata object
+    TODO: this should set a pathlib.Path object
+    '''
     # metadata attribute added to store the file path,
     # for use later in identifying the score
     #if streamObj.metadata == None:
     #    streamObj.insert(metadata.Metadata())
-    corpusFilePath = common.getCorpusFilePath()
+    corpusFilePath = str(common.getCorpusFilePath())
     lenCFP = len(corpusFilePath) + len(os.sep)
+    filePath = str(filePath)
+
     if filePath.startswith(corpusFilePath):
         fp2 = filePath[lenCFP:]
         ### corpus fix for windows
@@ -243,13 +207,13 @@ def _addCorpusFilepathToStreamObject(streamObj, filePath):
     else:
         streamObj.corpusFilepath = filePath
 
-def search(query, field=None, corpusNames=None, fileExtensions=None):
+def search(query=None, field=None, corpusNames=None, fileExtensions=None, **kwargs):
     '''
     Search all stored metadata bundles and return a list of file paths.
 
     This method uses stored metadata and thus, on first usage, will incur a
     performance penalty during metadata loading.
-    
+
     >>> corpus.search('china')
     <music21.metadata.bundles.MetadataBundle {1235 entries}>
 
@@ -257,20 +221,32 @@ def search(query, field=None, corpusNames=None, fileExtensions=None):
     <music21.metadata.bundles.MetadataBundle {0 entries}>
 
     >>> corpus.search('bach', field='composer')
-    <music21.metadata.bundles.MetadataBundle {22 entries}>
-   
-    >>> corpus.search('coltrane', corpusNames=('virtual',))
-    <music21.metadata.bundles.MetadataBundle {1 entry}>
-    
+    <music21.metadata.bundles.MetadataBundle {25 entries}>
+
+    Note the importance of good metadata -- there's almost 400 pieces by
+    Bach in the corpus, but many do not have correct metadata entries.
+
+    This can also be specified as:
+
+    >>> corpus.search(composer='bach')
+    <music21.metadata.bundles.MetadataBundle {25 entries}>
+
+    Or, to get all the chorales (without using `corpus.chorales.Iterator`):
+
+    >>> corpus.search(sourcePath='bach', numberOfParts=4)
+    <music21.metadata.bundles.MetadataBundle {360 entries}>
+
+
+
     This method is implemented in `corpus.manager` but loaded into corpus for
     ease of use.
-    
+
     The ``corpusNames`` parameter can be used to specify which corpora to search,
     for example:
 
     >>> corpus.manager.search(
     ...     'bach',
-    ...     corpusNames=('core', 'virtual'),
+    ...     corpusNames=('core',),
     ...     )
     <music21.metadata.bundles.MetadataBundle {557 entries}>
 
@@ -279,52 +255,67 @@ def search(query, field=None, corpusNames=None, fileExtensions=None):
     See usersGuide (chapter 11) for more information on searching
 
     '''
+#     >>> corpus.search('coltrane', corpusNames=('virtual',))
+#     <music21.metadata.bundles.MetadataBundle {1 entry}>
+
     readAllMetadataBundlesFromDisk()
     allSearchResults = metadata.bundles.MetadataBundle()
-    
+
     if corpusNames is None:
         corpusNames = list(iterateCorpora(returnObjects=False))
-    
+
     for corpusName in corpusNames:
         c = fromName(corpusName)
         searchResults = c.metadataBundle.search(
-                query, field, fileExtensions=fileExtensions)
+                query, field, fileExtensions=fileExtensions, **kwargs)
         allSearchResults = allSearchResults.union(searchResults)
-    
+
     return allSearchResults
 
 
 def getMetadataBundleByCorpus(corpusObject):
     '''
     Return the metadata bundle for a single Corpus object
-    
-    >>> vc = corpus.corpora.VirtualCorpus()
-    >>> mdb1 = corpus.manager.getMetadataBundleByCorpus(vc)
+
+    >>> cc = corpus.corpora.CoreCorpus()
+    >>> mdb1 = corpus.manager.getMetadataBundleByCorpus(cc)
     >>> mdb1
-    <music21.metadata.bundles.MetadataBundle 'virtual': {11 entries}>
-    
+    <music21.metadata.bundles.MetadataBundle 'core': {... entries}>
+
     This is the same as calling `metadataBundle` on the corpus itself,
     but this is the routine that actually does the work. In other words,
     it's the call on the object that is redundant, not this routine.
-    
-    >>> mdb1 is vc.metadataBundle
+
+    >>> mdb1 is cc.metadataBundle
     True
+
+    Non-existent corpus...
+
+    >>> lc = corpus.corpora.LocalCorpus('junk')
+    >>> mdb1 = corpus.manager.getMetadataBundleByCorpus(lc)
+    >>> mdb1
+    <music21.metadata.bundles.MetadataBundle 'junk': {0 entries}>
+
     '''
     cacheMetadataBundleFromDisk(corpusObject)
-    cacheName = corpusObject.cacheName
-    return _metadataBundles[cacheName]
+    corpusName = corpusObject.name
+    if corpusName in _metadataBundles:
+        return _metadataBundles[corpusName]
+    else: # pragma: no cover
+        raise CorpusException('No metadata bundle found for corpus {0} with name {1}'.format(
+            corpusObject, corpusName))
 
 def cacheMetadataBundleFromDisk(corpusObject):
     r'''
     Update a corpus' metadata bundle from its stored JSON file on disk.
     '''
-    corpusCacheName = corpusObject.cacheName
-    if (corpusCacheName not in _metadataBundles or
-            _metadataBundles[corpusCacheName] is None):
-        metadataBundle = metadata.bundles.MetadataBundle(corpusCacheName)
+    corpusName = corpusObject.name
+    if (corpusName not in _metadataBundles or
+            _metadataBundles[corpusName] is None):
+        metadataBundle = metadata.bundles.MetadataBundle(corpusName)
         metadataBundle.read()
         metadataBundle.validate()
-        _metadataBundles[corpusCacheName] = metadataBundle
+        _metadataBundles[corpusName] = metadataBundle
 
 
 def readAllMetadataBundlesFromDisk():
@@ -334,14 +325,17 @@ def readAllMetadataBundlesFromDisk():
     for corpusObject in iterateCorpora():
         cacheMetadataBundleFromDisk(corpusObject)
 
-def listLocalCorporaNames():
+def listLocalCorporaNames(skipNone=False):
     '''
     List the names of all user-defined local corpora.
 
     The entry for None refers to the default local corpus.
     '''
     userSettings = environment.UserSettings()
-    result = [None]
+    if not skipNone:
+        result = [None]
+    else:
+        result = []
     result.extend(userSettings['localCorporaSettings'].keys())
     return result
 
@@ -352,35 +346,21 @@ def listSearchFields():
     >>> for field in corpus.manager.listSearchFields():
     ...     field
     ...
+    'actNumber'
     'alternativeTitle'
     'ambitus'
+    'associatedWork'
+    'collectionDesignation'
+    'commission'
     'composer'
     'copyright'
-    'date'
-    'keySignatureFirst'
-    'keySignatures'
-    'localeOfComposition'
-    'movementName'
-    'movementNumber'
-    'noteCount'
-    'number'
-    'opusNumber'
-    'pitchHighest'
-    'pitchLowest'
-    'quarterLength'
-    'sourcePath'
-    'tempoFirst'
-    'tempos'
-    'timeSignatureFirst'
-    'timeSignatures'
-    'title'
-
+    ...
     '''
     return tuple(sorted(metadata.RichMetadata.searchAttributes))
 
 #------------------------------------------------------------------------------
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import music21
     music21.mainTest()
