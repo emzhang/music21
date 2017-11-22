@@ -14,7 +14,6 @@ from music21 import note
 from music21 import pitch
 from music21 import stream
 
-import itertools
 import unittest
 
 class OMRMidiFixer(object):
@@ -23,6 +22,7 @@ class OMRMidiFixer(object):
     changes is a list of changes associated with the midiStream and omrStream, not a list of lists
     '''
     def __init__(self, changes, midiStream, omrStream):
+        super(OMRMidiFixer, self).__init__()
         self.changes = changes
         self.midiStream = midiStream
         self.omrStream = omrStream
@@ -31,15 +31,6 @@ class OMRMidiFixer(object):
         if isinstance(midiRef, note.Note) and isinstance(omrRef, note.Note):
             return True
         return False
-        
-    def getChunks(self):
-        '''
-        Method for identifying "chunks" of streams to work with.
-        Identifies and splits up chunks in the stream that are flanked by No Change Change Tuples
-        
-        TODO: figure out if this should be children-specific methods?
-        '''
-        pass
     
 class DeleteFixer(OMRMidiFixer):
     '''
@@ -232,10 +223,11 @@ class EnharmonicFixer(OMRMidiFixer):
     <accidental sharp>
     '''
     def __init__(self, changes, midiStream, omrStream):
-        super().__init__(changes, midiStream, omrStream)
+        super(EnharmonicFixer, self).__init__(changes, midiStream, omrStream)
     
     def fix(self):
         for (midiRef, omrRef, op) in self.changes:
+            omrRef.color = "black"
             #if they're not notes, don't bother with rest
             if self.checkIfNoteInstance(midiRef, omrRef) == False:
                 continue
@@ -291,7 +283,8 @@ class EnharmonicFixer(OMRMidiFixer):
             # e.g. midi = b-, gt = b-, omr=
             elif omrRef.pitch != midiRef.pitch and self.hasSharpFlatAcc(midiRef) and self.stepEq(midiRef, omrRef):
                 omrRef.pitch = midiRef.pitch
-                
+            
+              
     def isEnharmonic(self, midiRef, omrRef):
         return midiRef.pitch.isEnharmonic(omrRef.pitch)
     
@@ -314,102 +307,9 @@ class EnharmonicFixer(OMRMidiFixer):
         if interval.notesToChromatic(midiRef, omrRef).intervalClass > setint:
             return True
         return False
-    
-# class StaccatoFixer(OMRMidiFixer):
-#     '''
-#     Fixer for passages that are misaligned because of staccato phrasings.
-#     
-#     The idea is that misaligned staccato passages will have repeated note, rest patterns in the 
-#     MIDI and longer sustained notes in the OMR. 
-#     
-#     '''
-#     def __init__(self, changes):
-#         super().__init__(changes)
-#         self.staccatoChunks = []
-#                 
-#     def getStaccatoChunks(self):
-#         '''
-#         populates self.staccatoChunks with pairs of stream excerpts that have staccato mismatch
-#         
-#         TODO: finish writing test
-#         >>> midiPart = converter.parse("tinyNotation: b- trip{a4 r8} trip{a4 r8} trip{a4 r8} c'4 trip{b-4 r8} trip{a4 r8} trip{b-4 r8}")
-#         >>> omrPart = converter.parse("tinyNotation: b-4 a a a c' b- a b-")
-#         >>> midiStream = stream.Part()
-#         >>> omrStream = stream.Part()
-#         >>> midiStream.append(midiPart)
-#         >>> omrStream.append(omrPart)
-#         >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
-#         >>> omc.processRunner()
-#         >>> changes = omc.changes
-#         >>> omsf = alpha.analysis.fixer.StaccatoFixer(changes)
-#         >>> omsf.getStaccatoChunks()
-#         []
-#         '''
-#         for (midiNoteRef, omrNoteRef, op) in self.changes:
-#             if isinstance(op, aligner.ChangeOps) and op.changeOpNum == 3:
-#                 
-#                # while currChangeOp != 
-#                 pass
-#         pass
-                
-        
-    
-#     def fixStaccatoChunks(self):
-#         '''
-#         >>> midiPart = converter.parse("tinyNotation: b- trip{a4 r8} trip{a4 r8} trip{a4 r8} c trip{c4 r8} trip{b-4 r8} trip{a4 r8}")
-#         >>> omrPart = converter.parse("tinyNotation: b-4 a a a c' b- a b-")
-#         >>> midiStream = stream.Part()
-#         >>> omrStream = stream.Part()
-#         >>> midiStream.append(midiPart)
-#         >>> omrStream.append(omrPart)
-#         >>> omc = alpha.analysis.omrMidiCorrector.OMRMIDICorrector(midiStream, omrStream)
-#         >>> omc.processRunner()
-#         >>> changes = omc.changes
-#         >>> omsf = alpha.analysis.fixer.StaccatoFixer(changes)
-#         '''
-#         pass
-
-class KeyFixer(OMRMidiFixer):
-    pass
 
 class Test(unittest.TestCase):
-    def testDeleteSimpleMelody(self):
-        '''
-        this test has a discrepancy in measure 2
-        '''
-        from music21 import stream
-        from music21 import converter
-        from music21.alpha.analysis import omrMidiCorrector
-
-
-        s_midi = stream.Stream()
-        s_omr = stream.Stream()
-        
-        p1 = stream.Part()
-        p2 = stream.Part()
-        
-        fake_midi = converter.parse('tinynotation: 3/4 C4 D E 2/4 F G A B 1/4 c')
-        fake_omr = converter.parse('tinynotation: 3/4 C4 D E 2/4 E G A B 1/4 c')
-        
-        p1.append(fake_midi)
-        p2.append(fake_omr)
-        
-        s_midi.append(p1)
-        s_omr.append(p2)
-        s_omr.show('text')
-        delete_omc = omrMidiCorrector.OMRMIDICorrector(s_midi, s_omr)
-        delete_omc.processRunner()
-        changes1 = delete_omc.changes[0]
-        changes2 = delete_omc.changes[0]
-        
-        
-        df1 = DeleteFixer(changes1, s_midi, s_omr)
-        df1.fix()
-        
-        df2 = DeleteFixer(changes2, s_midi, s_omr)
-        df2.fix()
-        
-        s_omr.show('text')
+    pass
         
 
 if __name__ == '__main__':

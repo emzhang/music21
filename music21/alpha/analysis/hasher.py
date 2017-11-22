@@ -14,20 +14,9 @@ import unittest
 import collections
 import difflib
 
-
 from music21 import note, chord, key
 from music21 import interval
 from music21 import stream
-
-# class MeasureHasher(object):
-#     def __init__(self):
-#         self.tupleList = []
-#     
-#     def hashStream(self, s):
-#         s.makeMeasures(inPlace = True)
-#         for m in s.recurse(classFilter='Measure'):
-#             
-#         return finalHash
 
 class Hasher(object):
     '''

@@ -732,8 +732,6 @@ class StreamAligner(object):
         the list of changes in self.changes. Also calculates some metrics like self.similarityScore
         and self.changesCount. 
         
-        TODO: add in more metrics, move metrics to a separate function, have more elegant metrics
-        
         >>> note1 = note.Note("C#4")
         >>> note2 = note.Note("C4")
          
@@ -806,8 +804,8 @@ class StreamAligner(object):
         '''
         i = self.n 
         j = self.m
-
         while (i != 0 or j != 0):
+
             # # check if possible moves are indexable
             bestOp = self.getOpFromLocation(i, j)
              
@@ -828,13 +826,13 @@ class StreamAligner(object):
             else:  # 3: ChangeOps.NoChange
                 i -= 1
                 j -= 1
-         
+                
         if (i != 0 and j != 0):
             raise AlignmentTracebackException('Traceback of best alignment did not end properly')
-         
+        
         self.changesCount = Counter(elem[2] for elem in self.changes)
         self.similarityScore = float(self.changesCount[ChangeOps.NoChange]) / len(self.changes)
-        print(self.changesCount)
+
     def showChanges(self, show=False):
         '''
         Visual and debugging feature to display which notes are changed.
@@ -951,7 +949,7 @@ class Test(unittest.TestCase):
         sa = StreamAligner(target, source)
         sa.align()
         
-        self.assertEqual(sa.similarityScore, 2/3)
+        self.assertEqual(sa.similarityScore, 2./3)
     
     def testSameOneOffStream(self):
         '''
@@ -1048,9 +1046,9 @@ class Test(unittest.TestCase):
         sa.align()
         sa.showChanges()
         
-        self.assertEqual(target.getElementById(sa.changes[3][0].id).color, 'green')
+        self.assertEqual(target.getElementById(sa.changes[3][0].id).style.color, 'green')
         self.assertEqual(target.getElementById(sa.changes[3][0].id).lyric, '3')
-        self.assertEqual(source.getElementById(sa.changes[3][1].id).color, 'green')
+        self.assertEqual(source.getElementById(sa.changes[3][1].id).style.color, 'green')
         self.assertEqual(source.getElementById(sa.changes[3][1].id).lyric, '3')
     
     def testShowDeletion(self):
@@ -1082,9 +1080,9 @@ class Test(unittest.TestCase):
         sa.align()
         sa.showChanges(show=True)
         
-        self.assertEqual(target.getElementById(sa.changes[3][0].id).color, 'red')
+        self.assertEqual(target.getElementById(sa.changes[3][0].id).style.color, 'red')
         self.assertEqual(target.getElementById(sa.changes[3][0].id).lyric, '3')
-        self.assertEqual(source.getElementById(sa.changes[3][1].id).color, 'red')
+        self.assertEqual(source.getElementById(sa.changes[3][1].id).style.color, 'red')
         self.assertEqual(source.getElementById(sa.changes[3][1].id).lyric, '3')
         
     def testShowSubstitution(self):
